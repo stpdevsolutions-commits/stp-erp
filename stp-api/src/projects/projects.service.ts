@@ -1,0 +1,104 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Project } from './entities/project.entity';
+import { Client } from '../clients/entities/client.entity';
+import { User } from '../users/entities/user.entity';
+import { CreateProjectDto } from './dto/create-project.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
+import { QueryProjectsDto } from './dto/query-projects.dto';
+
+@Injectable()
+export class ProjectsService {
+  constructor(
+    @InjectRepository(Project)
+    private readonly projectsRepository: Repository<Project>,
+    @InjectRepository(Client)
+    private readonly clientsRepository: Repository<Client>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
+  ) {}
+
+  async create(dto: CreateProjectDto, createdById: string): Promise<Project> {
+    await this.assertClientExists(dto.clientId);
+    if (dto.assignedToId) await this.assertUserExists(dto.assignedToId);
+
+    const code = await this.generateCode();
+    const project = this.projectsRepository.create({ ...dto, code, createdById });
+    return this.projectsRepository.save(project);
+  }
+
+  async findAll(query: QueryProjectsDto) {
+    const { search, status, type, clientId, assignedToId, page = 1, limit = 20 } = query;
+
+    const qb = this.projectsRepository
+      .createQueryBuilder('project')
+      .leftJoinAndSelect('project.client', 'client')
+      .leftJoinAndSelect('project.assignedTo', 'assignedTo')
+      .orderBy('project.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (search) {
+      qb.andWhere('(project.name ILIKE :q OR project.code ILIKE :q)', { q: `%${search}%` });
+    }
+    if (status) qb.andWhere('project.status = :status', { status });
+    if (type) qb.andWhere('project.type = :type', { type });
+    if (clientId) qb.andWhere('project.clientId = :clientId', { clientId });
+    if (assignedToId) qb.andWhere('project.assignedToId = :assignedToId', { assignedToId });
+
+    const [data, total] = await qb.getManyAndCount();
+    return { data, total, page, limit };
+  }
+
+  async findOne(id: string): Promise<Project> {
+    const project = await this.projectsRepository.findOne({
+      where: { id },
+      relations: { client: true, assignedTo: true, createdBy: true },
+    });
+    if (!project) throw new NotFoundException('Project not found');
+    return project;
+  }
+
+  async update(id: string, dto: UpdateProjectDto): Promise<Project> {
+    const project = await this.findOne(id);
+
+    if (dto.clientId && dto.clientId !== project.clientId) {
+      await this.assertClientExists(dto.clientId);
+    }
+    if (dto.assignedToId && dto.assignedToId !== project.assignedToId) {
+      await this.assertUserExists(dto.assignedToId);
+    }
+
+    const defined = Object.fromEntries(
+      Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
+    );
+    Object.assign(project, defined);
+    return this.projectsRepository.save(project);
+  }
+
+  async remove(id: string): Promise<void> {
+    const project = await this.findOne(id);
+    await this.projectsRepository.remove(project);
+  }
+
+  private async generateCode(): Promise<string> {
+    const year = new Date().getFullYear();
+    const count = await this.projectsRepository.count();
+    return `PRJ-${year}-${String(count + 1).padStart(3, '0')}`;
+  }
+
+  private async assertClientExists(clientId: string): Promise<void> {
+    const exists = await this.clientsRepository.existsBy({ id: clientId });
+    if (!exists) throw new BadRequestException(`Client ${clientId} not found`);
+  }
+
+  private async assertUserExists(userId: string): Promise<void> {
+    const exists = await this.usersRepository.existsBy({ id: userId });
+    if (!exists) throw new BadRequestException(`User ${userId} not found`);
+  }
+}

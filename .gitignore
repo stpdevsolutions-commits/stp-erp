@@ -1,0 +1,31 @@
+# Docker volumes (datos locales, no van al repo)
+postgres-data/
+redis-data/
+
+# Variables de entorno (contienen secretos)
+.env
+.env.local
+.env.*.local
+stp-api/.env
+
+# Node
+stp-api/node_modules/
+stp-api/dist/
+stp-landing/node_modules/
+stp-landing/.next/
+stp-landing/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# TypeScript build
+*.tsbuildinfo
