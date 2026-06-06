@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+const SECURE_COOKIES = process.env.COOKIE_SECURE === 'true'
 
 export async function POST(request: Request) {
   const body = await request.json()
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
 
   cookieStore.set('stp-token', data.access_token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: SECURE_COOKIES,
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
 
   cookieStore.set('stp-user', JSON.stringify(data.user), {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
+    secure: SECURE_COOKIES,
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,

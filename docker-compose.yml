@@ -53,6 +53,7 @@ services:
       - "3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://stp-api:3001
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
     networks:
       - stp-network
     depends_on:
