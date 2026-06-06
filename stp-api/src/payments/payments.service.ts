@@ -12,6 +12,8 @@ import { Quote } from '../quotes/entities/quote.entity';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
+import { PaymentStatus } from './entities/payment.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PaymentsService {
@@ -24,6 +26,7 @@ export class PaymentsService {
     private readonly projectsRepository: Repository<Project>,
     @InjectRepository(Quote)
     private readonly quotesRepository: Repository<Quote>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(dto: CreatePaymentDto, createdById: string): Promise<Payment> {
@@ -32,7 +35,21 @@ export class PaymentsService {
     if (dto.quoteId) await this.assertQuoteExists(dto.quoteId);
 
     const payment = this.paymentsRepository.create({ ...dto, createdById });
-    return this.paymentsRepository.save(payment);
+    const saved = await this.paymentsRepository.save(payment);
+    const loaded = await this.findOne(saved.id);
+
+    if (loaded.status === PaymentStatus.COMPLETED) {
+      this.notifications.sendPaymentReceived({
+        clientName: loaded.client?.name ?? 'Cliente',
+        amount: loaded.amount,
+        description: loaded.description,
+        method: loaded.method,
+        reference: loaded.reference,
+        date: loaded.date,
+      });
+    }
+
+    return loaded;
   }
 
   async findAll(query: QueryPaymentsDto) {

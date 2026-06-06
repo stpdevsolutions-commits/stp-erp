@@ -16,6 +16,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { ReportsModule } from './reports/reports.module';
 import { HealthModule } from './health/health.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { User } from './users/entities/user.entity';
 import { Client } from './clients/entities/client.entity';
 import { Project } from './projects/entities/project.entity';
@@ -54,6 +55,7 @@ import { Supplier } from './suppliers/entities/supplier.entity';
     SuppliersModule,
     ReportsModule,
     HealthModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

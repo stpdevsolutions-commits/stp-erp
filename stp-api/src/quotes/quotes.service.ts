@@ -15,6 +15,7 @@ import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { CreateQuoteItemDto } from './dto/create-quote-item.dto';
 import { UpdateQuoteItemDto } from './dto/update-quote-item.dto';
 import { QueryQuotesDto } from './dto/query-quotes.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class QuotesService {
@@ -27,6 +28,7 @@ export class QuotesService {
     private readonly clientsRepository: Repository<Client>,
     @InjectRepository(Project)
     private readonly projectsRepository: Repository<Project>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(dto: CreateQuoteDto, createdById: string): Promise<Quote> {
@@ -91,6 +93,8 @@ export class QuotesService {
     const quote = await this.findOne(id);
     this.assertEditable(quote);
 
+    const previousStatus = quote.status;
+
     if (dto.clientId && dto.clientId !== quote.clientId) {
       await this.assertClientExists(dto.clientId);
     }
@@ -104,12 +108,34 @@ export class QuotesService {
     Object.assign(quote, defined);
     await this.quotesRepository.save(quote);
 
-    // Recalculate if tax or discount changed
     if (dto.taxRate !== undefined || dto.discount !== undefined) {
       await this.recalculate(id);
     }
 
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+
+    if (dto.status && dto.status !== previousStatus) {
+      if (dto.status === QuoteStatus.SENT && updated.client?.email) {
+        this.notifications.sendQuoteSent({
+          clientEmail: updated.client.email,
+          clientName: updated.client.name,
+          quoteNumber: updated.number,
+          quoteTitle: updated.title,
+          total: updated.total,
+          validUntil: updated.validUntil,
+        });
+      }
+      if (dto.status === QuoteStatus.APPROVED) {
+        this.notifications.sendQuoteApproved({
+          quoteNumber: updated.number,
+          quoteTitle: updated.title,
+          clientName: updated.client?.name ?? 'Cliente',
+          total: updated.total,
+        });
+      }
+    }
+
+    return updated;
   }
 
   async remove(id: string): Promise<void> {
