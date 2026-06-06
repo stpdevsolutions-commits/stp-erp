@@ -97,6 +97,14 @@ function EditDialog({
     },
   })
 
+  const projectId = watch('projectId')
+  const assignedToId = watch('assignedToId')
+  const selectedProjectName = projects.find((p) => p.id === projectId)?.name
+  const selectedUser = users.find((u) => u.id === assignedToId)
+  const selectedUserName = selectedUser
+    ? `${selectedUser.firstName} ${selectedUser.lastName}`
+    : undefined
+
   function handleClose() {
     setServerError(null)
     onOpenChange(false)
@@ -146,12 +154,14 @@ function EditDialog({
               onValueChange={(v) => v && setValue('projectId', v)}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Seleccionar proyecto">
+                  {selectedProjectName}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.code} — {p.title}
+                    {p.code} — {p.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -214,7 +224,9 @@ function EditDialog({
                 onValueChange={(v) => setValue('assignedToId', v ?? '')}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sin asignar" />
+                  <SelectValue placeholder="Sin asignar">
+                    {selectedUserName}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {users.map((u) => (

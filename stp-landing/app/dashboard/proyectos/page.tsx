@@ -14,17 +14,17 @@ import { NuevoProyectoDialog } from '@/components/projects/nuevo-proyecto-dialog
 import { ProjectActions } from '@/components/projects/project-actions'
 
 const STATUS_LABELS: Record<Project['status'], string> = {
-  pending: 'Pendiente',
-  'in-progress': 'En curso',
-  'on-hold': 'En pausa',
+  draft: 'Pendiente',
+  active: 'En curso',
+  on_hold: 'En pausa',
   completed: 'Completado',
   cancelled: 'Cancelado',
 }
 
 const STATUS_VARIANTS: Record<Project['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  pending: 'secondary',
-  'in-progress': 'default',
-  'on-hold': 'outline',
+  draft: 'secondary',
+  active: 'default',
+  on_hold: 'outline',
   completed: 'default',
   cancelled: 'destructive',
 }
@@ -62,7 +62,7 @@ export default async function ProyectosPage() {
       </div>
 
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-        {(['pending', 'in-progress', 'completed', 'cancelled'] as const).map((s) => (
+        {(['draft', 'active', 'completed', 'cancelled'] as const).map((s) => (
           <Card key={s}>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground">{STATUS_LABELS[s]}</CardTitle>
@@ -101,7 +101,7 @@ export default async function ProyectosPage() {
                   <TableRow key={p.id}>
                     <TableCell className="font-mono text-sm">{p.code}</TableCell>
                     <TableCell className="font-medium">
-                      <div>{p.title}</div>
+                      <div>{p.name}</div>
                       {p.startDate && (
                         <div className="text-xs text-muted-foreground">
                           Inicio: {new Date(p.startDate).toLocaleDateString('es-DO')}

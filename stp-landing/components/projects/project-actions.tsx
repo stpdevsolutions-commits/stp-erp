@@ -33,14 +33,12 @@ import {
 import type { Client, Project } from '@/lib/types'
 import { updateProject, deleteProject } from '@/lib/actions/projects'
 
-// ── Zod schema ────────────────────────────────────────────────────────────────
-
 const editSchema = z
   .object({
-    title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
+    name: z.string().min(2, 'Mínimo 2 caracteres').max(200),
     clientId: z.string().min(1, 'Selecciona un cliente'),
     description: z.string().optional(),
-    status: z.enum(['pending', 'in-progress', 'on-hold', 'completed', 'cancelled']),
+    status: z.enum(['draft', 'active', 'on_hold', 'completed', 'cancelled']),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
     budget: z.string().optional(),
@@ -53,9 +51,9 @@ const editSchema = z
 type EditFormValues = z.infer<typeof editSchema>
 
 const STATUS_LABELS = {
-  pending: 'Pendiente',
-  'in-progress': 'En curso',
-  'on-hold': 'En pausa',
+  draft: 'Pendiente',
+  active: 'En curso',
+  on_hold: 'En pausa',
   completed: 'Completado',
   cancelled: 'Cancelado',
 }
@@ -84,7 +82,7 @@ function EditDialog({
   } = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
     defaultValues: {
-      title: proyecto.title,
+      name: proyecto.name,
       clientId: proyecto.clientId,
       description: proyecto.description ?? '',
       status: proyecto.status,
@@ -94,6 +92,9 @@ function EditDialog({
     },
   })
 
+  const clientId = watch('clientId')
+  const selectedClientName = clients.find((c) => c.id === clientId)?.name
+
   function handleClose() {
     setServerError(null)
     onOpenChange(false)
@@ -102,7 +103,7 @@ function EditDialog({
   async function onSubmit(data: EditFormValues) {
     setServerError(null)
     const result = await updateProject(proyecto.id, {
-      title: data.title,
+      name: data.name,
       clientId: data.clientId,
       description: data.description || null,
       status: data.status,
@@ -123,17 +124,17 @@ function EditDialog({
         <DialogHeader>
           <DialogTitle>Editar proyecto</DialogTitle>
           <DialogDescription>
-            {proyecto.code} — {proyecto.title}
+            {proyecto.code} — {proyecto.name}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="edit-title">
-              Título <span className="text-destructive">*</span>
+            <Label htmlFor="edit-name">
+              Nombre <span className="text-destructive">*</span>
             </Label>
-            <Input id="edit-title" {...register('title')} />
-            {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
+            <Input id="edit-name" {...register('name')} />
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -142,11 +143,13 @@ function EditDialog({
                 Cliente <span className="text-destructive">*</span>
               </Label>
               <Select
-                value={watch('clientId')}
+                value={clientId}
                 onValueChange={(v) => v && setValue('clientId', v)}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Seleccionar cliente">
+                    {selectedClientName}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {clients.map((c) => (
@@ -165,7 +168,7 @@ function EditDialog({
               <Label>Estado</Label>
               <Select
                 value={watch('status')}
-                onValueChange={(v) => setValue('status', v as EditFormValues['status'])}
+                onValueChange={(v) => v && setValue('status', v as EditFormValues['status'])}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -270,7 +273,7 @@ function DeleteDialog({
           <DialogTitle>Eliminar proyecto</DialogTitle>
           <DialogDescription>
             ¿Estás seguro de que deseas eliminar{' '}
-            <span className="font-semibold text-foreground">{proyecto.title}</span>? Esta acción no
+            <span className="font-semibold text-foreground">{proyecto.name}</span>? Esta acción no
             se puede deshacer.
           </DialogDescription>
         </DialogHeader>

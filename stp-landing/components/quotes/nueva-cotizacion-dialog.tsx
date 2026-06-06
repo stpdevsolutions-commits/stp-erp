@@ -97,6 +97,9 @@ export function NuevaCotizacionDialog({ projects }: { projects: Project[] }) {
   const itbis = subtotal * ITBIS_RATE
   const total = subtotal + itbis
 
+  const projectId = watch('projectId')
+  const selectedProjectName = projects.find((p) => p.id === projectId)?.name
+
   function handleProjectChange(projectId: string) {
     if (!projectId) return
     setValue('projectId', projectId)
@@ -171,12 +174,14 @@ export function NuevaCotizacionDialog({ projects }: { projects: Project[] }) {
                 onValueChange={(v) => v && handleProjectChange(v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar proyecto" />
+                  <SelectValue placeholder="Seleccionar proyecto">
+                    {selectedProjectName}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.code} — {p.title}
+                      {p.code} — {p.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

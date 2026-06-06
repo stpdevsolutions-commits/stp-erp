@@ -122,7 +122,7 @@ export default async function CotizacionesPage() {
                     <TableCell className="font-medium">
                       <div>{q.title}</div>
                       {q.project && (
-                        <div className="text-xs text-muted-foreground">{q.project.code}</div>
+                        <div className="text-xs text-muted-foreground">{q.project.code} — {q.project.name}</div>
                       )}
                     </TableCell>
                     <TableCell>{q.client?.name ?? '—'}</TableCell>

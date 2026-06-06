@@ -138,7 +138,7 @@ export default async function TareasPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {t.project ? `${t.project.code} — ${t.project.title}` : '—'}
+                      {t.project ? `${t.project.code} — ${t.project.name}` : '—'}
                     </TableCell>
                     <TableCell>
                       <Badge variant={PRIORITY_VARIANTS[t.priority]}>

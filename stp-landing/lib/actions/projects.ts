@@ -16,20 +16,20 @@ export interface ActionResult {
 }
 
 export interface CreateProjectInput {
-  title: string
+  name: string
   clientId: string
   description?: string
-  status?: 'pending' | 'in-progress' | 'on-hold' | 'completed' | 'cancelled'
+  status?: 'draft' | 'active' | 'on_hold' | 'completed' | 'cancelled'
   startDate?: string
   endDate?: string
   budget?: number
 }
 
 export interface UpdateProjectInput {
-  title?: string
+  name?: string
   clientId?: string
   description?: string | null
-  status?: 'pending' | 'in-progress' | 'on-hold' | 'completed' | 'cancelled'
+  status?: 'draft' | 'active' | 'on_hold' | 'completed' | 'cancelled'
   startDate?: string | null
   endDate?: string | null
   budget?: number | null

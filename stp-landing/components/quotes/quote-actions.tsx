@@ -118,6 +118,9 @@ function EditDialog({
   const itbis = subtotal * ITBIS_RATE
   const total = subtotal + itbis
 
+  const projectId = watch('projectId')
+  const selectedProjectName = projects.find((p) => p.id === projectId)?.name
+
   function handleClose() {
     setServerError(null)
     onOpenChange(false)
@@ -175,12 +178,14 @@ function EditDialog({
                 onValueChange={(v) => v && setValue('projectId', v)}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Seleccionar proyecto">
+                    {selectedProjectName}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.code} — {p.title}
+                      {p.code} — {p.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

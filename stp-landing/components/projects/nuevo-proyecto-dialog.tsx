@@ -29,10 +29,10 @@ import { createProject } from '@/lib/actions/projects'
 
 const schema = z
   .object({
-    title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
+    name: z.string().min(2, 'Mínimo 2 caracteres').max(200),
     clientId: z.string().min(1, 'Selecciona un cliente'),
     description: z.string().optional(),
-    status: z.enum(['pending', 'in-progress', 'on-hold', 'completed', 'cancelled']),
+    status: z.enum(['draft', 'active', 'on_hold', 'completed', 'cancelled']),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
     budget: z.string().optional(),
@@ -45,9 +45,9 @@ const schema = z
 type FormValues = z.infer<typeof schema>
 
 const STATUS_LABELS = {
-  pending: 'Pendiente',
-  'in-progress': 'En curso',
-  'on-hold': 'En pausa',
+  draft: 'Pendiente',
+  active: 'En curso',
+  on_hold: 'En pausa',
   completed: 'Completado',
   cancelled: 'Cancelado',
 }
@@ -65,13 +65,16 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { status: 'pending' },
+    defaultValues: { status: 'draft' },
   })
+
+  const clientId = watch('clientId')
+  const selectedClientName = clients.find((c) => c.id === clientId)?.name
 
   async function onSubmit(data: FormValues) {
     setServerError(null)
     const result = await createProject({
-      title: data.title,
+      name: data.name,
       clientId: data.clientId,
       description: data.description || undefined,
       status: data.status,
@@ -113,11 +116,11 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="title">
-              Título <span className="text-destructive">*</span>
+            <Label htmlFor="name">
+              Nombre <span className="text-destructive">*</span>
             </Label>
-            <Input id="title" placeholder="Instalación eléctrica industrial" {...register('title')} />
-            {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
+            <Input id="name" placeholder="Instalación eléctrica industrial" {...register('name')} />
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -126,11 +129,13 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
                 Cliente <span className="text-destructive">*</span>
               </Label>
               <Select
-                value={watch('clientId') ?? ''}
+                value={clientId ?? ''}
                 onValueChange={(v) => v && setValue('clientId', v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar cliente" />
+                  <SelectValue placeholder="Seleccionar cliente">
+                    {selectedClientName}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {clients.map((c) => (
@@ -149,7 +154,7 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
               <Label>Estado</Label>
               <Select
                 value={watch('status')}
-                onValueChange={(v) => setValue('status', v as FormValues['status'])}
+                onValueChange={(v) => v && setValue('status', v as FormValues['status'])}
               >
                 <SelectTrigger>
                   <SelectValue />

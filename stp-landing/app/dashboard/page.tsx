@@ -15,9 +15,9 @@ import { Users, FolderKanban, CheckSquare, FileText } from 'lucide-react'
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PROJECT_STATUS_LABELS: Record<Project['status'], string> = {
-  pending: 'Pendiente',
-  'in-progress': 'En curso',
-  'on-hold': 'En pausa',
+  draft: 'Pendiente',
+  active: 'En curso',
+  on_hold: 'En pausa',
   completed: 'Completado',
   cancelled: 'Cancelado',
 }
@@ -79,7 +79,7 @@ export default async function DashboardPage() {
 
   // Derived stats
   const activeClients = clients.filter((c) => c.isActive).length
-  const inProgressProjects = projects.filter((p) => p.status === 'in-progress')
+  const inProgressProjects = projects.filter((p) => p.status === 'active')
   const activeTasks = tasks.filter((t) => t.status === 'pending' || t.status === 'in-progress')
   const urgentTasks = activeTasks
     .filter((t) => t.priority === 'urgent' || t.priority === 'high')
@@ -159,7 +159,7 @@ export default async function DashboardPage() {
 
       {/* Projects status breakdown */}
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-5">
-        {(['pending', 'in-progress', 'on-hold', 'completed', 'cancelled'] as const).map((s) => {
+        {(['draft', 'active', 'on_hold', 'completed', 'cancelled'] as const).map((s) => {
           const count = projects.filter((p) => p.status === s).length
           return (
             <Card key={s} className="text-center">
@@ -196,7 +196,7 @@ export default async function DashboardPage() {
                   {inProgressProjects.slice(0, 6).map((p) => (
                     <TableRow key={p.id}>
                       <TableCell className="font-mono text-sm py-2">{p.code}</TableCell>
-                      <TableCell className="font-medium py-2">{p.title}</TableCell>
+                      <TableCell className="font-medium py-2">{p.name}</TableCell>
                       <TableCell className="text-muted-foreground text-sm py-2">
                         {p.client?.name ?? '—'}
                       </TableCell>

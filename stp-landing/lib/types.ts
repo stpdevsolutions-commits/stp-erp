@@ -34,9 +34,9 @@ export interface Client {
 export interface Project {
   id: string
   code: string
-  title: string
+  name: string
   description?: string
-  status: 'pending' | 'in-progress' | 'on-hold' | 'completed' | 'cancelled'
+  status: 'draft' | 'active' | 'on_hold' | 'completed' | 'cancelled'
   startDate?: string
   endDate?: string
   budget?: number
@@ -53,7 +53,7 @@ export interface Task {
   priority: 'low' | 'medium' | 'high' | 'urgent'
   dueDate?: string
   projectId: string
-  project?: Pick<Project, 'id' | 'title' | 'code'>
+  project?: Pick<Project, 'id' | 'name' | 'code'>
   assignedTo?: Pick<AuthUser, 'id' | 'firstName' | 'lastName'>
   createdAt: string
 }
@@ -75,7 +75,7 @@ export interface Quote {
   total: number
   notes?: string
   projectId: string
-  project?: Pick<Project, 'id' | 'title' | 'code'>
+  project?: Pick<Project, 'id' | 'name' | 'code'>
   clientId: string
   client?: Pick<Client, 'id' | 'name' | 'email'>
   items: QuoteItem[]

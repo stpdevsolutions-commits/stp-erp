@@ -75,6 +75,14 @@ export function NuevaTareaDialog({
     defaultValues: { status: 'pending', priority: 'medium' },
   })
 
+  const projectId = watch('projectId')
+  const assignedToId = watch('assignedToId')
+  const selectedProjectName = projects.find((p) => p.id === projectId)?.name
+  const selectedUser = users.find((u) => u.id === assignedToId)
+  const selectedUserName = selectedUser
+    ? `${selectedUser.firstName} ${selectedUser.lastName}`
+    : undefined
+
   async function onSubmit(data: FormValues) {
     setServerError(null)
     const result = await createTask({
@@ -134,12 +142,14 @@ export function NuevaTareaDialog({
               onValueChange={(v) => v && setValue('projectId', v)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Seleccionar proyecto" />
+                <SelectValue placeholder="Seleccionar proyecto">
+                  {selectedProjectName}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.code} — {p.title}
+                    {p.code} — {p.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -202,7 +212,9 @@ export function NuevaTareaDialog({
                 onValueChange={(v) => setValue('assignedToId', v ?? '')}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sin asignar" />
+                  <SelectValue placeholder="Sin asignar">
+                  {selectedUserName}
+                </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {users.map((u) => (
