@@ -40,25 +40,23 @@ services:
       timeout: 5s
       retries: 5
 
-  # Next.js Landing Page (pendiente — activar cuando esté lista)
-  # stp-landing:
-  #   build:
-  #     context: ./stp-landing
-  #     dockerfile: Dockerfile
-  #   container_name: stp-landing
-  #   ports:
-  #     - "3000:3000"
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     - ./stp-landing:/app
-  #     - /app/node_modules
-  #   networks:
-  #     - stp-network
-  #   depends_on:
-  #     - stp-postgres
-  #     - stp-redis
-  #   command: npm run dev
+  # Next.js Frontend
+  stp-landing:
+    build:
+      context: ./stp-landing
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://stp-api:3001
+    container_name: stp-landing
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://stp-api:3001
+    networks:
+      - stp-network
+    depends_on:
+      - stp-api
 
   # NestJS API
   stp-api:
