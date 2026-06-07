@@ -82,6 +82,61 @@ export interface Quote {
   createdAt: string
 }
 
+export type SupplierCategory = 'materials' | 'equipment' | 'services' | 'subcontract' | 'other'
+
+export interface Supplier {
+  id: string
+  name: string
+  rnc?: string
+  category: SupplierCategory
+  email?: string
+  phone?: string
+  address?: string
+  city?: string
+  contactName?: string
+  contactPhone?: string
+  notes?: string
+  isActive: boolean
+  createdAt: string
+}
+
+export type ExpenseCategory = 'materials' | 'labor' | 'equipment' | 'subcontract' | 'travel' | 'other'
+
+export interface Expense {
+  id: string
+  projectId: string
+  project?: Pick<Project, 'id' | 'name' | 'code'>
+  description: string
+  category: ExpenseCategory
+  amount: number
+  date: string
+  supplierId?: string
+  supplier?: Pick<Supplier, 'id' | 'name'>
+  notes?: string
+  createdAt: string
+}
+
+export type PaymentMethod = 'cash' | 'transfer' | 'check' | 'card' | 'other'
+export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded'
+
+export interface Payment {
+  id: string
+  clientId: string
+  client?: Pick<Client, 'id' | 'name'>
+  projectId?: string
+  project?: Pick<Project, 'id' | 'name' | 'code'>
+  quoteId?: string
+  quote?: Pick<Quote, 'id' | 'number'>
+  description: string
+  amount: number
+  method: PaymentMethod
+  status: PaymentStatus
+  date: string
+  reference?: string
+  notes?: string
+  createdAt: string
+}
+
 export interface User {
   id: string
   email: string

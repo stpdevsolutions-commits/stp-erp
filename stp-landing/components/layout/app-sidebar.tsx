@@ -10,6 +10,9 @@ import {
   UserCog,
   LayoutDashboard,
   LogOut,
+  Truck,
+  Receipt,
+  CreditCard,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -29,6 +32,9 @@ const navItems = [
   { href: '/dashboard/proyectos', label: 'Proyectos', icon: FolderKanban },
   { href: '/dashboard/tareas', label: 'Tareas', icon: CheckSquare },
   { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: FileText },
+  { href: '/dashboard/gastos', label: 'Gastos', icon: Receipt },
+  { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
+  { href: '/dashboard/proveedores', label: 'Proveedores', icon: Truck },
 ]
 
 const adminItems = [
