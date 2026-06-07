@@ -14,6 +14,7 @@ import {
   Receipt,
   CreditCard,
   BarChart3,
+  FolderOpen,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -36,6 +37,7 @@ const navItems = [
   { href: '/dashboard/gastos', label: 'Gastos', icon: Receipt },
   { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/dashboard/proveedores', label: 'Proveedores', icon: Truck },
+  { href: '/dashboard/archivos', label: 'Archivos', icon: FolderOpen },
 ]
 
 const adminItems = [

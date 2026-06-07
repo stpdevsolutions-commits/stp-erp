@@ -159,6 +159,27 @@ export interface ApiError {
   statusCode: number
 }
 
+export type FileContext =
+  | 'client-profile'
+  | 'project-photos'
+  | 'project-documents'
+  | 'project-expenses'
+  | 'project-quotes'
+
+export interface FileUpload {
+  id: string
+  originalName: string
+  filename: string
+  path: string
+  mimetype: string
+  size: number
+  context: FileContext
+  clientId: string
+  projectId?: string
+  uploadedById?: string
+  createdAt: string
+}
+
 export interface DashboardReport {
   clients: { total: number }
   projects: Partial<Record<Project['status'], number>>
