@@ -5,12 +5,17 @@ import { Resend } from 'resend';
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private readonly resend: Resend;
+  private readonly resend: Resend | undefined;
   private readonly from: string;
   private readonly adminEmail: string;
 
   constructor(private readonly config: ConfigService) {
-    this.resend = new Resend(config.get<string>('RESEND_API_KEY'));
+    const apiKey = config.get<string>('RESEND_API_KEY');
+    if (apiKey) {
+      this.resend = new Resend(apiKey);
+    } else {
+      this.logger.warn('RESEND_API_KEY not set — email notifications disabled');
+    }
     this.from = config.get<string>('RESEND_FROM_EMAIL') ?? 'noreply@stpsoluciones.com';
     this.adminEmail = config.get<string>('ADMIN_EMAIL') ?? 'admin@stpsoluciones.com';
   }
@@ -150,6 +155,7 @@ export class NotificationsService {
   // ── Internal sender ────────────────────────────────────────────────────────
 
   private async send(options: { to: string; subject: string; html: string }): Promise<void> {
+    if (!this.resend) return;
     try {
       await this.resend.emails.send({
         from: this.from,

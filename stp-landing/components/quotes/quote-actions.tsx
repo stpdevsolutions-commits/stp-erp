@@ -99,7 +99,7 @@ function EditDialog({
       status: cotizacion.status,
       validUntil: cotizacion.validUntil ? cotizacion.validUntil.slice(0, 10) : '',
       notes: cotizacion.notes ?? '',
-      items: cotizacion.items.length > 0
+      items: (cotizacion.items ?? []).length > 0
         ? cotizacion.items.map((item) => ({
             description: item.description,
             quantity: String(item.quantity),

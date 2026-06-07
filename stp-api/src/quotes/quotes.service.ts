@@ -64,7 +64,9 @@ export class QuotesService {
       .createQueryBuilder('quote')
       .leftJoinAndSelect('quote.client', 'client')
       .leftJoinAndSelect('quote.project', 'project')
+      .leftJoinAndSelect('quote.items', 'items')
       .orderBy('quote.createdAt', 'DESC')
+      .addOrderBy('items.sortOrder', 'ASC')
       .skip((page - 1) * limit)
       .take(limit);
 
