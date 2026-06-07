@@ -1,5 +1,11 @@
 import { api } from '@/lib/api'
-import type { Client, Project, Task, Quote, PaginatedResponse } from '@/lib/types'
+import type {
+  Project,
+  Task,
+  Quote,
+  PaginatedResponse,
+  DashboardReport,
+} from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -10,9 +16,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Users, FolderKanban, CheckSquare, FileText } from 'lucide-react'
-
-// ── Constants ─────────────────────────────────────────────────────────────────
+import {
+  Users,
+  FolderKanban,
+  CheckSquare,
+  FileText,
+  Receipt,
+  CreditCard,
+  TrendingDown,
+  AlertCircle,
+} from 'lucide-react'
 
 const PROJECT_STATUS_LABELS: Record<Project['status'], string> = {
   draft: 'Pendiente',
@@ -54,48 +67,42 @@ const QUOTE_STATUS_VARIANTS: Record<Quote['status'], 'default' | 'secondary' | '
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export default async function DashboardPage() {
-  let clients: Client[] = []
-  let projects: Project[] = []
-  let tasks: Task[] = []
-  let quotes: Quote[] = []
+  const [drResult, pResult, tResult, qResult] = await Promise.allSettled([
+    api.get<DashboardReport>('/reports/dashboard'),
+    api.get<PaginatedResponse<Project>>('/projects?limit=20'),
+    api.get<PaginatedResponse<Task>>('/tasks?limit=20'),
+    api.get<PaginatedResponse<Quote>>('/quotes?limit=5'),
+  ])
 
-  try {
-    const [cRes, pRes, tRes, qRes] = await Promise.all([
-      api.get<PaginatedResponse<Client>>('/clients?limit=200'),
-      api.get<PaginatedResponse<Project>>('/projects?limit=200'),
-      api.get<PaginatedResponse<Task>>('/tasks?limit=200'),
-      api.get<PaginatedResponse<Quote>>('/quotes?limit=200'),
-    ])
-    clients = cRes.data
-    projects = pRes.data
-    tasks = tRes.data
-    quotes = qRes.data
-  } catch {
-    // Partial data is fine — each section handles empty arrays gracefully
-  }
+  const dashReport = drResult.status === 'fulfilled' ? drResult.value : null
+  const allProjects = pResult.status === 'fulfilled' ? pResult.value.data : []
+  const allTasks = tResult.status === 'fulfilled' ? tResult.value.data : []
+  const recentQuotes = qResult.status === 'fulfilled' ? qResult.value.data : []
 
-  // Derived stats
-  const activeClients = clients.filter((c) => c.isActive).length
-  const inProgressProjects = projects.filter((p) => p.status === 'active')
-  const activeTasks = tasks.filter((t) => t.status === 'pending' || t.status === 'in-progress')
-  const urgentTasks = activeTasks
-    .filter((t) => t.priority === 'urgent' || t.priority === 'high')
+  const activeProjects = allProjects.filter((p) => p.status === 'active')
+  const urgentTasks = allTasks
+    .filter(
+      (t) =>
+        (t.priority === 'urgent' || t.priority === 'high') &&
+        (t.status === 'pending' || t.status === 'in-progress'),
+    )
     .slice(0, 6)
-  const approvedTotal = quotes
-    .filter((q) => q.status === 'approved')
-    .reduce((sum, q) => sum + q.total, 0)
-  const recentQuotes = [...quotes]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5)
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const overdueTasks = activeTasks.filter(
-    (t) => t.dueDate && new Date(t.dueDate) < today,
-  ).length
+
+  // KPI values — from report if available, else derived from fetched data
+  const totalClientes = dashReport?.clients.total ?? '—'
+  const proyectosEnCurso = dashReport?.projects.active ?? activeProjects.length
+  const tareasVencidas = dashReport?.tasks.overdue ?? 0
+  const cotizAprobadas = dashReport?.quotes.approved?.amount ?? 0
+  const gastosEsteMes = dashReport?.expenses.thisMonth ?? 0
+  const cobrosEsteMes = dashReport?.payments.thisMonth ?? 0
+  const balanceMes = cobrosEsteMes - gastosEsteMes
+
+  const projectStatusCounts: Partial<Record<Project['status'], number>> =
+    dashReport?.projects ?? {}
 
   return (
     <div className="space-y-6">
@@ -104,16 +111,16 @@ export default async function DashboardPage() {
         <p className="text-muted-foreground text-sm">Vista general del sistema ERP</p>
       </div>
 
-      {/* Stat cards */}
+      {/* Primary stat cards */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Clientes activos</CardTitle>
+            <CardTitle className="text-sm font-medium">Clientes</CardTitle>
             <Users className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{activeClients}</div>
-            <p className="text-xs text-muted-foreground mt-1">{clients.length} en total</p>
+            <div className="text-3xl font-bold">{totalClientes}</div>
+            <p className="text-xs text-muted-foreground mt-1">en total</p>
           </CardContent>
         </Card>
 
@@ -123,23 +130,25 @@ export default async function DashboardPage() {
             <FolderKanban className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{inProgressProjects.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">{projects.length} en total</p>
+            <div className="text-3xl font-bold">{proyectosEnCurso}</div>
+            <p className="text-xs text-muted-foreground mt-1">activos ahora</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Tareas activas</CardTitle>
+            <CardTitle className="text-sm font-medium">Tareas vencidas</CardTitle>
             <CheckSquare className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{activeTasks.length}</div>
+            <div className={`text-3xl font-bold ${tareasVencidas > 0 ? 'text-destructive' : ''}`}>
+              {tareasVencidas}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {overdueTasks > 0 ? (
-                <span className="text-destructive font-medium">{overdueTasks} vencidas</span>
+              {tareasVencidas > 0 ? (
+                <span className="text-destructive">requieren atención</span>
               ) : (
-                'Sin vencidas'
+                'sin vencidas'
               )}
             </p>
           </CardContent>
@@ -151,16 +160,74 @@ export default async function DashboardPage() {
             <FileText className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tabular-nums">{DOP.format(approvedTotal)}</div>
-            <p className="text-xs text-muted-foreground mt-1">{quotes.length} cotizaciones</p>
+            <div className="text-xl font-bold tabular-nums">{DOP.format(cotizAprobadas)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {dashReport?.quotes.approved?.count ?? 0} aprobadas
+            </p>
           </CardContent>
         </Card>
       </div>
 
+      {/* Financial snapshot — only shown if report data is available */}
+      {dashReport && (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Gastos este mes</CardTitle>
+              <Receipt className="size-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold tabular-nums text-destructive">
+                {DOP.format(gastosEsteMes)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">egresos del mes actual</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Cobros este mes</CardTitle>
+              <CreditCard className="size-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold tabular-nums text-green-600 dark:text-green-400">
+                {DOP.format(cobrosEsteMes)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">pagos completados</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Balance del mes</CardTitle>
+              {balanceMes >= 0 ? (
+                <CreditCard className="size-4 text-muted-foreground" />
+              ) : (
+                <TrendingDown className="size-4 text-destructive" />
+              )}
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`text-2xl font-bold tabular-nums ${
+                  balanceMes >= 0
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-destructive'
+                }`}
+              >
+                {DOP.format(balanceMes)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">cobros − gastos</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Projects status breakdown */}
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-5">
         {(['draft', 'active', 'on_hold', 'completed', 'cancelled'] as const).map((s) => {
-          const count = projects.filter((p) => p.status === s).length
+          const count =
+            projectStatusCounts[s] ??
+            allProjects.filter((p) => p.status === s).length
           return (
             <Card key={s} className="text-center">
               <CardContent className="pt-4 pb-3">
@@ -174,14 +241,12 @@ export default async function DashboardPage() {
 
       {/* Two-column: active projects + priority tasks */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-
-        {/* Active projects */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Proyectos en curso</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {inProgressProjects.length === 0 ? (
+            {activeProjects.length === 0 ? (
               <p className="text-sm text-muted-foreground px-6 pb-4">No hay proyectos en curso.</p>
             ) : (
               <Table>
@@ -193,7 +258,7 @@ export default async function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {inProgressProjects.slice(0, 6).map((p) => (
+                  {activeProjects.slice(0, 6).map((p) => (
                     <TableRow key={p.id}>
                       <TableCell className="font-mono text-sm py-2">{p.code}</TableCell>
                       <TableCell className="font-medium py-2">{p.name}</TableCell>
@@ -208,10 +273,15 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* High-priority tasks */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Tareas urgentes y de alta prioridad</CardTitle>
+          <CardHeader className="flex flex-row items-center gap-2 pb-3">
+            <CardTitle className="text-base">Tareas urgentes / alta prioridad</CardTitle>
+            {tareasVencidas > 0 && (
+              <Badge variant="destructive" className="ml-auto">
+                <AlertCircle className="size-3 mr-1" />
+                {tareasVencidas} vencidas
+              </Badge>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             {urgentTasks.length === 0 ? (

@@ -13,6 +13,7 @@ import {
   Truck,
   Receipt,
   CreditCard,
+  BarChart3,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -38,6 +39,7 @@ const navItems = [
 ]
 
 const adminItems = [
+  { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3 },
   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog },
 ]
 

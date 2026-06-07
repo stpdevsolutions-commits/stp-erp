@@ -158,3 +158,42 @@ export interface ApiError {
   message: string
   statusCode: number
 }
+
+export interface DashboardReport {
+  clients: { total: number }
+  projects: Partial<Record<Project['status'], number>>
+  quotes: Partial<Record<Quote['status'], { count: number; amount: number }>>
+  expenses: { thisMonth: number }
+  payments: { thisMonth: number }
+  tasks: { overdue: number }
+}
+
+export interface ProjectReport {
+  project: {
+    id: string
+    code: string
+    name: string
+    status: Project['status']
+    budget?: number
+    startDate?: string
+    endDate?: string
+    client?: Pick<Client, 'id' | 'name'>
+  }
+  tasks: Record<string, number>
+  expenses: {
+    total: number
+    byCategory: Partial<Record<ExpenseCategory, number>>
+    budgetUsed: number | null
+  }
+  payments: { total: number }
+  balance: number
+}
+
+export interface ClientReport {
+  client: Client
+  quotes: Partial<Record<Quote['status'], { count: number; amount: number }>>
+  approvedAmount: number
+  totalPaid: number
+  totalExpenses: number
+  outstanding: number
+}
