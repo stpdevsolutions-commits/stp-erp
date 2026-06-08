@@ -42,17 +42,23 @@ const navItems = [
 ]
 
 const adminItems = [
-  { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3 },
-  { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog },
+  { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3, minRole: 'MANAGER' },
+  { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog, minRole: 'ADMIN' },
 ]
 
 const accountItems = [
   { href: '/dashboard/perfil', label: 'Mi perfil', icon: CircleUser },
 ]
 
-export function AppSidebar() {
+const ROLE_RANK: Record<string, number> = { USER: 1, MANAGER: 2, ADMIN: 3 }
+
+export function AppSidebar({ role = 'USER' }: { role?: string }) {
   const pathname = usePathname()
   const router = useRouter()
+
+  const visibleAdminItems = adminItems.filter(
+    (item) => (ROLE_RANK[role] ?? 1) >= (ROLE_RANK[item.minRole] ?? 1),
+  )
 
   function isActive(href: string, exact?: boolean) {
     return exact ? pathname === href : pathname.startsWith(href)
@@ -96,10 +102,11 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
 
+        {visibleAdminItems.length > 0 && (
         <SidebarGroup>
           <SidebarGroupLabel>Administración</SidebarGroupLabel>
           <SidebarMenu>
-            {adminItems.map((item) => (
+            {visibleAdminItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   render={<Link href={item.href} />}
@@ -112,6 +119,7 @@ export function AppSidebar() {
             ))}
           </SidebarMenu>
         </SidebarGroup>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel>Cuenta</SidebarGroupLabel>
