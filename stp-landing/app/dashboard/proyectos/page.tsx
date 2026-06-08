@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { api } from '@/lib/api'
 import type { Client, Project, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -99,14 +100,20 @@ export default async function ProyectosPage() {
               ) : (
                 proyectos.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-mono text-sm">{p.code}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      <Link href={`/dashboard/proyectos/${p.id}`} className="hover:underline">
+                        {p.code}
+                      </Link>
+                    </TableCell>
                     <TableCell className="font-medium">
-                      <div>{p.name}</div>
-                      {p.startDate && (
-                        <div className="text-xs text-muted-foreground">
-                          Inicio: {new Date(p.startDate).toLocaleDateString('es-DO')}
-                        </div>
-                      )}
+                      <Link href={`/dashboard/proyectos/${p.id}`} className="hover:underline">
+                        <div>{p.name}</div>
+                        {p.startDate && (
+                          <div className="text-xs text-muted-foreground">
+                            Inicio: {new Date(p.startDate).toLocaleDateString('es-DO')}
+                          </div>
+                        )}
+                      </Link>
                     </TableCell>
                     <TableCell>{p.client?.name ?? '—'}</TableCell>
                     <TableCell>

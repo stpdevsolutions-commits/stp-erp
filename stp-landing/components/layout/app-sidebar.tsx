@@ -15,6 +15,7 @@ import {
   CreditCard,
   BarChart3,
   FolderOpen,
+  CircleUser,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -43,6 +44,10 @@ const navItems = [
 const adminItems = [
   { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3 },
   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog },
+]
+
+const accountItems = [
+  { href: '/dashboard/perfil', label: 'Mi perfil', icon: CircleUser },
 ]
 
 export function AppSidebar() {
@@ -95,6 +100,23 @@ export function AppSidebar() {
           <SidebarGroupLabel>Administración</SidebarGroupLabel>
           <SidebarMenu>
             {adminItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  render={<Link href={item.href} />}
+                  isActive={isActive(item.href)}
+                >
+                  <item.icon className="size-4" />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Cuenta</SidebarGroupLabel>
+          <SidebarMenu>
+            {accountItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   render={<Link href={item.href} />}
