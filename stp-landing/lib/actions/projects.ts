@@ -59,6 +59,7 @@ export async function createProject(input: CreateProjectInput): Promise<ActionRe
   }
 
   revalidatePath('/dashboard/proyectos')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -86,6 +87,7 @@ export async function updateProject(id: string, input: UpdateProjectInput): Prom
   }
 
   revalidatePath('/dashboard/proyectos')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -104,5 +106,6 @@ export async function deleteProject(id: string): Promise<ActionResult> {
   }
 
   revalidatePath('/dashboard/proyectos')
+  revalidatePath('/dashboard')
   return { ok: true }
 }

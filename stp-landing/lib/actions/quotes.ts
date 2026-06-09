@@ -23,7 +23,7 @@ export interface QuoteItemInput {
 
 export interface CreateQuoteInput {
   title: string
-  projectId: string
+  projectId?: string
   clientId: string
   status?: 'draft' | 'sent' | 'approved' | 'rejected' | 'expired'
   validUntil?: string
@@ -61,6 +61,7 @@ export async function createQuote(input: CreateQuoteInput): Promise<ActionResult
   }
 
   revalidatePath('/dashboard/cotizaciones')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -88,6 +89,7 @@ export async function updateQuote(id: string, input: UpdateQuoteInput): Promise<
   }
 
   revalidatePath('/dashboard/cotizaciones')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -106,5 +108,6 @@ export async function deleteQuote(id: string): Promise<ActionResult> {
   }
 
   revalidatePath('/dashboard/cotizaciones')
+  revalidatePath('/dashboard')
   return { ok: true }
 }

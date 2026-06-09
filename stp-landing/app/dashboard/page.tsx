@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { api } from '@/lib/api'
 import type {
   Project,
@@ -85,7 +87,7 @@ export default async function DashboardPage() {
     .filter(
       (t) =>
         (t.priority === 'urgent' || t.priority === 'high') &&
-        (t.status === 'pending' || t.status === 'in-progress'),
+        (t.status === 'pending' || t.status === 'in_progress' || t.status === 'review'),
     )
     .slice(0, 6)
 

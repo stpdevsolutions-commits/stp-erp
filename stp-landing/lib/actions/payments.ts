@@ -56,6 +56,7 @@ export async function createPayment(input: CreatePaymentInput): Promise<ActionRe
   }
 
   revalidatePath('/dashboard/pagos')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -80,6 +81,7 @@ export async function updatePayment(id: string, input: UpdatePaymentInput): Prom
   }
 
   revalidatePath('/dashboard/pagos')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -98,5 +100,6 @@ export async function deletePayment(id: string): Promise<ActionResult> {
   }
 
   revalidatePath('/dashboard/pagos')
+  revalidatePath('/dashboard')
   return { ok: true }
 }

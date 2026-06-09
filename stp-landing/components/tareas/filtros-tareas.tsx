@@ -62,8 +62,9 @@ export function FiltrosTareas() {
         <SelectContent>
           <SelectItem value="all">Todos los estados</SelectItem>
           <SelectItem value="pending">Pendiente</SelectItem>
-          <SelectItem value="in-progress">En curso</SelectItem>
-          <SelectItem value="completed">Completada</SelectItem>
+          <SelectItem value="in_progress">En curso</SelectItem>
+          <SelectItem value="review">En revisión</SelectItem>
+          <SelectItem value="done">Completada</SelectItem>
           <SelectItem value="cancelled">Cancelada</SelectItem>
         </SelectContent>
       </Select>

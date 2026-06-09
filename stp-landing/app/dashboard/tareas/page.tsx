@@ -17,8 +17,9 @@ import { Paginacion } from '@/components/ui/paginacion'
 
 const STATUS_LABELS: Record<Task['status'], string> = {
   pending: 'Pendiente',
-  'in-progress': 'En curso',
-  completed: 'Completada',
+  in_progress: 'En curso',
+  review: 'En revisión',
+  done: 'Completada',
   cancelled: 'Cancelada',
 }
 
@@ -71,9 +72,9 @@ export default async function TareasPage({
 
   const tareas = tareasRes.data
   const pendientes = tareas.filter((t) => t.status === 'pending').length
-  const enCurso = tareas.filter((t) => t.status === 'in-progress').length
-  const completadas = tareas.filter((t) => t.status === 'completed').length
-  const urgentes = tareas.filter((t) => t.priority === 'urgent' && t.status !== 'completed').length
+  const enCurso = tareas.filter((t) => t.status === 'in_progress' || t.status === 'review').length
+  const completadas = tareas.filter((t) => t.status === 'done').length
+  const urgentes = tareas.filter((t) => t.priority === 'urgent' && t.status !== 'done').length
 
   return (
     <div className="space-y-6">

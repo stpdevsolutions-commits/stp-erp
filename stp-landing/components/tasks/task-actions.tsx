@@ -39,7 +39,7 @@ const editSchema = z.object({
   title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
   projectId: z.string().min(1, 'Selecciona un proyecto'),
   description: z.string().optional(),
-  status: z.enum(['pending', 'in-progress', 'completed', 'cancelled']),
+  status: z.enum(['pending', 'in_progress', 'review', 'done', 'cancelled']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   dueDate: z.string().optional(),
   assignedToId: z.string().optional(),
@@ -49,8 +49,9 @@ type EditFormValues = z.infer<typeof editSchema>
 
 const STATUS_LABELS = {
   pending: 'Pendiente',
-  'in-progress': 'En curso',
-  completed: 'Completada',
+  in_progress: 'En curso',
+  review: 'En revisión',
+  done: 'Completada',
   cancelled: 'Cancelada',
 }
 

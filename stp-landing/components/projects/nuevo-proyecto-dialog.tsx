@@ -55,6 +55,7 @@ const STATUS_LABELS = {
 export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [budgetDisplay, setBudgetDisplay] = useState('')
 
   const {
     register,
@@ -87,7 +88,26 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
       return
     }
     reset()
+    setBudgetDisplay('')
     setOpen(false)
+  }
+
+  function handleBudgetChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1')
+    setBudgetDisplay(raw)
+    setValue('budget', raw)
+  }
+
+  function handleBudgetBlur() {
+    const num = parseFloat(budgetDisplay)
+    if (budgetDisplay && !isNaN(num)) {
+      setBudgetDisplay(num.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+      setValue('budget', String(num))
+    }
+  }
+
+  function handleBudgetFocus() {
+    setBudgetDisplay(budgetDisplay.replace(/[^\d.]/g, ''))
   }
 
   return (
@@ -97,6 +117,7 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
         setOpen(o)
         if (!o) {
           reset()
+          setBudgetDisplay('')
           setServerError(null)
         }
       }}
@@ -198,13 +219,16 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
 
           <div className="space-y-1.5">
             <Label htmlFor="budget">Presupuesto (DOP)</Label>
+            <input type="hidden" {...register('budget')} />
             <Input
               id="budget"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               placeholder="0.00"
-              {...register('budget')}
+              value={budgetDisplay}
+              onChange={handleBudgetChange}
+              onBlur={handleBudgetBlur}
+              onFocus={handleBudgetFocus}
             />
           </div>
 

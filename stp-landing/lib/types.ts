@@ -49,7 +49,7 @@ export interface Task {
   id: string
   title: string
   description?: string
-  status: 'pending' | 'in-progress' | 'completed' | 'cancelled'
+  status: 'pending' | 'in_progress' | 'review' | 'done' | 'cancelled'
   priority: 'low' | 'medium' | 'high' | 'urgent'
   dueDate?: string
   projectId: string
@@ -74,7 +74,7 @@ export interface Quote {
   validUntil?: string
   total: number
   notes?: string
-  projectId: string
+  projectId?: string
   project?: Pick<Project, 'id' | 'name' | 'code'>
   clientId: string
   client?: Pick<Client, 'id' | 'name' | 'email'>

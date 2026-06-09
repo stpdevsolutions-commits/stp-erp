@@ -18,14 +18,16 @@ const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' 
 
 const TASK_STATUS: Record<Task['status'], string> = {
   pending: 'Pendiente',
-  'in-progress': 'En progreso',
-  completed: 'Completada',
+  in_progress: 'En progreso',
+  review: 'En revisión',
+  done: 'Completada',
   cancelled: 'Cancelada',
 }
 const TASK_STATUS_VARIANT: Record<Task['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending: 'secondary',
-  'in-progress': 'default',
-  completed: 'outline',
+  in_progress: 'default',
+  review: 'outline',
+  done: 'outline',
   cancelled: 'destructive',
 }
 const TASK_PRIORITY: Record<Task['priority'], string> = {

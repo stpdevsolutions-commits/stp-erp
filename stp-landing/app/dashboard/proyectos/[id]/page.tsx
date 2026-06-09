@@ -39,12 +39,13 @@ export default async function ProyectoDetallePage({
     notFound()
   }
 
-  const [tasks, expenses, payments, files] = await Promise.all([
+  const rawFiles = await api.get<FileUpload[]>(`/files/clients/${project.clientId}/projects/${id}`).catch(() => [] as FileUpload[])
+  const [tasks, expenses, payments] = await Promise.all([
     api.get<PaginatedResponse<Task>>(`/tasks?projectId=${id}&limit=100`).catch(() => ({ data: [], total: 0, page: 1, limit: 100 })),
     api.get<PaginatedResponse<Expense>>(`/expenses?projectId=${id}&limit=100`).catch(() => ({ data: [], total: 0, page: 1, limit: 100 })),
     api.get<PaginatedResponse<Payment>>(`/payments?projectId=${id}&limit=100`).catch(() => ({ data: [], total: 0, page: 1, limit: 100 })),
-    api.get<PaginatedResponse<FileUpload>>(`/files/clients/${project.clientId}/projects/${id}?limit=100`).catch(() => ({ data: [], total: 0, page: 1, limit: 100 })),
   ])
+  const files = { data: rawFiles, total: rawFiles.length, page: 1, limit: rawFiles.length || 1 }
 
   return (
     <div className="space-y-6">

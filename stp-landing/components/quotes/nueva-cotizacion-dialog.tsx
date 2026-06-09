@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Project } from '@/lib/types'
+import type { Client, Project } from '@/lib/types'
 import { createQuote } from '@/lib/actions/quotes'
 
 // ── Schema ────────────────────────────────────────────────────────────────────
@@ -43,8 +43,8 @@ const itemSchema = z.object({
 
 const schema = z.object({
   title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
-  projectId: z.string().min(1, 'Selecciona un proyecto'),
-  clientId: z.string().min(1),
+  clientId: z.string().min(1, 'Selecciona un cliente'),
+  projectId: z.string().optional(),
   status: z.enum(['draft', 'sent', 'approved', 'rejected', 'expired']),
   validUntil: z.string().optional(),
   notes: z.string().optional(),
@@ -68,7 +68,13 @@ const ITBIS_RATE = 0.18
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function NuevaCotizacionDialog({ projects }: { projects: Project[] }) {
+export function NuevaCotizacionDialog({
+  clients,
+  projects,
+}: {
+  clients: Client[]
+  projects: Project[]
+}) {
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -97,22 +103,32 @@ export function NuevaCotizacionDialog({ projects }: { projects: Project[] }) {
   const itbis = subtotal * ITBIS_RATE
   const total = subtotal + itbis
 
+  const clientId = watch('clientId')
   const projectId = watch('projectId')
-  const selectedProjectName = projects.find((p) => p.id === projectId)?.name
 
-  function handleProjectChange(projectId: string) {
-    if (!projectId) return
-    setValue('projectId', projectId)
-    const project = projects.find((p) => p.id === projectId)
-    if (project) setValue('clientId', project.clientId)
+  const selectedClient = clients.find((c) => c.id === clientId)
+  const filteredProjects = projects.filter((p) => p.clientId === clientId)
+  const selectedProject = filteredProjects.find((p) => p.id === projectId)
+
+  function handleClientChange(newClientId: string) {
+    setValue('clientId', newClientId)
+    setValue('projectId', undefined)
+  }
+
+  function handleProjectChange(newProjectId: string) {
+    if (newProjectId === '__none__') {
+      setValue('projectId', undefined)
+    } else {
+      setValue('projectId', newProjectId)
+    }
   }
 
   async function onSubmit(data: FormValues) {
     setServerError(null)
     const result = await createQuote({
       title: data.title,
-      projectId: data.projectId,
       clientId: data.clientId,
+      projectId: data.projectId || undefined,
       status: data.status,
       validUntil: data.validUntil || undefined,
       notes: data.notes || undefined,
@@ -165,30 +181,55 @@ export function NuevaCotizacionDialog({ projects }: { projects: Project[] }) {
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
+            {/* Client selector (primary) */}
             <div className="space-y-1.5">
               <Label>
-                Proyecto <span className="text-destructive">*</span>
+                Cliente <span className="text-destructive">*</span>
               </Label>
               <Select
-                value={watch('projectId') ?? ''}
-                onValueChange={(v) => v && handleProjectChange(v)}
+                value={clientId ?? ''}
+                onValueChange={handleClientChange}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar proyecto">
-                    {selectedProjectName}
+                  <SelectValue placeholder="Seleccionar cliente">
+                    {selectedClient?.name}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {projects.map((p) => (
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.clientId && (
+                <p className="text-xs text-destructive">{errors.clientId.message}</p>
+              )}
+            </div>
+
+            {/* Project selector (optional, filtered by client) */}
+            <div className="space-y-1.5">
+              <Label>Proyecto (opcional)</Label>
+              <Select
+                value={projectId ?? '__none__'}
+                onValueChange={handleProjectChange}
+                disabled={!clientId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin proyecto">
+                    {selectedProject ? `${selectedProject.code} — ${selectedProject.name}` : 'Sin proyecto'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Sin proyecto —</SelectItem>
+                  {filteredProjects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.code} — {p.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.projectId && (
-                <p className="text-xs text-destructive">{errors.projectId.message}</p>
-              )}
             </div>
 
             <div className="space-y-1.5">
@@ -215,7 +256,7 @@ export function NuevaCotizacionDialog({ projects }: { projects: Project[] }) {
               <Input id="validUntil" type="date" {...register('validUntil')} />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="col-span-2 space-y-1.5">
               <Label htmlFor="notes">Notas</Label>
               <Input id="notes" placeholder="Condiciones, garantía..." {...register('notes')} />
             </div>

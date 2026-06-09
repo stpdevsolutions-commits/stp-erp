@@ -47,8 +47,8 @@ const PROJECT_STATUS_VARIANTS: Record<
 
 const TASK_STATUS_LABELS: Record<string, string> = {
   pending: 'Pendientes',
-  'in-progress': 'En progreso',
-  completed: 'Completadas',
+  in_progress: 'En progreso',
+  review: 'En revisión',
   done: 'Completadas',
   cancelled: 'Canceladas',
 }

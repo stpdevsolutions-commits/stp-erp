@@ -19,7 +19,7 @@ export interface CreateTaskInput {
   title: string
   projectId: string
   description?: string
-  status?: 'pending' | 'in-progress' | 'completed' | 'cancelled'
+  status?: 'pending' | 'in_progress' | 'review' | 'done' | 'cancelled'
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   dueDate?: string
   assignedToId?: string
@@ -29,7 +29,7 @@ export interface UpdateTaskInput {
   title?: string
   projectId?: string
   description?: string | null
-  status?: 'pending' | 'in-progress' | 'completed' | 'cancelled'
+  status?: 'pending' | 'in_progress' | 'review' | 'done' | 'cancelled'
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   dueDate?: string | null
   assignedToId?: string | null
@@ -59,6 +59,7 @@ export async function createTask(input: CreateTaskInput): Promise<ActionResult> 
   }
 
   revalidatePath('/dashboard/tareas')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -86,6 +87,7 @@ export async function updateTask(id: string, input: UpdateTaskInput): Promise<Ac
   }
 
   revalidatePath('/dashboard/tareas')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -104,5 +106,6 @@ export async function deleteTask(id: string): Promise<ActionResult> {
   }
 
   revalidatePath('/dashboard/tareas')
+  revalidatePath('/dashboard')
   return { ok: true }
 }

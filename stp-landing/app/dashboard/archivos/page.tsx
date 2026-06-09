@@ -83,6 +83,7 @@ export default async function ArchivosPage({
         </div>
       ) : (
         <ArchivoViewer
+          key={`${cliente}-${proyecto ?? 'profile'}`}
           files={files}
           clientId={cliente}
           projectId={proyecto}

@@ -97,15 +97,20 @@ function SubirDialog({
     if (!file) return
     setUploading(true)
     setError(null)
-    const formData = new FormData()
-    formData.append('file', file)
-    const result = await uploadFile(uploadPath, formData)
-    setUploading(false)
-    if (!result.ok) {
-      setError(result.error ?? 'Error al subir')
-      return
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const result = await uploadFile(uploadPath, formData)
+      if (!result.ok) {
+        setError(result.error ?? 'Error al subir')
+        return
+      }
+      handleClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al subir')
+    } finally {
+      setUploading(false)
     }
-    handleClose()
   }
 
   const acceptLabel = accept

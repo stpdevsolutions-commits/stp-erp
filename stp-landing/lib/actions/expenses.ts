@@ -52,6 +52,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<ActionRe
   }
 
   revalidatePath('/dashboard/gastos')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -76,6 +77,7 @@ export async function updateExpense(id: string, input: UpdateExpenseInput): Prom
   }
 
   revalidatePath('/dashboard/gastos')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -94,5 +96,6 @@ export async function deleteExpense(id: string): Promise<ActionResult> {
   }
 
   revalidatePath('/dashboard/gastos')
+  revalidatePath('/dashboard')
   return { ok: true }
 }

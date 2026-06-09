@@ -1,5 +1,5 @@
 import { api } from '@/lib/api'
-import type { Project, Quote, PaginatedResponse } from '@/lib/types'
+import type { Client, Project, Quote, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -48,15 +48,18 @@ export default async function CotizacionesPage({
 
   let cotizacionesRes: PaginatedResponse<Quote> = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
+  let clients: Client[] = []
   let error: string | null = null
 
   try {
-    const [quotesRes, proyRes] = await Promise.all([
+    const [quotesRes, proyRes, clientsRes] = await Promise.all([
       api.get<PaginatedResponse<Quote>>(`/quotes?${q.toString()}`),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
+      api.get<PaginatedResponse<Client>>('/clients?limit=200'),
     ])
     cotizacionesRes = quotesRes
     projects = proyRes.data
+    clients = clientsRes.data
   } catch (e) {
     error = e instanceof Error ? e.message : 'Error al cargar cotizaciones'
   }
@@ -76,7 +79,7 @@ export default async function CotizacionesPage({
           <h1 className="text-2xl font-bold tracking-tight">Cotizaciones</h1>
           <p className="text-muted-foreground text-sm">Gestión de cotizaciones y propuestas</p>
         </div>
-        <NuevaCotizacionDialog projects={projects} />
+        <NuevaCotizacionDialog clients={clients} projects={projects} />
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
