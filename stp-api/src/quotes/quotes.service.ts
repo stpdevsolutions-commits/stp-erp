@@ -4,13 +4,19 @@ import {
   BadRequestException,
   UnprocessableEntityException,
   OnModuleInit,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { join, relative } from 'path';
+import { mkdirSync, statSync } from 'fs';
 import { Quote, QuoteStatus } from './entities/quote.entity';
 import { QuoteItem } from './entities/quote-item.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Project } from '../projects/entities/project.entity';
+import { FileUpload, FileContext } from '../files/entities/file-upload.entity';
+import { getUploadRoot } from '../files/files.utils';
+import { generateQuotePdf } from './pdf.generator';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { CreateQuoteItemDto } from './dto/create-quote-item.dto';
@@ -21,6 +27,8 @@ import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class QuotesService implements OnModuleInit {
+  private readonly logger = new Logger(QuotesService.name);
+
   constructor(
     @InjectRepository(Quote)
     private readonly quotesRepository: Repository<Quote>,
@@ -30,6 +38,8 @@ export class QuotesService implements OnModuleInit {
     private readonly clientsRepository: Repository<Client>,
     @InjectRepository(Project)
     private readonly projectsRepository: Repository<Project>,
+    @InjectRepository(FileUpload)
+    private readonly fileRepo: Repository<FileUpload>,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -40,14 +50,35 @@ export class QuotesService implements OnModuleInit {
 
   private async expireOverdueQuotes(): Promise<void> {
     const today = new Date().toISOString().slice(0, 10);
+
+    const toExpire = await this.quotesRepository
+      .createQueryBuilder('q')
+      .leftJoinAndSelect('q.client', 'client')
+      .where('q.status IN (:...statuses)', { statuses: [QuoteStatus.DRAFT, QuoteStatus.SENT] })
+      .andWhere('q.validUntil IS NOT NULL')
+      .andWhere('q.validUntil < :today', { today })
+      .getMany();
+
+    if (!toExpire.length) return;
+
     await this.quotesRepository
       .createQueryBuilder()
       .update(Quote)
       .set({ status: QuoteStatus.EXPIRED })
-      .where('status IN (:...statuses)', { statuses: [QuoteStatus.DRAFT, QuoteStatus.SENT] })
-      .andWhere('validUntil IS NOT NULL')
-      .andWhere('validUntil < :today', { today })
+      .whereInIds(toExpire.map((q) => q.id))
       .execute();
+
+    for (const quote of toExpire) {
+      if (quote.client?.email) {
+        this.notifications.sendQuoteExpired({
+          clientEmail: quote.client.email,
+          clientName: quote.client.name,
+          quoteNumber: quote.number,
+          quoteTitle: quote.title,
+          validUntil: quote.validUntil,
+        });
+      }
+    }
   }
 
   async create(dto: CreateQuoteDto, createdById: string): Promise<Quote> {
@@ -84,6 +115,12 @@ export class QuotesService implements OnModuleInit {
         total: result.total,
         validUntil: result.validUntil,
       });
+    }
+
+    if (result.projectId) {
+      void this.savePdfForQuote(result).catch((err: Error) =>
+        this.logger.error(`PDF generation failed for quote ${result.id}: ${err.message}`),
+      );
     }
 
     return result;
@@ -167,6 +204,14 @@ export class QuotesService implements OnModuleInit {
           total: updated.total,
         });
       }
+      if (dto.status === QuoteStatus.REJECTED && updated.client?.email) {
+        this.notifications.sendQuoteRejected({
+          clientEmail: updated.client.email,
+          clientName: updated.client.name,
+          quoteNumber: updated.number,
+          quoteTitle: updated.title,
+        });
+      }
     }
 
     return updated;
@@ -242,6 +287,37 @@ export class QuotesService implements OnModuleInit {
     quote.taxAmount = taxAmount;
     quote.total = total;
     await this.quotesRepository.save(quote);
+  }
+
+  private async savePdfForQuote(quote: Quote): Promise<void> {
+    const destDir = join(
+      getUploadRoot(),
+      'clients', quote.clientId,
+      'projects', quote.projectId,
+      'quotes',
+    );
+    mkdirSync(destDir, { recursive: true });
+
+    const filename = `${quote.number}.pdf`;
+    const filePath = join(destDir, filename);
+
+    await generateQuotePdf(quote, filePath);
+
+    const { size } = statSync(filePath);
+    const relativePath = relative(getUploadRoot(), filePath);
+
+    const record = this.fileRepo.create({
+      originalName: filename,
+      filename,
+      path: relativePath,
+      mimetype: 'application/pdf',
+      size,
+      context: FileContext.PROJECT_QUOTES,
+      clientId: quote.clientId,
+      projectId: quote.projectId,
+      uploadedById: quote.createdById ?? undefined,
+    });
+    await this.fileRepo.save(record);
   }
 
   private assertEditable(quote: Quote, userRole?: UserRole): void {

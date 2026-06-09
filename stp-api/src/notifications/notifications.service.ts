@@ -109,6 +109,82 @@ export class NotificationsService {
     });
   }
 
+  // ── Quote: rejected (to client) ───────────────────────────────────────────
+
+  sendQuoteRejected(params: {
+    clientEmail: string;
+    clientName: string;
+    quoteNumber: string;
+    quoteTitle: string;
+  }): void {
+    const { clientEmail, clientName, quoteNumber, quoteTitle } = params;
+    void this.send({
+      to: clientEmail,
+      subject: `Cotización ${quoteNumber} rechazada`,
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
+          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
+            <div style="background:#7f1d1d;padding:28px 32px">
+              <h1 style="color:#fff;margin:0;font-size:20px">Cotización Rechazada</h1>
+              <p style="color:#fca5a5;margin:4px 0 0;font-size:13px">Soluciones Técnicas Profesionales</p>
+            </div>
+            <div style="padding:32px">
+              <p style="color:#374151;font-size:15px">Estimado(a) <strong>${clientName}</strong>,</p>
+              <p style="color:#374151;font-size:15px">Le informamos que la siguiente cotización ha sido marcada como rechazada:</p>
+              <div style="background:#fef2f2;border-left:4px solid #7f1d1d;border-radius:4px;padding:20px 24px;margin:24px 0">
+                <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#7f1d1d">${quoteNumber}</p>
+                <p style="margin:0;color:#374151">${quoteTitle}</p>
+              </div>
+              <p style="color:#374151;font-size:14px">Si tiene alguna duda o desea solicitar una nueva propuesta, no dude en contactarnos.</p>
+            </div>
+            <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">Soluciones Técnicas Profesionales · República Dominicana</p>
+            </div>
+          </div>
+        </div>
+      `,
+    });
+  }
+
+  // ── Quote: expired (to client) ─────────────────────────────────────────────
+
+  sendQuoteExpired(params: {
+    clientEmail: string;
+    clientName: string;
+    quoteNumber: string;
+    quoteTitle: string;
+    validUntil?: string;
+  }): void {
+    const { clientEmail, clientName, quoteNumber, quoteTitle, validUntil } = params;
+    void this.send({
+      to: clientEmail,
+      subject: `Cotización ${quoteNumber} vencida`,
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
+          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
+            <div style="background:#78350f;padding:28px 32px">
+              <h1 style="color:#fff;margin:0;font-size:20px">Cotización Vencida</h1>
+              <p style="color:#fcd34d;margin:4px 0 0;font-size:13px">Soluciones Técnicas Profesionales</p>
+            </div>
+            <div style="padding:32px">
+              <p style="color:#374151;font-size:15px">Estimado(a) <strong>${clientName}</strong>,</p>
+              <p style="color:#374151;font-size:15px">Le informamos que la siguiente cotización ha vencido:</p>
+              <div style="background:#fffbeb;border-left:4px solid #78350f;border-radius:4px;padding:20px 24px;margin:24px 0">
+                <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#78350f">${quoteNumber}</p>
+                <p style="margin:0 0 8px;color:#374151">${quoteTitle}</p>
+                ${validUntil ? `<p style="margin:0;color:#6b7280;font-size:13px">Fecha de vencimiento: ${validUntil}</p>` : ''}
+              </div>
+              <p style="color:#374151;font-size:14px">Si está interesado en retomar la propuesta, contáctenos para emitir una nueva cotización actualizada.</p>
+            </div>
+            <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">Soluciones Técnicas Profesionales · República Dominicana</p>
+            </div>
+          </div>
+        </div>
+      `,
+    });
+  }
+
   // ── Payment: received (internal) ──────────────────────────────────────────
 
   sendPaymentReceived(params: {
