@@ -150,7 +150,7 @@ export default async function InventarioPage({
       </Card>
 
       {totalPages > 1 && (
-        <Paginacion currentPage={page} totalPages={totalPages} />
+        <Paginacion total={res.total} page={page} limit={LIMIT} />
       )}
     </div>
   )
