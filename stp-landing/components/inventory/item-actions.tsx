@@ -161,7 +161,7 @@ export function ItemActions({ item }: { item: InventoryItem }) {
               </div>
               <div className="space-y-1.5">
                 <Label>Unidad</Label>
-                <Select value={watch('unit') || '__none__'} onValueChange={(v) => setValue('unit', v === '__none__' ? '' : v)}>
+                <Select value={watch('unit') || '__none__'} onValueChange={(v) => setValue('unit', v === '__none__' ? '' : (v ?? ''))}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">—</SelectItem>
