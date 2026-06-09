@@ -1,14 +1,22 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
+import { RefreshToken } from './entities/refresh-token.entity';
+
+const REFRESH_TOKEN_DAYS = 30;
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokenRepo: Repository<RefreshToken>,
   ) {}
 
   async register(email: string, password: string, firstName: string, lastName: string) {
@@ -25,10 +33,44 @@ export class AuthService {
     return this.buildResponse(user);
   }
 
-  private buildResponse(user: User) {
+  async refresh(rawToken: string) {
+    const hash = this.hashToken(rawToken);
+    const rt = await this.refreshTokenRepo.findOne({
+      where: { tokenHash: hash, revoked: false },
+      relations: { user: true },
+    });
+
+    if (!rt || rt.expiresAt < new Date()) {
+      if (rt) {
+        rt.revoked = true;
+        await this.refreshTokenRepo.save(rt);
+      }
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    if (!rt.user || !rt.user.isActive) {
+      throw new UnauthorizedException('Account disabled');
+    }
+
+    // Token rotation: revoke the used token and issue a new pair
+    rt.revoked = true;
+    await this.refreshTokenRepo.save(rt);
+
+    return this.buildResponse(rt.user);
+  }
+
+  async logout(rawToken: string): Promise<void> {
+    const hash = this.hashToken(rawToken);
+    await this.refreshTokenRepo.update({ tokenHash: hash }, { revoked: true });
+  }
+
+  private async buildResponse(user: User) {
     const payload = { sub: user.id, email: user.email, role: user.role };
+    const access_token = this.jwtService.sign(payload);
+    const refresh_token = await this.issueRefreshToken(user.id);
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token,
+      refresh_token,
       user: {
         id: user.id,
         email: user.email,
@@ -37,5 +79,23 @@ export class AuthService {
         role: user.role,
       },
     };
+  }
+
+  private async issueRefreshToken(userId: string): Promise<string> {
+    const raw = randomBytes(40).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_DAYS);
+
+    const rt = this.refreshTokenRepo.create({
+      tokenHash: this.hashToken(raw),
+      userId,
+      expiresAt,
+    });
+    await this.refreshTokenRepo.save(rt);
+    return raw;
+  }
+
+  private hashToken(raw: string): string {
+    return createHash('sha256').update(raw).digest('hex');
   }
 }

@@ -220,8 +220,13 @@ export class QuotesService {
 
   private async generateNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const count = await this.quotesRepository.count();
-    return `COT-${year}-${String(count + 1).padStart(3, '0')}`;
+    const row = await this.quotesRepository
+      .createQueryBuilder('q')
+      .select(`MAX(CAST(SPLIT_PART(q.number, '-', 3) AS INTEGER))`, 'max')
+      .where('q.number LIKE :pattern', { pattern: `COT-${year}-%` })
+      .getRawOne<{ max: string | null }>();
+    const next = (parseInt(row?.max ?? '0') || 0) + 1;
+    return `COT-${year}-${String(next).padStart(3, '0')}`;
   }
 
   private async assertClientExists(id: string): Promise<void> {

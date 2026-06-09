@@ -1,17 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { join, relative } from 'path';
+import { join, relative, resolve, sep } from 'path';
 import { existsSync, unlink } from 'fs';
 import { FileUpload, FileContext } from './entities/file-upload.entity';
-import { getUploadRoot } from './files.utils';
+import { getUploadRoot, validateFileMagicBytes } from './files.utils';
 import { QueryFilesDto } from './dto/query-files.dto';
+import { ProjectsService } from '../projects/projects.service';
 
 @Injectable()
 export class FilesService {
+  private readonly logger = new Logger(FilesService.name);
+
   constructor(
     @InjectRepository(FileUpload)
     private readonly repo: Repository<FileUpload>,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async saveRecord(
@@ -21,6 +25,19 @@ export class FilesService {
     projectId: string | null,
     uploadedById: string,
   ): Promise<FileUpload> {
+    // P-1: validate project belongs to client before persisting
+    if (projectId) {
+      await this.projectsService.assertProjectBelongsToClient(projectId, clientId);
+    }
+
+    // P-2: validate magic bytes match declared MIME type
+    if (!validateFileMagicBytes(file.path, file.mimetype)) {
+      unlink(file.path, () => undefined);
+      throw new BadRequestException(
+        'File content does not match declared type. Only PDF, JPG, PNG, and WEBP are accepted.',
+      );
+    }
+
     const root = getUploadRoot();
     const relativePath = relative(root, file.path);
 
@@ -59,7 +76,14 @@ export class FilesService {
 
   async getAbsolutePath(id: string): Promise<{ absolutePath: string; record: FileUpload }> {
     const record = await this.findOne(id);
-    const absolutePath = join(getUploadRoot(), record.path);
+    const uploadRoot = resolve(getUploadRoot());
+    const absolutePath = resolve(join(getUploadRoot(), record.path));
+
+    // P-3: prevent path traversal — ensure resolved path stays within upload root
+    if (!absolutePath.startsWith(uploadRoot + sep)) {
+      throw new NotFoundException('File not found');
+    }
+
     return { absolutePath, record };
   }
 
@@ -70,7 +94,9 @@ export class FilesService {
     await this.repo.remove(record);
 
     if (existsSync(absolutePath)) {
-      unlink(absolutePath, () => undefined);
+      unlink(absolutePath, (err) => {
+        if (err) this.logger.error(`Failed to delete file ${absolutePath}: ${err.message}`);
+      });
     }
   }
 }

@@ -1,5 +1,5 @@
 import { extname, join } from 'path';
-import { mkdirSync } from 'fs';
+import { mkdirSync, openSync, readSync, closeSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { diskStorage } from 'multer';
 
@@ -57,6 +57,46 @@ export const projectQuotesOpts = opts(
   (req) =>
     join(getUploadRoot(), 'clients', req.params.clientId, 'projects', req.params.projectId, 'quotes'),
 );
+
+/**
+ * Validates file content against known magic byte signatures.
+ * Guards against MIME type spoofing (Content-Type header is client-controlled).
+ */
+export function validateFileMagicBytes(filePath: string, declaredMime: string): boolean {
+  const header = Buffer.alloc(12);
+  const fd = openSync(filePath, 'r');
+  try {
+    readSync(fd, header, 0, 12, 0);
+  } finally {
+    closeSync(fd);
+  }
+
+  switch (declaredMime) {
+    case 'image/jpeg':
+      return header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
+    case 'image/png':
+      return (
+        header[0] === 0x89 &&
+        header[1] === 0x50 &&
+        header[2] === 0x4e &&
+        header[3] === 0x47
+      );
+    case 'application/pdf':
+      return (
+        header[0] === 0x25 &&
+        header[1] === 0x50 &&
+        header[2] === 0x44 &&
+        header[3] === 0x46
+      );
+    case 'image/webp':
+      return (
+        header.slice(0, 4).toString('ascii') === 'RIFF' &&
+        header.slice(8, 12).toString('ascii') === 'WEBP'
+      );
+    default:
+      return false;
+  }
+}
 
 export const FILE_UPLOAD_BODY = {
   schema: {

@@ -37,7 +37,7 @@ export class UsersController {
     @Query('page') page = '1',
     @Query('limit') limit = '20',
   ) {
-    return this.usersService.findAll(+page, +limit);
+    return this.usersService.findAll(+page, Math.min(+limit || 20, 100));
   }
 
   // Rutas /me antes de /:id para evitar conflicto de parámetro

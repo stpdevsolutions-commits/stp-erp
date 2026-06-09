@@ -88,8 +88,22 @@ export class ProjectsService {
 
   private async generateCode(): Promise<string> {
     const year = new Date().getFullYear();
-    const count = await this.projectsRepository.count();
-    return `PRJ-${year}-${String(count + 1).padStart(3, '0')}`;
+    const row = await this.projectsRepository
+      .createQueryBuilder('p')
+      .select(`MAX(CAST(SPLIT_PART(p.code, '-', 3) AS INTEGER))`, 'max')
+      .where('p.code LIKE :pattern', { pattern: `PRJ-${year}-%` })
+      .getRawOne<{ max: string | null }>();
+    const next = (parseInt(row?.max ?? '0') || 0) + 1;
+    return `PRJ-${year}-${String(next).padStart(3, '0')}`;
+  }
+
+  async assertProjectBelongsToClient(projectId: string, clientId: string): Promise<void> {
+    const exists = await this.projectsRepository.existsBy({ id: projectId, clientId });
+    if (!exists) {
+      throw new BadRequestException(
+        `Project ${projectId} does not belong to client ${clientId}`,
+      );
+    }
   }
 
   private async assertClientExists(clientId: string): Promise<void> {

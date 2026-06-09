@@ -19,6 +19,7 @@ import { HealthModule } from './health/health.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FilesModule } from './files/files.module';
 import { FileUpload } from './files/entities/file-upload.entity';
+import { RefreshToken } from './auth/entities/refresh-token.entity';
 import { User } from './users/entities/user.entity';
 import { Client } from './clients/entities/client.entity';
 import { Project } from './projects/entities/project.entity';
@@ -38,7 +39,7 @@ import { Supplier } from './suppliers/entities/supplier.entity';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',

@@ -26,8 +26,12 @@ export class UsersService {
     return { data, total, page, limit };
   }
 
+  count(): Promise<number> {
+    return this.usersRepository.count();
+  }
+
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
+    return this.usersRepository.findOne({ where: { email: email.toLowerCase().trim() } });
   }
 
   async findById(id: string): Promise<User> {
@@ -36,16 +40,21 @@ export class UsersService {
     return user;
   }
 
+  async findByIdOptional(id: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { id } });
+  }
+
   async create(
     email: string,
     password: string,
     firstName: string,
     lastName: string,
   ): Promise<User> {
-    const existing = await this.findByEmail(email);
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await this.findByEmail(normalizedEmail);
     if (existing) throw new ConflictException('Email already registered');
     const hashed = await bcrypt.hash(password, 10);
-    const user = this.usersRepository.create({ email, password: hashed, firstName, lastName });
+    const user = this.usersRepository.create({ email: normalizedEmail, password: hashed, firstName, lastName });
     return this.usersRepository.save(user);
   }
 
@@ -77,6 +86,7 @@ export class UsersService {
 
   async remove(id: string): Promise<void> {
     const user = await this.findById(id);
-    await this.usersRepository.remove(user);
+    user.isActive = false;
+    await this.usersRepository.save(user);
   }
 }

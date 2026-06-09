@@ -71,6 +71,8 @@ export class FilesController {
   // ── Fotos del proyecto ──────────────────────────────────────────
 
   @Post('clients/:clientId/projects/:projectId/photos')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', projectPhotosOpts))
   @ApiOperation({ summary: 'Subir foto al proyecto' })
   @ApiConsumes('multipart/form-data')
@@ -107,6 +109,8 @@ export class FilesController {
   // ── Comprobantes de gastos ──────────────────────────────────────
 
   @Post('clients/:clientId/projects/:projectId/expenses')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', projectExpensesOpts))
   @ApiOperation({ summary: 'Subir comprobante de gasto al proyecto' })
   @ApiConsumes('multipart/form-data')
@@ -170,8 +174,9 @@ export class FilesController {
     @Res() res: Response,
   ) {
     const { absolutePath, record } = await this.filesService.getAbsolutePath(id);
+    const safeName = record.originalName.replace(/["\r\n\\]/g, '_');
     res.setHeader('Content-Type', record.mimetype);
-    res.setHeader('Content-Disposition', `inline; filename="${record.originalName}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(record.originalName)}`);
     res.sendFile(absolutePath);
   }
 

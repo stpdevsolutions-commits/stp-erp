@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { Client } from '../clients/entities/client.entity';
@@ -141,9 +141,11 @@ export class ReportsService {
           .getRawOne(),
       ]);
 
+    if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+
     const totalExpenses = parseFloat(expensesTotal.total);
     const totalPayments = parseFloat(paymentsTotal.total);
-    const budget = project?.budget ?? 0;
+    const budget = project.budget ?? 0;
 
     return {
       project,
@@ -193,6 +195,8 @@ export class ReportsService {
         .where('project.clientId = :clientId', { clientId })
         .getRawOne(),
     ]);
+
+    if (!client) throw new NotFoundException(`Client ${clientId} not found`);
 
     const approvedAmount = quotesByStatus
       .filter((r) => r.status === QuoteStatus.APPROVED)
