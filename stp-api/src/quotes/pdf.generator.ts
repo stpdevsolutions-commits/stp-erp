@@ -51,7 +51,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     const logoPath = findLogoPath();
     if (logoPath) {
       try {
-        doc.image(logoPath, LEFT, 10, { fit: [52, 52], align: 'left' });
+        doc.image(logoPath, LEFT, 10, { fit: [52, 52] });
         doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(14)
           .text('Soluciones Técnicas Profesionales', LEFT + 60, 18, { width: 200, lineBreak: false });
         doc.fillColor('#a8c4e0').font('Helvetica').fontSize(9)
