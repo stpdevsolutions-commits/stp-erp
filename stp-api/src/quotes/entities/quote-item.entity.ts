@@ -38,6 +38,9 @@ export class QuoteItem {
   @Column({ type: 'numeric', precision: 12, scale: 2, transformer: dec })
   unitPrice: number;
 
+  @Column({ type: 'numeric', precision: 5, scale: 2, default: 0, transformer: dec })
+  discountPct: number;
+
   @Column({ type: 'numeric', precision: 12, scale: 2, transformer: dec })
   total: number;
 

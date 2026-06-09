@@ -31,6 +31,7 @@ import { createQuote } from '@/lib/actions/quotes'
 
 const itemSchema = z.object({
   description: z.string().min(1, 'Requerido'),
+  unit: z.string().optional(),
   quantity: z
     .string()
     .min(1, 'Requerido')
@@ -39,6 +40,10 @@ const itemSchema = z.object({
     .string()
     .min(1, 'Requerido')
     .refine((v) => parseFloat(v) >= 0, 'Debe ser ≥ 0'),
+  discountPct: z
+    .string()
+    .optional()
+    .refine((v) => !v || (parseFloat(v) >= 0 && parseFloat(v) <= 100), 'Entre 0 y 100'),
 })
 
 const schema = z.object({
@@ -62,6 +67,26 @@ const STATUS_LABELS = {
   rejected: 'Rechazada',
   expired: 'Expirada',
 }
+
+const UNITS = [
+  { value: 'unid', label: 'Unid.' },
+  { value: 'm', label: 'm (Metro)' },
+  { value: 'm2', label: 'm² (M. cuadrado)' },
+  { value: 'm3', label: 'm³ (M. cúbico)' },
+  { value: 'kg', label: 'kg (Kilogramo)' },
+  { value: 'lb', label: 'lb (Libra)' },
+  { value: 'hr', label: 'hr (Hora)' },
+  { value: 'dia', label: 'día' },
+  { value: 'pie', label: 'pie' },
+  { value: 'pulg', label: 'pulg. (Pulgada)' },
+  { value: 'gl', label: 'gl (Galón)' },
+  { value: 'lt', label: 'lt (Litro)' },
+  { value: 'rollo', label: 'rollo' },
+  { value: 'caja', label: 'caja' },
+  { value: 'juego', label: 'juego' },
+  { value: 'servicio', label: 'servicio' },
+  { value: 'otro', label: 'otro' },
+]
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 const ITBIS_RATE = 0.18
@@ -91,7 +116,7 @@ export function NuevaCotizacionDialog({
     resolver: zodResolver(schema),
     defaultValues: {
       status: 'draft',
-      items: [{ description: '', quantity: '1', unitPrice: '' }],
+      items: [{ description: '', unit: '', quantity: '1', unitPrice: '', discountPct: '' }],
     },
   })
 
@@ -99,7 +124,10 @@ export function NuevaCotizacionDialog({
 
   const watchedItems = watch('items')
   const subtotal = watchedItems.reduce((sum, item) => {
-    return sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0)
+    const qty = parseFloat(item.quantity) || 0
+    const price = parseFloat(item.unitPrice) || 0
+    const disc = parseFloat(item.discountPct || '0') || 0
+    return sum + qty * price * (1 - disc / 100)
   }, 0)
   const itbis = applyITBIS ? subtotal * ITBIS_RATE : 0
   const total = subtotal + itbis
@@ -137,8 +165,10 @@ export function NuevaCotizacionDialog({
       taxRate: applyITBIS ? 18 : 0,
       items: data.items.map((item) => ({
         description: item.description,
+        unit: item.unit || undefined,
         quantity: parseFloat(item.quantity),
         unitPrice: parseFloat(item.unitPrice),
+        discountPct: parseFloat(item.discountPct || '0') || 0,
       })),
     })
     if (!result.ok) {
@@ -166,11 +196,11 @@ export function NuevaCotizacionDialog({
         Nueva cotización
       </DialogTrigger>
 
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nueva cotización</DialogTitle>
           <DialogDescription>
-            El número se genera automáticamente (COT-YYYY-NNN). El total incluye ITBIS 18%.
+            El número se genera automáticamente (COT-YYYY-NNN).
           </DialogDescription>
         </DialogHeader>
 
@@ -276,7 +306,7 @@ export function NuevaCotizacionDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => append({ description: '', quantity: '1', unitPrice: '' })}
+                onClick={() => append({ description: '', unit: '', quantity: '1', unitPrice: '', discountPct: '' })}
               >
                 <Plus className="size-3.5 mr-1" />
                 Agregar ítem
@@ -287,28 +317,32 @@ export function NuevaCotizacionDialog({
               <p className="text-xs text-destructive">{errors.items.root.message}</p>
             )}
 
-            <div className="rounded-md border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-md border overflow-x-auto">
+              <table className="w-full text-sm min-w-[700px]">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-20">Cant.</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-32">Precio unit.</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-32">Subtotal</th>
-                    <th className="w-10" />
+                    <th className="px-2 py-2 text-left font-medium text-muted-foreground w-28">Unidad</th>
+                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-18">Cant.</th>
+                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Precio unit.</th>
+                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-18">Desc. %</th>
+                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Total</th>
+                    <th className="w-9" />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {fields.map((field, index) => {
                     const qty = parseFloat(watchedItems[index]?.quantity) || 0
                     const price = parseFloat(watchedItems[index]?.unitPrice) || 0
-                    const rowSubtotal = qty * price
+                    const disc = parseFloat(watchedItems[index]?.discountPct || '0') || 0
+                    const rowTotal = qty * price * (1 - disc / 100)
+                    const unitVal = watchedItems[index]?.unit || ''
 
                     return (
                       <tr key={field.id}>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-1.5">
                           <Input
-                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0"
+                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-sm"
                             placeholder="Descripción del ítem"
                             {...register(`items.${index}.description`)}
                           />
@@ -318,28 +352,60 @@ export function NuevaCotizacionDialog({
                             </p>
                           )}
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5">
+                          <Select
+                            value={unitVal || '__none__'}
+                            onValueChange={(v) => {
+                              if (!v) return
+                              setValue(`items.${index}.unit`, v === '__none__' ? '' : v)
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs border-0 shadow-none focus:ring-0 px-0">
+                              <SelectValue placeholder="—" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">—</SelectItem>
+                              {UNITS.map((u) => (
+                                <SelectItem key={u.value} value={u.value}>
+                                  {u.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-2 py-1.5">
                           <Input
                             type="number"
                             min="0.01"
                             step="0.01"
-                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right"
+                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
                             {...register(`items.${index}.quantity`)}
                           />
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5">
                           <Input
                             type="number"
                             min="0"
                             step="0.01"
-                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right"
+                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
                             {...register(`items.${index}.unitPrice`)}
                           />
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
-                          {DOP.format(rowSubtotal)}
+                        <td className="px-2 py-1.5">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
+                            placeholder="0"
+                            {...register(`items.${index}.discountPct`)}
+                          />
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-2 py-1.5 text-right tabular-nums">
+                          {DOP.format(rowTotal)}
+                        </td>
+                        <td className="px-1 py-1.5">
                           <Button
                             type="button"
                             variant="ghost"

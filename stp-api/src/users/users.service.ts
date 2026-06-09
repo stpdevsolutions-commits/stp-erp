@@ -84,6 +84,12 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
+  async updatePassword(id: string, newPassword: string): Promise<void> {
+    const user = await this.findById(id);
+    user.password = await bcrypt.hash(newPassword, 10);
+    await this.usersRepository.save(user);
+  }
+
   async remove(id: string): Promise<void> {
     const user = await this.findById(id);
     user.isActive = false;

@@ -16,6 +16,9 @@ import {
   BarChart3,
   FolderOpen,
   CircleUser,
+  Package,
+  HardHat,
+  Settings,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -38,12 +41,15 @@ const navItems = [
   { href: '/dashboard/gastos', label: 'Gastos', icon: Receipt },
   { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/dashboard/proveedores', label: 'Proveedores', icon: Truck },
+  { href: '/dashboard/inventario', label: 'Inventario', icon: Package },
+  { href: '/dashboard/colaboradores', label: 'Colaboradores', icon: HardHat },
   { href: '/dashboard/archivos', label: 'Archivos', icon: FolderOpen },
 ]
 
 const adminItems = [
   { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3, minRole: 'MANAGER' },
   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog, minRole: 'ADMIN' },
+  { href: '/dashboard/configuracion', label: 'Configuración', icon: Settings, minRole: 'ADMIN' },
 ]
 
 const accountItems = [

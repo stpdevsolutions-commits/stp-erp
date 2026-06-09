@@ -185,6 +185,38 @@ export class NotificationsService {
     });
   }
 
+  // ── Auth: password reset ──────────────────────────────────────────────────
+
+  sendPasswordReset(params: { email: string; firstName: string; resetUrl: string }): void {
+    const { email, firstName, resetUrl } = params;
+    void this.send({
+      to: email,
+      subject: 'Restablecer contraseña — STP',
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
+          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
+            <div style="background:#1a3c6e;padding:28px 32px">
+              <h1 style="color:#fff;margin:0;font-size:20px">Restablecer contraseña</h1>
+              <p style="color:#a8c4e0;margin:4px 0 0;font-size:13px">Soluciones Técnicas Profesionales</p>
+            </div>
+            <div style="padding:32px">
+              <p style="color:#374151;font-size:15px">Hola <strong>${firstName}</strong>,</p>
+              <p style="color:#374151;font-size:15px">Recibimos una solicitud para restablecer la contraseña de tu cuenta. Haz clic en el botón para continuar:</p>
+              <div style="text-align:center;margin:32px 0">
+                <a href="${resetUrl}" style="background:#1a3c6e;color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-size:15px;font-weight:700;display:inline-block">Restablecer contraseña</a>
+              </div>
+              <p style="color:#6b7280;font-size:13px">Este enlace expira en 1 hora. Si no solicitaste restablecer tu contraseña, ignora este correo.</p>
+              <p style="color:#9ca3af;font-size:12px;word-break:break-all">O copia este enlace en tu navegador:<br>${resetUrl}</p>
+            </div>
+            <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">Soluciones Técnicas Profesionales · República Dominicana</p>
+            </div>
+          </div>
+        </div>
+      `,
+    });
+  }
+
   // ── Payment: received (internal) ──────────────────────────────────────────
 
   sendPaymentReceived(params: {

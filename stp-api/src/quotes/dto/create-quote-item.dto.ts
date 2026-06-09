@@ -1,8 +1,8 @@
-import { IsString, IsOptional, IsNumber, MinLength, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, MinLength, Min, Max } from 'class-validator';
 
 export class CreateQuoteItemDto {
   @IsString()
-  @MinLength(2)
+  @MinLength(1)
   description: string;
 
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -16,6 +16,12 @@ export class CreateQuoteItemDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   unitPrice: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  discountPct?: number;
 
   @IsOptional()
   @IsNumber()

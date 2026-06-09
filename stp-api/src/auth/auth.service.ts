@@ -1,10 +1,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 
@@ -15,6 +17,8 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly config: ConfigService,
+    private readonly notifications: NotificationsService,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepo: Repository<RefreshToken>,
   ) {}
@@ -57,6 +61,33 @@ export class AuthService {
     await this.refreshTokenRepo.save(rt);
 
     return this.buildResponse(rt.user);
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.usersService.findByEmail(email);
+    if (!user || !user.isActive) return;
+
+    const token = this.jwtService.sign(
+      { sub: user.id, type: 'password-reset' },
+      { expiresIn: '1h' },
+    );
+    const appUrl = this.config.get<string>('APP_URL') ?? 'https://stpsoluciones.com';
+    this.notifications.sendPasswordReset({
+      email: user.email,
+      firstName: user.firstName,
+      resetUrl: `${appUrl}/reset-password?token=${token}`,
+    });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    let payload: { sub: string; type: string };
+    try {
+      payload = this.jwtService.verify(token) as { sub: string; type: string };
+    } catch {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
+    if (payload.type !== 'password-reset') throw new UnauthorizedException('Token inválido');
+    await this.usersService.updatePassword(payload.sub, newPassword);
   }
 
   async logout(rawToken: string): Promise<void> {

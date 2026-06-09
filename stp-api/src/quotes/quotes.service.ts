@@ -92,12 +92,12 @@ export class QuotesService implements OnModuleInit {
     const saved = await this.quotesRepository.save(quote);
 
     if (itemDtos?.length) {
-      const items = itemDtos.map((dto, idx) =>
+      const items = itemDtos.map((d, idx) =>
         this.itemsRepository.create({
-          ...dto,
+          ...d,
           quoteId: saved.id,
-          total: dto.quantity * dto.unitPrice,
-          sortOrder: dto.sortOrder ?? idx,
+          total: parseFloat((d.quantity * d.unitPrice * (1 - (d.discountPct ?? 0) / 100)).toFixed(2)),
+          sortOrder: d.sortOrder ?? idx,
         }),
       );
       await this.itemsRepository.save(items);
@@ -232,7 +232,7 @@ export class QuotesService implements OnModuleInit {
     const item = this.itemsRepository.create({
       ...dto,
       quoteId,
-      total: dto.quantity * dto.unitPrice,
+      total: parseFloat((dto.quantity * dto.unitPrice * (1 - (dto.discountPct ?? 0) / 100)).toFixed(2)),
       sortOrder: dto.sortOrder ?? count,
     });
     await this.itemsRepository.save(item);
@@ -251,7 +251,7 @@ export class QuotesService implements OnModuleInit {
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
     Object.assign(item, defined);
-    item.total = item.quantity * item.unitPrice;
+    item.total = parseFloat((item.quantity * item.unitPrice * (1 - (item.discountPct ?? 0) / 100)).toFixed(2));
     await this.itemsRepository.save(item);
     await this.recalculate(quoteId);
     return this.findOne(quoteId);

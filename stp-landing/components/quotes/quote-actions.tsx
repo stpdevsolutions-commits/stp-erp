@@ -35,8 +35,29 @@ import { updateQuote, deleteQuote } from '@/lib/actions/quotes'
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
+const UNITS = [
+  { value: 'unid', label: 'Unid.' },
+  { value: 'm', label: 'm (Metro)' },
+  { value: 'm2', label: 'm² (M. cuadrado)' },
+  { value: 'm3', label: 'm³ (M. cúbico)' },
+  { value: 'kg', label: 'kg (Kilogramo)' },
+  { value: 'lb', label: 'lb (Libra)' },
+  { value: 'hr', label: 'hr (Hora)' },
+  { value: 'dia', label: 'día' },
+  { value: 'pie', label: 'pie' },
+  { value: 'pulg', label: 'pulg. (Pulgada)' },
+  { value: 'gl', label: 'gl (Galón)' },
+  { value: 'lt', label: 'lt (Litro)' },
+  { value: 'rollo', label: 'rollo' },
+  { value: 'caja', label: 'caja' },
+  { value: 'juego', label: 'juego' },
+  { value: 'servicio', label: 'servicio' },
+  { value: 'otro', label: 'otro' },
+]
+
 const itemSchema = z.object({
   description: z.string().min(1, 'Requerido'),
+  unit: z.string().optional(),
   quantity: z
     .string()
     .min(1, 'Requerido')
@@ -45,6 +66,10 @@ const itemSchema = z.object({
     .string()
     .min(1, 'Requerido')
     .refine((v) => parseFloat(v) >= 0, 'Debe ser ≥ 0'),
+  discountPct: z
+    .string()
+    .optional()
+    .refine((v) => !v || (parseFloat(v) >= 0 && parseFloat(v) <= 100), 'Entre 0 y 100'),
 })
 
 const editSchema = z.object({
@@ -106,10 +131,12 @@ function EditDialog({
       items: (cotizacion.items ?? []).length > 0
         ? cotizacion.items.map((item) => ({
             description: item.description,
+            unit: item.unit ?? '',
             quantity: String(item.quantity),
             unitPrice: String(item.unitPrice),
+            discountPct: item.discountPct ? String(item.discountPct) : '',
           }))
-        : [{ description: '', quantity: '1', unitPrice: '' }],
+        : [{ description: '', unit: '', quantity: '1', unitPrice: '', discountPct: '' }],
     },
   })
 
@@ -120,7 +147,10 @@ function EditDialog({
   const projectId = watch('projectId')
 
   const subtotal = watchedItems.reduce((sum, item) => {
-    return sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0)
+    const qty = parseFloat(item.quantity) || 0
+    const price = parseFloat(item.unitPrice) || 0
+    const disc = parseFloat(item.discountPct || '0') || 0
+    return sum + qty * price * (1 - disc / 100)
   }, 0)
   const itbis = applyITBIS ? subtotal * 0.18 : 0
   const total = subtotal + itbis
@@ -160,8 +190,10 @@ function EditDialog({
       taxRate: applyITBIS ? 18 : 0,
       items: data.items.map((item) => ({
         description: item.description,
+        unit: item.unit || undefined,
         quantity: parseFloat(item.quantity),
         unitPrice: parseFloat(item.unitPrice),
+        discountPct: parseFloat(item.discountPct || '0') || 0,
       })),
     })
     if (!result.ok) {
@@ -277,35 +309,39 @@ function EditDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => append({ description: '', quantity: '1', unitPrice: '' })}
+                onClick={() => append({ description: '', unit: '', quantity: '1', unitPrice: '', discountPct: '' })}
               >
                 <Plus className="size-3.5 mr-1" />
                 Agregar ítem
               </Button>
             </div>
 
-            <div className="rounded-md border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-md border overflow-x-auto">
+              <table className="w-full text-sm min-w-[680px]">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-20">Cant.</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-32">Precio unit.</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-32">Subtotal</th>
-                    <th className="w-10" />
+                    <th className="px-2 py-2 text-left font-medium text-muted-foreground w-28">Unidad</th>
+                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-18">Cant.</th>
+                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Precio unit.</th>
+                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-18">Desc. %</th>
+                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Total</th>
+                    <th className="w-9" />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {fields.map((field, index) => {
                     const qty = parseFloat(watchedItems[index]?.quantity) || 0
                     const price = parseFloat(watchedItems[index]?.unitPrice) || 0
-                    const rowSubtotal = qty * price
+                    const disc = parseFloat(watchedItems[index]?.discountPct || '0') || 0
+                    const rowTotal = qty * price * (1 - disc / 100)
+                    const unitVal = watchedItems[index]?.unit || ''
 
                     return (
                       <tr key={field.id}>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-1.5">
                           <Input
-                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0"
+                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-sm"
                             {...register(`items.${index}.description`)}
                           />
                           {errors.items?.[index]?.description && (
@@ -314,28 +350,58 @@ function EditDialog({
                             </p>
                           )}
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5">
+                          <Select
+                            value={unitVal || '__none__'}
+                            onValueChange={(v) => {
+                              if (!v) return
+                              setValue(`items.${index}.unit`, v === '__none__' ? '' : v)
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs border-0 shadow-none focus:ring-0 px-0">
+                              <SelectValue placeholder="—" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">—</SelectItem>
+                              {UNITS.map((u) => (
+                                <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-2 py-1.5">
                           <Input
                             type="number"
                             min="0.01"
                             step="0.01"
-                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right"
+                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
                             {...register(`items.${index}.quantity`)}
                           />
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5">
                           <Input
                             type="number"
                             min="0"
                             step="0.01"
-                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right"
+                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
                             {...register(`items.${index}.unitPrice`)}
                           />
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
-                          {DOP.format(rowSubtotal)}
+                        <td className="px-2 py-1.5">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
+                            placeholder="0"
+                            {...register(`items.${index}.discountPct`)}
+                          />
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-2 py-1.5 text-right tabular-nums">
+                          {DOP.format(rowTotal)}
+                        </td>
+                        <td className="px-1 py-1.5">
                           <Button
                             type="button"
                             variant="ghost"
@@ -465,20 +531,30 @@ function PrintDialog({
             <thead>
               <tr className="border-b-2">
                 <th className="text-left py-1.5 pr-3">Descripción</th>
-                <th className="text-right py-1.5 px-3 w-16">Cant.</th>
-                <th className="text-right py-1.5 px-3 w-28">Precio unit.</th>
-                <th className="text-right py-1.5 pl-3 w-28">Total</th>
+                <th className="text-left py-1.5 px-2 w-16">Unidad</th>
+                <th className="text-right py-1.5 px-2 w-14">Cant.</th>
+                <th className="text-right py-1.5 px-2 w-28">Precio unit.</th>
+                <th className="text-right py-1.5 px-2 w-16">Desc.</th>
+                <th className="text-right py-1.5 pl-2 w-28">Total</th>
               </tr>
             </thead>
             <tbody>
-              {(cotizacion.items ?? []).map((item) => (
-                <tr key={item.id} className="border-b border-muted">
-                  <td className="py-1.5 pr-3">{item.description}</td>
-                  <td className="py-1.5 px-3 text-right tabular-nums">{item.quantity}</td>
-                  <td className="py-1.5 px-3 text-right tabular-nums">{DOP_FMT.format(item.unitPrice)}</td>
-                  <td className="py-1.5 pl-3 text-right tabular-nums">{DOP_FMT.format(item.quantity * item.unitPrice)}</td>
-                </tr>
-              ))}
+              {(cotizacion.items ?? []).map((item) => {
+                const disc = item.discountPct ?? 0
+                const rowTotal = item.total ?? item.quantity * item.unitPrice * (1 - disc / 100)
+                return (
+                  <tr key={item.id} className="border-b border-muted">
+                    <td className="py-1.5 pr-3">{item.description}</td>
+                    <td className="py-1.5 px-2 text-muted-foreground">{item.unit ?? '—'}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{item.quantity}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{DOP_FMT.format(item.unitPrice)}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">
+                      {disc > 0 ? `${disc}%` : '—'}
+                    </td>
+                    <td className="py-1.5 pl-2 text-right tabular-nums">{DOP_FMT.format(rowTotal)}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
 

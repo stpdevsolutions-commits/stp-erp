@@ -62,8 +62,10 @@ export interface QuoteItem {
   id: string
   description: string
   quantity: number
+  unit?: string
   unitPrice: number
-  subtotal: number
+  discountPct?: number
+  total: number
 }
 
 export interface Quote {
@@ -220,4 +222,39 @@ export interface ClientReport {
   totalPaid: number
   totalExpenses: number
   outstanding: number
+}
+
+export type InventoryCategory = 'materials' | 'equipment' | 'tools' | 'electrical' | 'mechanical' | 'consumables' | 'other'
+
+export interface InventoryItem {
+  id: string
+  name: string
+  sku?: string
+  category: InventoryCategory
+  description?: string
+  quantity: number
+  unit?: string
+  cost: number
+  price: number
+  location?: string
+  minStock?: number
+  notes?: string
+  isActive: boolean
+  createdAt: string
+}
+
+export type CollaboratorStatus = 'active' | 'inactive'
+
+export interface Collaborator {
+  id: string
+  firstName: string
+  lastName: string
+  email?: string
+  phone?: string
+  position?: string
+  cedula?: string
+  dailyRate?: number
+  status: CollaboratorStatus
+  notes?: string
+  createdAt: string
 }

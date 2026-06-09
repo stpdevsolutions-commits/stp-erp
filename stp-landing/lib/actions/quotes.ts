@@ -17,8 +17,10 @@ export interface ActionResult {
 
 export interface QuoteItemInput {
   description: string
+  unit?: string
   quantity: number
   unitPrice: number
+  discountPct?: number
 }
 
 export interface CreateQuoteInput {
