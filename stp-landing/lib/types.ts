@@ -72,6 +72,9 @@ export interface Quote {
   title: string
   status: 'draft' | 'sent' | 'approved' | 'rejected' | 'expired'
   validUntil?: string
+  taxRate: number
+  subtotal: number
+  taxAmount: number
   total: number
   notes?: string
   projectId?: string

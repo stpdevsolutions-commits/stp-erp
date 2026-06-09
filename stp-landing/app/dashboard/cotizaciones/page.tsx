@@ -1,5 +1,5 @@
 import { api } from '@/lib/api'
-import type { Client, Project, Quote, PaginatedResponse } from '@/lib/types'
+import type { Client, Project, Quote, PaginatedResponse, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -49,17 +49,21 @@ export default async function CotizacionesPage({
   let cotizacionesRes: PaginatedResponse<Quote> = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
   let clients: Client[] = []
+  let userRole: string = 'USER'
   let error: string | null = null
 
   try {
-    const [quotesRes, proyRes, clientsRes] = await Promise.all([
+    const [quotesRes, proyRes, clientsRes, meRes] = await Promise.allSettled([
       api.get<PaginatedResponse<Quote>>(`/quotes?${q.toString()}`),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
       api.get<PaginatedResponse<Client>>('/clients?limit=200'),
+      api.get<Pick<User, 'role'>>('/users/me'),
     ])
-    cotizacionesRes = quotesRes
-    projects = proyRes.data
-    clients = clientsRes.data
+    if (quotesRes.status === 'fulfilled') cotizacionesRes = quotesRes.value
+    else error = quotesRes.reason instanceof Error ? quotesRes.reason.message : 'Error al cargar cotizaciones'
+    if (proyRes.status === 'fulfilled') projects = proyRes.value.data
+    if (clientsRes.status === 'fulfilled') clients = clientsRes.value.data
+    if (meRes.status === 'fulfilled') userRole = meRes.value.role
   } catch (e) {
     error = e instanceof Error ? e.message : 'Error al cargar cotizaciones'
   }
@@ -156,7 +160,7 @@ export default async function CotizacionesPage({
                         {q.validUntil ? new Date(q.validUntil).toLocaleDateString('es-DO') : '—'}
                       </TableCell>
                       <TableCell>
-                        <QuoteActions cotizacion={q} projects={projects} />
+                        <QuoteActions cotizacion={q} projects={projects} clients={clients} userRole={userRole} />
                       </TableCell>
                     </TableRow>
                   ))

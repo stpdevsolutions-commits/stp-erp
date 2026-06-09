@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   UnprocessableEntityException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,9 +17,10 @@ import { CreateQuoteItemDto } from './dto/create-quote-item.dto';
 import { UpdateQuoteItemDto } from './dto/update-quote-item.dto';
 import { QueryQuotesDto } from './dto/query-quotes.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
-export class QuotesService {
+export class QuotesService implements OnModuleInit {
   constructor(
     @InjectRepository(Quote)
     private readonly quotesRepository: Repository<Quote>,
@@ -30,6 +32,23 @@ export class QuotesService {
     private readonly projectsRepository: Repository<Project>,
     private readonly notifications: NotificationsService,
   ) {}
+
+  onModuleInit() {
+    void this.expireOverdueQuotes();
+    setInterval(() => void this.expireOverdueQuotes(), 24 * 60 * 60 * 1000);
+  }
+
+  private async expireOverdueQuotes(): Promise<void> {
+    const today = new Date().toISOString().slice(0, 10);
+    await this.quotesRepository
+      .createQueryBuilder()
+      .update(Quote)
+      .set({ status: QuoteStatus.EXPIRED })
+      .where('status IN (:...statuses)', { statuses: [QuoteStatus.DRAFT, QuoteStatus.SENT] })
+      .andWhere('validUntil IS NOT NULL')
+      .andWhere('validUntil < :today', { today })
+      .execute();
+  }
 
   async create(dto: CreateQuoteDto, createdById: string): Promise<Quote> {
     await this.assertClientExists(dto.clientId);
@@ -54,7 +73,20 @@ export class QuotesService {
       await this.recalculate(saved.id);
     }
 
-    return this.findOne(saved.id);
+    const result = await this.findOne(saved.id);
+
+    if (dto.status === QuoteStatus.SENT && result.client?.email) {
+      this.notifications.sendQuoteSent({
+        clientEmail: result.client.email,
+        clientName: result.client.name,
+        quoteNumber: result.number,
+        quoteTitle: result.title,
+        total: result.total,
+        validUntil: result.validUntil,
+      });
+    }
+
+    return result;
   }
 
   async findAll(query: QueryQuotesDto) {
@@ -91,9 +123,9 @@ export class QuotesService {
     return quote;
   }
 
-  async update(id: string, dto: UpdateQuoteDto): Promise<Quote> {
+  async update(id: string, dto: UpdateQuoteDto, userRole?: UserRole): Promise<Quote> {
     const quote = await this.findOne(id);
-    this.assertEditable(quote);
+    this.assertEditable(quote, userRole);
 
     const previousStatus = quote.status;
 
@@ -147,9 +179,9 @@ export class QuotesService {
 
   // ── Items ──────────────────────────────────────────────────────────────────
 
-  async addItem(quoteId: string, dto: CreateQuoteItemDto): Promise<Quote> {
+  async addItem(quoteId: string, dto: CreateQuoteItemDto, userRole?: UserRole): Promise<Quote> {
     const quote = await this.findOne(quoteId);
-    this.assertEditable(quote);
+    this.assertEditable(quote, userRole);
 
     const count = await this.itemsRepository.countBy({ quoteId });
     const item = this.itemsRepository.create({
@@ -163,9 +195,9 @@ export class QuotesService {
     return this.findOne(quoteId);
   }
 
-  async updateItem(quoteId: string, itemId: string, dto: UpdateQuoteItemDto): Promise<Quote> {
+  async updateItem(quoteId: string, itemId: string, dto: UpdateQuoteItemDto, userRole?: UserRole): Promise<Quote> {
     const quote = await this.findOne(quoteId);
-    this.assertEditable(quote);
+    this.assertEditable(quote, userRole);
 
     const item = await this.itemsRepository.findOne({ where: { id: itemId, quoteId } });
     if (!item) throw new NotFoundException('Item not found');
@@ -180,9 +212,9 @@ export class QuotesService {
     return this.findOne(quoteId);
   }
 
-  async removeItem(quoteId: string, itemId: string): Promise<Quote> {
+  async removeItem(quoteId: string, itemId: string, userRole?: UserRole): Promise<Quote> {
     const quote = await this.findOne(quoteId);
-    this.assertEditable(quote);
+    this.assertEditable(quote, userRole);
 
     const item = await this.itemsRepository.findOne({ where: { id: itemId, quoteId } });
     if (!item) throw new NotFoundException('Item not found');
@@ -212,9 +244,10 @@ export class QuotesService {
     await this.quotesRepository.save(quote);
   }
 
-  private assertEditable(quote: Quote): void {
-    if (quote.status === QuoteStatus.APPROVED) {
-      throw new UnprocessableEntityException('Approved quotes cannot be modified');
+  private assertEditable(quote: Quote, userRole?: UserRole): void {
+    if (userRole === UserRole.ADMIN) return;
+    if (quote.status === QuoteStatus.APPROVED || quote.status === QuoteStatus.REJECTED) {
+      throw new UnprocessableEntityException('Approved or rejected quotes cannot be modified');
     }
   }
 

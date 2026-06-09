@@ -51,8 +51,8 @@ export class QuotesController {
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateQuoteDto) {
-    return this.quotesService.update(id, dto);
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateQuoteDto, @CurrentUser() user: AuthUser) {
+    return this.quotesService.update(id, dto, user.role);
   }
 
   @Delete(':id')
@@ -71,8 +71,9 @@ export class QuotesController {
   addItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateQuoteItemDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.quotesService.addItem(id, dto);
+    return this.quotesService.addItem(id, dto, user.role);
   }
 
   @Patch(':id/items/:itemId')
@@ -82,8 +83,9 @@ export class QuotesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('itemId', ParseUUIDPipe) itemId: string,
     @Body() dto: UpdateQuoteItemDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.quotesService.updateItem(id, itemId, dto);
+    return this.quotesService.updateItem(id, itemId, dto, user.role);
   }
 
   @Delete(':id/items/:itemId')
@@ -93,7 +95,8 @@ export class QuotesController {
   removeItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('itemId', ParseUUIDPipe) itemId: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.quotesService.removeItem(id, itemId);
+    return this.quotesService.removeItem(id, itemId, user.role);
   }
 }

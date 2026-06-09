@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { MoreHorizontal, Pencil, Trash2, Plus } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, Plus, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Project, Quote } from '@/lib/types'
+import type { Client, Project, Quote } from '@/lib/types'
 import { updateQuote, deleteQuote } from '@/lib/actions/quotes'
 
 // ── Schema ────────────────────────────────────────────────────────────────────
@@ -49,7 +49,8 @@ const itemSchema = z.object({
 
 const editSchema = z.object({
   title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
-  projectId: z.string().min(1, 'Selecciona un proyecto'),
+  clientId: z.string().min(1, 'Selecciona un cliente'),
+  projectId: z.string().optional(),
   status: z.enum(['draft', 'sent', 'approved', 'rejected', 'expired']),
   validUntil: z.string().optional(),
   notes: z.string().optional(),
@@ -67,22 +68,24 @@ const STATUS_LABELS = {
 }
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
-const ITBIS_RATE = 0.18
 
 // ── Edit dialog ───────────────────────────────────────────────────────────────
 
 function EditDialog({
   cotizacion,
+  clients,
   projects,
   open,
   onOpenChange,
 }: {
   cotizacion: Quote
+  clients: Client[]
   projects: Project[]
   open: boolean
   onOpenChange: (o: boolean) => void
 }) {
   const [serverError, setServerError] = useState<string | null>(null)
+  const [applyITBIS, setApplyITBIS] = useState(cotizacion.taxRate !== 0)
 
   const {
     register,
@@ -95,7 +98,8 @@ function EditDialog({
     resolver: zodResolver(editSchema),
     defaultValues: {
       title: cotizacion.title,
-      projectId: cotizacion.projectId,
+      clientId: cotizacion.clientId,
+      projectId: cotizacion.projectId ?? undefined,
       status: cotizacion.status,
       validUntil: cotizacion.validUntil ? cotizacion.validUntil.slice(0, 10) : '',
       notes: cotizacion.notes ?? '',
@@ -112,14 +116,32 @@ function EditDialog({
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
 
   const watchedItems = watch('items')
+  const clientId = watch('clientId')
+  const projectId = watch('projectId')
+
   const subtotal = watchedItems.reduce((sum, item) => {
     return sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0)
   }, 0)
-  const itbis = subtotal * ITBIS_RATE
+  const itbis = applyITBIS ? subtotal * 0.18 : 0
   const total = subtotal + itbis
 
-  const projectId = watch('projectId')
-  const selectedProjectName = projects.find((p) => p.id === projectId)?.name
+  const filteredProjects = projects.filter((p) => p.clientId === clientId)
+  const selectedClient = clients.find((c) => c.id === clientId)
+  const selectedProject = filteredProjects.find((p) => p.id === projectId)
+
+  function handleClientChange(newClientId: string | null) {
+    if (!newClientId) return
+    setValue('clientId', newClientId)
+    setValue('projectId', undefined)
+  }
+
+  function handleProjectChange(newProjectId: string | null) {
+    if (!newProjectId || newProjectId === '__none__') {
+      setValue('projectId', undefined)
+    } else {
+      setValue('projectId', newProjectId)
+    }
+  }
 
   function handleClose() {
     setServerError(null)
@@ -128,14 +150,14 @@ function EditDialog({
 
   async function onSubmit(data: EditFormValues) {
     setServerError(null)
-    const project = projects.find((p) => p.id === data.projectId)
     const result = await updateQuote(cotizacion.id, {
       title: data.title,
-      projectId: data.projectId,
-      clientId: project?.clientId ?? cotizacion.clientId,
+      clientId: data.clientId,
+      projectId: data.projectId ?? null,
       status: data.status,
       validUntil: data.validUntil || null,
       notes: data.notes || null,
+      taxRate: applyITBIS ? 18 : 0,
       items: data.items.map((item) => ({
         description: item.description,
         quantity: parseFloat(item.quantity),
@@ -169,30 +191,52 @@ function EditDialog({
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
+            {/* Client selector */}
             <div className="space-y-1.5">
               <Label>
-                Proyecto <span className="text-destructive">*</span>
+                Cliente <span className="text-destructive">*</span>
               </Label>
-              <Select
-                value={watch('projectId')}
-                onValueChange={(v) => v && setValue('projectId', v)}
-              >
+              <Select value={clientId ?? ''} onValueChange={handleClientChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar proyecto">
-                    {selectedProjectName}
+                  <SelectValue placeholder="Seleccionar cliente">
+                    {selectedClient?.name}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {projects.map((p) => (
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.clientId && (
+                <p className="text-xs text-destructive">{errors.clientId.message}</p>
+              )}
+            </div>
+
+            {/* Project selector (optional) */}
+            <div className="space-y-1.5">
+              <Label>Proyecto (opcional)</Label>
+              <Select
+                value={projectId ?? '__none__'}
+                onValueChange={handleProjectChange}
+                disabled={!clientId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin proyecto">
+                    {selectedProject ? `${selectedProject.code} — ${selectedProject.name}` : 'Sin proyecto'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Sin proyecto —</SelectItem>
+                  {filteredProjects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.code} — {p.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.projectId && (
-                <p className="text-xs text-destructive">{errors.projectId.message}</p>
-              )}
             </div>
 
             <div className="space-y-1.5">
@@ -219,7 +263,7 @@ function EditDialog({
               <Input id="edit-validUntil" type="date" {...register('validUntil')} />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="col-span-2 space-y-1.5">
               <Label htmlFor="edit-notes">Notas</Label>
               <Input id="edit-notes" {...register('notes')} />
             </div>
@@ -309,16 +353,29 @@ function EditDialog({
               </table>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-end justify-between">
+              {/* ITBIS toggle */}
+              <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+                <input
+                  type="checkbox"
+                  checked={applyITBIS}
+                  onChange={(e) => setApplyITBIS(e.target.checked)}
+                  className="rounded border-input"
+                />
+                Aplicar ITBIS (18%)
+              </label>
+
               <div className="w-64 space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
                   <span className="tabular-nums">{DOP.format(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>ITBIS (18%)</span>
-                  <span className="tabular-nums">{DOP.format(itbis)}</span>
-                </div>
+                {applyITBIS && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>ITBIS (18%)</span>
+                    <span className="tabular-nums">{DOP.format(itbis)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-semibold border-t pt-1">
                   <span>Total</span>
                   <span className="tabular-nums">{DOP.format(total)}</span>
@@ -342,6 +399,125 @@ function EditDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Print dialog ──────────────────────────────────────────────────────────────
+
+function PrintDialog({
+  cotizacion,
+  open,
+  onOpenChange,
+}: {
+  cotizacion: Quote
+  open: boolean
+  onOpenChange: (o: boolean) => void
+}) {
+  const DOP_FMT = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Vista de impresión</DialogTitle>
+          <DialogDescription>{cotizacion.number}</DialogDescription>
+        </DialogHeader>
+
+        {/* Printable area */}
+        <div id="quote-print" className="space-y-5 text-sm">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-xl font-bold">Cotización</p>
+              <p className="font-mono text-muted-foreground">{cotizacion.number}</p>
+            </div>
+            <div className="text-right text-muted-foreground space-y-0.5">
+              {cotizacion.validUntil && (
+                <p>Válida hasta: {new Date(cotizacion.validUntil).toLocaleDateString('es-DO')}</p>
+              )}
+              <p>Fecha: {new Date(cotizacion.createdAt).toLocaleDateString('es-DO')}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="font-semibold mb-1">Cliente</p>
+              <p>{cotizacion.client?.name ?? '—'}</p>
+              {cotizacion.client?.email && (
+                <p className="text-muted-foreground">{cotizacion.client.email}</p>
+              )}
+            </div>
+            {cotizacion.project && (
+              <div>
+                <p className="font-semibold mb-1">Proyecto</p>
+                <p className="font-mono text-xs text-muted-foreground">{cotizacion.project.code}</p>
+                <p>{cotizacion.project.name}</p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <p className="font-semibold text-base mb-2">{cotizacion.title}</p>
+          </div>
+
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b-2">
+                <th className="text-left py-1.5 pr-3">Descripción</th>
+                <th className="text-right py-1.5 px-3 w-16">Cant.</th>
+                <th className="text-right py-1.5 px-3 w-28">Precio unit.</th>
+                <th className="text-right py-1.5 pl-3 w-28">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(cotizacion.items ?? []).map((item) => (
+                <tr key={item.id} className="border-b border-muted">
+                  <td className="py-1.5 pr-3">{item.description}</td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">{item.quantity}</td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">{DOP_FMT.format(item.unitPrice)}</td>
+                  <td className="py-1.5 pl-3 text-right tabular-nums">{DOP_FMT.format(item.quantity * item.unitPrice)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="flex justify-end">
+            <div className="w-56 space-y-1">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{DOP_FMT.format(cotizacion.subtotal)}</span>
+              </div>
+              {cotizacion.taxRate > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>ITBIS ({cotizacion.taxRate}%)</span>
+                  <span className="tabular-nums">{DOP_FMT.format(cotizacion.taxAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold border-t pt-1 text-base">
+                <span>Total</span>
+                <span className="tabular-nums">{DOP_FMT.format(cotizacion.total)}</span>
+              </div>
+            </div>
+          </div>
+
+          {cotizacion.notes && (
+            <div>
+              <p className="font-semibold mb-1">Notas</p>
+              <p className="text-muted-foreground whitespace-pre-wrap">{cotizacion.notes}</p>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cerrar
+          </Button>
+          <Button onClick={() => window.print()}>
+            <Printer className="size-4 mr-1" />
+            Imprimir
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -406,15 +582,21 @@ function DeleteDialog({
 
 export function QuoteActions({
   cotizacion,
+  clients,
   projects,
+  userRole,
 }: {
   cotizacion: Quote
+  clients: Client[]
   projects: Project[]
+  userRole: string
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [printOpen, setPrintOpen] = useState(false)
 
-  const isLocked = cotizacion.status === 'approved'
+  const isAdmin = userRole === 'ADMIN' || userRole === 'admin'
+  const isLocked = !isAdmin && (cotizacion.status === 'approved' || cotizacion.status === 'rejected')
 
   return (
     <>
@@ -429,7 +611,11 @@ export function QuoteActions({
             disabled={isLocked}
           >
             <Pencil className="size-4" />
-            {isLocked ? 'Aprobada (bloqueada)' : 'Editar'}
+            {isLocked ? 'Bloqueada' : 'Editar'}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setPrintOpen(true)}>
+            <Printer className="size-4" />
+            Imprimir
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
@@ -442,11 +628,13 @@ export function QuoteActions({
       {!isLocked && (
         <EditDialog
           cotizacion={cotizacion}
+          clients={clients}
           projects={projects}
           open={editOpen}
           onOpenChange={setEditOpen}
         />
       )}
+      <PrintDialog cotizacion={cotizacion} open={printOpen} onOpenChange={setPrintOpen} />
       <DeleteDialog cotizacion={cotizacion} open={deleteOpen} onOpenChange={setDeleteOpen} />
     </>
   )

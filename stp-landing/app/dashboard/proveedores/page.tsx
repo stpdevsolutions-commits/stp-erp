@@ -39,7 +39,7 @@ export default async function ProveedoresPage({
   if (search) query.set('search', search)
   if (category) query.set('category', category)
 
-  let res: PaginatedResponse<Supplier> = { data: [], total: 0, page: 1, limit: LIMIT, totalPages: 1 }
+  let res: PaginatedResponse<Supplier> = { data: [], total: 0, page: 1, limit: LIMIT }
   let error: string | null = null
 
   try {
@@ -139,7 +139,7 @@ export default async function ProveedoresPage({
               </TableBody>
             </Table>
           </div>
-          <Paginacion total={res.total} page={page} limit={LIMIT} totalPages={res.totalPages} />
+          <Paginacion total={res.total} page={page} limit={LIMIT} />
         </>
       )}
     </div>

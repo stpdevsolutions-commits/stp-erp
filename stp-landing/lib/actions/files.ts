@@ -22,8 +22,9 @@ export async function uploadFile(
     })
 
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      return { ok: false, error: (data as { message?: string }).message ?? 'Error al subir' }
+      const data = await res.json().catch(() => ({})) as { message?: string | string[] }
+      const msg = Array.isArray(data.message) ? data.message.join(', ') : (data.message ?? 'Error al subir')
+      return { ok: false, error: msg }
     }
 
     revalidatePath('/dashboard/archivos')

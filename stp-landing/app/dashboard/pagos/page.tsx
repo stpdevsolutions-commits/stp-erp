@@ -58,7 +58,7 @@ export default async function PagosPage({
   if (dateFrom) query.set('dateFrom', dateFrom)
   if (dateTo) query.set('dateTo', dateTo)
 
-  let pagosRes: PaginatedResponse<Payment> = { data: [], total: 0, page: 1, limit: LIMIT, totalPages: 1 }
+  let pagosRes: PaginatedResponse<Payment> = { data: [], total: 0, page: 1, limit: LIMIT }
   let clients: Client[] = []
   let projects: Project[] = []
   let error: string | null = null
@@ -184,7 +184,7 @@ export default async function PagosPage({
               </TableBody>
             </Table>
           </div>
-          <Paginacion total={pagosRes.total} page={page} limit={LIMIT} totalPages={pagosRes.totalPages} />
+          <Paginacion total={pagosRes.total} page={page} limit={LIMIT} />
         </>
       )}
     </div>

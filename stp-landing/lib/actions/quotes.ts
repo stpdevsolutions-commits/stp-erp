@@ -28,16 +28,18 @@ export interface CreateQuoteInput {
   status?: 'draft' | 'sent' | 'approved' | 'rejected' | 'expired'
   validUntil?: string
   notes?: string
+  taxRate?: number
   items: QuoteItemInput[]
 }
 
 export interface UpdateQuoteInput {
   title?: string
-  projectId?: string
+  projectId?: string | null
   clientId?: string
   status?: 'draft' | 'sent' | 'approved' | 'rejected' | 'expired'
   validUntil?: string | null
   notes?: string | null
+  taxRate?: number
   items?: QuoteItemInput[]
 }
 

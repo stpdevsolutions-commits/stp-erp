@@ -77,6 +77,7 @@ export function NuevaCotizacionDialog({
 }) {
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [applyITBIS, setApplyITBIS] = useState(true)
 
   const {
     register,
@@ -100,7 +101,7 @@ export function NuevaCotizacionDialog({
   const subtotal = watchedItems.reduce((sum, item) => {
     return sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0)
   }, 0)
-  const itbis = subtotal * ITBIS_RATE
+  const itbis = applyITBIS ? subtotal * ITBIS_RATE : 0
   const total = subtotal + itbis
 
   const clientId = watch('clientId')
@@ -133,6 +134,7 @@ export function NuevaCotizacionDialog({
       status: data.status,
       validUntil: data.validUntil || undefined,
       notes: data.notes || undefined,
+      taxRate: applyITBIS ? 18 : 0,
       items: data.items.map((item) => ({
         description: item.description,
         quantity: parseFloat(item.quantity),
@@ -155,6 +157,7 @@ export function NuevaCotizacionDialog({
         if (!o) {
           reset()
           setServerError(null)
+          setApplyITBIS(true)
         }
       }}
     >
@@ -354,17 +357,29 @@ export function NuevaCotizacionDialog({
               </table>
             </div>
 
-            {/* Totals */}
-            <div className="flex justify-end">
+            {/* ITBIS toggle + Totals */}
+            <div className="flex items-end justify-between">
+              <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+                <input
+                  type="checkbox"
+                  checked={applyITBIS}
+                  onChange={(e) => setApplyITBIS(e.target.checked)}
+                  className="rounded border-input"
+                />
+                Aplicar ITBIS (18%)
+              </label>
+
               <div className="w-64 space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
                   <span className="tabular-nums">{DOP.format(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>ITBIS (18%)</span>
-                  <span className="tabular-nums">{DOP.format(itbis)}</span>
-                </div>
+                {applyITBIS && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>ITBIS (18%)</span>
+                    <span className="tabular-nums">{DOP.format(itbis)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-semibold border-t pt-1">
                   <span>Total</span>
                   <span className="tabular-nums">{DOP.format(total)}</span>
