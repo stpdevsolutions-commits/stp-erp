@@ -110,13 +110,14 @@ export function NuevaCotizacionDialog({
   const filteredProjects = projects.filter((p) => p.clientId === clientId)
   const selectedProject = filteredProjects.find((p) => p.id === projectId)
 
-  function handleClientChange(newClientId: string) {
+  function handleClientChange(newClientId: string | null) {
+    if (!newClientId) return
     setValue('clientId', newClientId)
     setValue('projectId', undefined)
   }
 
-  function handleProjectChange(newProjectId: string) {
-    if (newProjectId === '__none__') {
+  function handleProjectChange(newProjectId: string | null) {
+    if (!newProjectId || newProjectId === '__none__') {
       setValue('projectId', undefined)
     } else {
       setValue('projectId', newProjectId)
