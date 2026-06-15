@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -124,15 +124,15 @@ export function NuevoPagoDialog({
         Nuevo pago
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo pago</DialogTitle>
           <DialogDescription>Registra un pago recibido de un cliente.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 space-y-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="col-span-full space-y-1.5">
               <Label>Cliente <span className="text-destructive">*</span></Label>
               <Select
                 value={watch('clientId') ?? ''}
@@ -156,7 +156,7 @@ export function NuevoPagoDialog({
               {errors.clientId && <p className="text-xs text-destructive">{errors.clientId.message}</p>}
             </div>
 
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label>Proyecto</Label>
               <Select
                 value={watch('projectId') ?? ''}
@@ -176,7 +176,7 @@ export function NuevoPagoDialog({
               </Select>
             </div>
 
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label htmlFor="p-description">Descripción <span className="text-destructive">*</span></Label>
               <Input id="p-description" placeholder="Pago adelanto proyecto..." {...register('description')} />
               {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
@@ -224,12 +224,12 @@ export function NuevoPagoDialog({
               </Select>
             </div>
 
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label htmlFor="p-reference">Referencia / Nro. transferencia</Label>
               <Input id="p-reference" placeholder="TRF-0001..." {...register('reference')} />
             </div>
 
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label htmlFor="p-notes">Notas</Label>
               <Input id="p-notes" {...register('notes')} />
             </div>

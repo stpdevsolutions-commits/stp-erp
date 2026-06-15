@@ -29,7 +29,7 @@ export default async function DashboardLayout({
           <Separator orientation="vertical" className="h-4" />
           <span className="text-sm text-muted-foreground font-medium">STP ERP</span>
         </header>
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-4 sm:p-6">
           {children}
         </main>
       </div>

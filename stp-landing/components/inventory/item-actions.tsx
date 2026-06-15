@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -132,11 +132,11 @@ export function ItemActions({ item }: { item: InventoryItem }) {
 
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { reset(); setServerError(null) } }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar ítem</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="col-span-full space-y-1.5">
                 <Label>Nombre <span className="text-destructive">*</span></Label>
                 <Input {...register('name')} />
                 {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
@@ -197,7 +197,7 @@ export function ItemActions({ item }: { item: InventoryItem }) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2 space-y-1.5">
+              <div className="col-span-full space-y-1.5">
                 <Label>Notas</Label>
                 <Input {...register('notes')} />
               </div>
@@ -213,7 +213,7 @@ export function ItemActions({ item }: { item: InventoryItem }) {
 
       {/* Delete confirm */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>¿Eliminar ítem?</DialogTitle>
             <DialogDescription>

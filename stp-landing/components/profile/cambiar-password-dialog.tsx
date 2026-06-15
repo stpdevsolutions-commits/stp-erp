@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -66,7 +66,7 @@ export function CambiarPasswordDialog() {
         Cambiar contraseña
       </DialogTrigger>
 
-      <DialogContent className="max-w-sm">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Cambiar contraseña</DialogTitle>
           <DialogDescription>Elige una contraseña de al menos 6 caracteres.</DialogDescription>

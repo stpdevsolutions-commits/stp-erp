@@ -1,4 +1,4 @@
-import { api } from '@/lib/api'
+﻿import { api } from '@/lib/api'
 import type { Collaborator, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -45,7 +45,7 @@ export default async function ColaboradoresPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Colaboradores</h1>
           <p className="text-muted-foreground text-sm">

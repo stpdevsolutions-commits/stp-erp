@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'
+﻿export const dynamic = 'force-dynamic'
 
 import { api } from '@/lib/api'
 import type {
@@ -247,7 +247,7 @@ export default async function DashboardPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Proyectos en curso</CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             {activeProjects.length === 0 ? (
               <p className="text-sm text-muted-foreground px-6 pb-4">No hay proyectos en curso.</p>
             ) : (
@@ -285,7 +285,7 @@ export default async function DashboardPage() {
               </Badge>
             )}
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             {urgentTasks.length === 0 ? (
               <p className="text-sm text-muted-foreground px-6 pb-4">No hay tareas urgentes activas.</p>
             ) : (
@@ -337,7 +337,7 @@ export default async function DashboardPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Últimas cotizaciones</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           {recentQuotes.length === 0 ? (
             <p className="text-sm text-muted-foreground px-6 pb-4">No hay cotizaciones registradas.</p>
           ) : (

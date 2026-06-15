@@ -1,4 +1,4 @@
-import { api } from '@/lib/api'
+﻿import { api } from '@/lib/api'
 import type {
   Project,
   Client,
@@ -170,7 +170,7 @@ function ProjectSummary({ report }: { report: ProjectReport }) {
       {/* Expenses */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="text-base">Gastos</CardTitle>
             <span className="text-sm font-semibold tabular-nums">
               {DOP.format(expenses.total)}

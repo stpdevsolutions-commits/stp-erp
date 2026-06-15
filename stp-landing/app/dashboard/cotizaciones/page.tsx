@@ -1,4 +1,4 @@
-import { api } from '@/lib/api'
+﻿﻿import { api } from '@/lib/api'
 import type { Client, Project, Quote, PaginatedResponse, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -78,7 +78,7 @@ export default async function CotizacionesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Cotizaciones</h1>
           <p className="text-muted-foreground text-sm">Gestión de cotizaciones y propuestas</p>
@@ -117,7 +117,7 @@ export default async function CotizacionesPage({
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">{error}</div>
       ) : (
         <>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

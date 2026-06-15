@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -82,14 +82,14 @@ export function NuevoUsuarioDialog() {
         Nuevo usuario
       </DialogTrigger>
 
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Nuevo usuario</DialogTitle>
           <DialogDescription>Crea una cuenta para un miembro del equipo.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="firstName">
                 Nombre <span className="text-destructive">*</span>
@@ -129,7 +129,7 @@ export function NuevoUsuarioDialog() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Rol</Label>
               <Select

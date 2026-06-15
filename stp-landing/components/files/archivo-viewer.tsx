@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef } from 'react'
 import { FileText, Download, Trash2, Upload, FolderOpen, Images, BookText, Receipt, Quote } from 'lucide-react'
@@ -125,7 +125,7 @@ function SubirDialog({
         Subir archivo
       </DialogTrigger>
 
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Subir archivo</DialogTitle>
           <DialogDescription>{contextLabel}</DialogDescription>

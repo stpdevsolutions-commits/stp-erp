@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -58,7 +58,7 @@ export function EditarPerfilDialog({ user }: { user: User }) {
         Editar perfil
       </DialogTrigger>
 
-      <DialogContent className="max-w-sm">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Editar perfil</DialogTitle>
           <DialogDescription>Actualiza tu nombre.</DialogDescription>

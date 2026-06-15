@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -119,7 +119,7 @@ export function NuevaTareaDialog({
         Nueva tarea
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nueva tarea</DialogTitle>
           <DialogDescription>Asigna la tarea a un proyecto y define su prioridad.</DialogDescription>
@@ -160,7 +160,7 @@ export function NuevaTareaDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Estado</Label>
               <Select
@@ -200,7 +200,7 @@ export function NuevaTareaDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="dueDate">Fecha límite</Label>
               <Input id="dueDate" type="date" {...register('dueDate')} />

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
@@ -94,6 +94,7 @@ export function ProjectDetailTabs({
 
   return (
     <Tabs defaultValue="tareas">
+      <div className="overflow-x-auto">
       <TabsList>
         <TabsTrigger value="tareas">
           Tareas <span className="ml-1 text-xs opacity-60">({tasks.total})</span>
@@ -108,10 +109,11 @@ export function ProjectDetailTabs({
           Archivos <span className="ml-1 text-xs opacity-60">({files.total})</span>
         </TabsTrigger>
       </TabsList>
+      </div>
 
       {/* TAREAS */}
       <TabsContent value="tareas">
-        <div className="rounded-md border mt-3">
+        <div className="rounded-md border mt-3 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -155,7 +157,7 @@ export function ProjectDetailTabs({
 
       {/* GASTOS */}
       <TabsContent value="gastos">
-        <div className="rounded-md border mt-3">
+        <div className="rounded-md border mt-3 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -197,7 +199,7 @@ export function ProjectDetailTabs({
 
       {/* PAGOS */}
       <TabsContent value="pagos">
-        <div className="rounded-md border mt-3">
+        <div className="rounded-md border mt-3 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -95,14 +95,14 @@ export function NuevoItemDialog() {
         Nuevo ítem
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo ítem de inventario</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 space-y-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="col-span-full space-y-1.5">
               <Label htmlFor="name">Nombre <span className="text-destructive">*</span></Label>
               <Input id="name" placeholder="Cable AWG 12" {...register('name')} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
@@ -165,12 +165,12 @@ export function NuevoItemDialog() {
               {errors.minStock && <p className="text-xs text-destructive">{errors.minStock.message}</p>}
             </div>
 
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label htmlFor="description">Descripción</Label>
               <Input id="description" placeholder="Descripción opcional" {...register('description')} />
             </div>
 
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label htmlFor="notes">Notas</Label>
               <Input id="notes" placeholder="Notas internas" {...register('notes')} />
             </div>

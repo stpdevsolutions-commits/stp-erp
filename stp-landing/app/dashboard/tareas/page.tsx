@@ -1,4 +1,4 @@
-import { api } from '@/lib/api'
+﻿﻿import { api } from '@/lib/api'
 import type { Project, Task, User, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -78,7 +78,7 @@ export default async function TareasPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Tareas</h1>
           <p className="text-muted-foreground text-sm">Seguimiento de tareas por proyecto</p>
@@ -121,7 +121,7 @@ export default async function TareasPage({
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">{error}</div>
       ) : (
         <>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

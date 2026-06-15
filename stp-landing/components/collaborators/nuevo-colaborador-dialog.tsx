@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -76,13 +76,13 @@ export function NuevoColaboradorDialog() {
         Nuevo colaborador
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo colaborador</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="firstName">Nombre <span className="text-destructive">*</span></Label>
               <Input id="firstName" {...register('firstName')} />
@@ -133,7 +133,7 @@ export function NuevoColaboradorDialog() {
               </Select>
             </div>
 
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label htmlFor="notes">Notas</Label>
               <Input id="notes" placeholder="Observaciones" {...register('notes')} />
             </div>

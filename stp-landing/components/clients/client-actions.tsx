@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -108,15 +108,15 @@ function EditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar cliente</DialogTitle>
           <DialogDescription>Modifica los datos de {cliente.name}.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 space-y-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="col-span-full space-y-1.5">
               <Label htmlFor="edit-name">
                 Nombre <span className="text-destructive">*</span>
               </Label>
@@ -147,7 +147,7 @@ function EditDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="edit-email">Correo electrónico</Label>
               <Input id="edit-email" type="email" {...register('email')} />
@@ -164,13 +164,13 @@ function EditDialog({
               <Input id="edit-city" {...register('city')} />
             </div>
 
-            <div className="col-span-2 space-y-1.5">
+            <div className="col-span-full space-y-1.5">
               <Label htmlFor="edit-address">Dirección</Label>
               <Input id="edit-address" {...register('address')} />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="edit-contactName">Persona de contacto</Label>
               <Input id="edit-contactName" {...register('contactName')} />
@@ -250,7 +250,7 @@ function DeleteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Eliminar cliente</DialogTitle>
           <DialogDescription>

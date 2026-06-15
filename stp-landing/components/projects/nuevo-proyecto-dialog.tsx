@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -127,7 +127,7 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
         Nuevo proyecto
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo proyecto</DialogTitle>
           <DialogDescription>
@@ -144,7 +144,7 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>
                 Cliente <span className="text-destructive">*</span>
@@ -202,7 +202,7 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="startDate">Fecha de inicio</Label>
               <Input id="startDate" type="date" {...register('startDate')} />
