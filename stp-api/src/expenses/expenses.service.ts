@@ -70,7 +70,7 @@ export class ExpensesService {
   async findOne(id: string): Promise<Expense> {
     const expense = await this.expensesRepository.findOne({
       where: { id },
-      relations: ['project', 'project.client', 'supplier', 'createdBy'],
+      relations: { project: { client: true }, supplier: true, createdBy: true },
     });
     if (!expense) throw new NotFoundException('Expense not found');
     return expense;
@@ -132,7 +132,7 @@ export class ExpensesService {
     if (!clientId) {
       const project = await this.projectsRepository.findOne({
         where: { id: expense.projectId },
-        select: ['id', 'clientId'],
+        select: { id: true, clientId: true },
       });
       clientId = project?.clientId;
     }
@@ -142,7 +142,7 @@ export class ExpensesService {
     if (!expense.project) {
       const project = await this.projectsRepository.findOne({
         where: { id: expense.projectId },
-        relations: ['client'],
+        relations: { client: true },
       });
       if (project) expense.project = project;
     }
