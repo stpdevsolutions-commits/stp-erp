@@ -22,6 +22,7 @@ import { FileContext } from './entities/file-upload.entity';
 import { QueryFilesDto } from './dto/query-files.dto';
 import {
   clientProfileOpts,
+  clientQuotesOpts,
   projectPhotosOpts,
   projectDocumentsOpts,
   projectExpensesOpts,
@@ -66,6 +67,24 @@ export class FilesController {
     @Query() query: QueryFilesDto,
   ) {
     return this.filesService.findByClient(clientId, { ...query, context: FileContext.CLIENT_PROFILE });
+  }
+
+  // ── Cotizaciones del cliente (sin proyecto) ─────────────────────
+
+  @Post('clients/:clientId/quotes')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
+  @UseInterceptors(FileInterceptor('file', clientQuotesOpts))
+  @ApiOperation({ summary: 'Subir documento de cotización del cliente' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(FILE_UPLOAD_BODY)
+  uploadClientQuote(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @UploadedFile(new ParseFilePipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    file: Express.Multer.File,
+    @CurrentUser() user: any,
+  ) {
+    return this.filesService.saveRecord(file, FileContext.CLIENT_QUOTES, clientId, null, user.id);
   }
 
   // ── Fotos del proyecto ──────────────────────────────────────────

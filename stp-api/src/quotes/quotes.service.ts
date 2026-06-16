@@ -117,11 +117,9 @@ export class QuotesService implements OnModuleInit {
       });
     }
 
-    if (result.projectId) {
-      void this.savePdfForQuote(result).catch((err: Error) =>
-        this.logger.error(`PDF generation failed for quote ${result.id}: ${err.message}`),
-      );
-    }
+    void this.savePdfForQuote(result).catch((err: Error) =>
+      this.logger.error(`PDF generation failed for quote ${result.id}: ${err.message}`),
+    );
 
     return result;
   }
@@ -214,6 +212,10 @@ export class QuotesService implements OnModuleInit {
       }
     }
 
+    void this.savePdfForQuote(updated).catch((err: Error) =>
+      this.logger.error(`PDF regeneration failed for quote ${id}: ${err.message}`),
+    );
+
     return updated;
   }
 
@@ -290,12 +292,13 @@ export class QuotesService implements OnModuleInit {
   }
 
   private async savePdfForQuote(quote: Quote): Promise<void> {
-    const destDir = join(
-      getUploadRoot(),
-      'clients', quote.clientId,
-      'projects', quote.projectId,
-      'quotes',
-    );
+    const hasProject = !!quote.projectId;
+    const context = hasProject ? FileContext.PROJECT_QUOTES : FileContext.CLIENT_QUOTES;
+
+    const destDir = hasProject
+      ? join(getUploadRoot(), 'clients', quote.clientId, 'projects', quote.projectId, 'quotes')
+      : join(getUploadRoot(), 'clients', quote.clientId, 'quotes');
+
     mkdirSync(destDir, { recursive: true });
 
     const filename = `${quote.number}.pdf`;
@@ -306,15 +309,21 @@ export class QuotesService implements OnModuleInit {
     const { size } = statSync(filePath);
     const relativePath = relative(getUploadRoot(), filePath);
 
+    // Replace existing record (regeneration on update)
+    const existing = await this.fileRepo.findOne({
+      where: { filename, clientId: quote.clientId },
+    });
+    if (existing) await this.fileRepo.remove(existing);
+
     const record = this.fileRepo.create({
       originalName: filename,
       filename,
       path: relativePath,
       mimetype: 'application/pdf',
       size,
-      context: FileContext.PROJECT_QUOTES,
+      context,
       clientId: quote.clientId,
-      projectId: quote.projectId,
+      projectId: quote.projectId ?? undefined,
       uploadedById: quote.createdById ?? undefined,
     });
     await this.fileRepo.save(record);

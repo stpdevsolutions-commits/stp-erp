@@ -10,6 +10,7 @@ import { User } from '../../users/entities/user.entity';
 
 export enum FileContext {
   CLIENT_PROFILE = 'client-profile',
+  CLIENT_QUOTES = 'client-quotes',
   PROJECT_PHOTOS = 'project-photos',
   PROJECT_DOCUMENTS = 'project-documents',
   PROJECT_EXPENSES = 'project-expenses',

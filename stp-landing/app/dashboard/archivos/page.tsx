@@ -49,7 +49,7 @@ export default async function ArchivosPage({
     } catch {}
   } else if (cliente) {
     try {
-      files = await api.get<FileUpload[]>(`/files/clients/${cliente}/profile`)
+      files = await api.get<FileUpload[]>(`/files/clients/${cliente}`)
     } catch {}
   }
 

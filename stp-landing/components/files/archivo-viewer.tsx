@@ -340,25 +340,51 @@ export function ArchivoViewer({
     projectId ? 'project-photos' : 'client-profile',
   )
 
-  // ── Client-only view (profile) ─────────────────────────────────────────────
+  // ── Client-only view (profile + quotes) ───────────────────────────────────
 
   if (!projectId) {
-    const profileFiles = files.filter((f) => f.context === 'client-profile')
+    const CLIENT_TABS = [
+      { context: 'client-profile' as FileContext, label: 'Perfil', icon: Images, uploadPath: `/files/clients/${clientId}/profile`, accept: 'image/jpeg,image/png,image/webp' },
+      { context: 'client-quotes' as FileContext, label: 'Cotizaciones', icon: Quote, uploadPath: `/files/clients/${clientId}/quotes`, accept: 'application/pdf' },
+    ]
+    const activeClientTabDef = CLIENT_TABS.find((t) => t.context === activeTab) ?? CLIENT_TABS[0]
+    const clientTabFiles = files.filter((f) => f.context === activeClientTabDef.context)
+
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-sm font-medium">
-            <Images className="size-4" />
-            Perfil
-            <span className="text-muted-foreground">({profileFiles.length})</span>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            {CLIENT_TABS.map((tab) => {
+              const count = files.filter((f) => f.context === tab.context).length
+              const isActive = activeTab === tab.context
+              return (
+                <button
+                  key={tab.context}
+                  onClick={() => setActiveTab(tab.context)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <tab.icon className="size-3.5" />
+                  {tab.label}
+                  {count > 0 && (
+                    <span className={`text-xs tabular-nums rounded-full px-1.5 py-0.5 ${isActive ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/20'}`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
           <SubirDialog
-            uploadPath={`/files/clients/${clientId}/profile`}
-            contextLabel="Imagen de perfil del cliente"
-            accept="image/jpeg,image/png,image/webp"
+            uploadPath={activeClientTabDef.uploadPath}
+            contextLabel={activeClientTabDef.label}
+            accept={activeClientTabDef.accept}
           />
         </div>
-        <FileGrid files={profileFiles} canDelete={canDelete} />
+        <FileGrid files={clientTabFiles} canDelete={canDelete} />
       </div>
     )
   }

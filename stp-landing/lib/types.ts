@@ -166,6 +166,7 @@ export interface ApiError {
 
 export type FileContext =
   | 'client-profile'
+  | 'client-quotes'
   | 'project-photos'
   | 'project-documents'
   | 'project-expenses'
