@@ -70,7 +70,7 @@ export class ExpensesService {
   async findOne(id: string): Promise<Expense> {
     const expense = await this.expensesRepository.findOne({
       where: { id },
-      relations: { project: { client: true }, supplier: true, createdBy: true },
+      relations: ['project', 'project.client', 'supplier', 'createdBy'],
     });
     if (!expense) throw new NotFoundException('Expense not found');
     return expense;
@@ -123,8 +123,25 @@ export class ExpensesService {
   }
 
   private async savePdfForExpense(expense: Expense): Promise<void> {
-    const clientId = expense.project?.clientId;
-    if (!clientId) return; // project not loaded
+    // clientId is not a direct column on Expense — resolve it from the project
+    let clientId = expense.project?.clientId;
+    if (!clientId) {
+      const project = await this.projectsRepository.findOne({
+        where: { id: expense.projectId },
+        select: ['id', 'clientId'],
+      });
+      clientId = project?.clientId;
+    }
+    if (!clientId) return;
+
+    // Ensure the project relation is populated for the PDF generator
+    if (!expense.project) {
+      const project = await this.projectsRepository.findOne({
+        where: { id: expense.projectId },
+        relations: ['client'],
+      });
+      if (project) expense.project = project;
+    }
 
     const destDir = join(getUploadRoot(), 'clients', clientId, 'projects', expense.projectId, 'expenses');
     mkdirSync(destDir, { recursive: true });

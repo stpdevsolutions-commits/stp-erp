@@ -104,7 +104,7 @@ export class PaymentsService {
   async findOne(id: string): Promise<Payment> {
     const payment = await this.paymentsRepository.findOne({
       where: { id },
-      relations: { client: true, project: true, quote: true, createdBy: true },
+      relations: ['client', 'project', 'quote', 'createdBy'],
     });
     if (!payment) throw new NotFoundException('Payment not found');
     return payment;
