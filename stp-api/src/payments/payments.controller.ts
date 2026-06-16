@@ -11,6 +11,7 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -44,6 +45,13 @@ export class PaymentsController {
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.paymentsService.findOne(id);
+  }
+
+  @Get(':id/pdf-file')
+  async getPdfFile(@Param('id', ParseUUIDPipe) id: string) {
+    const file = await this.paymentsService.findPdfFile(id);
+    if (!file) throw new NotFoundException('PDF no disponible todavía');
+    return file;
   }
 
   @Patch(':id')

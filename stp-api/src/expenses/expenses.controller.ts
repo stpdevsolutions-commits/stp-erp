@@ -11,6 +11,7 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
@@ -42,6 +43,13 @@ export class ExpensesController {
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.expensesService.findOne(id);
+  }
+
+  @Get(':id/pdf-file')
+  async getPdfFile(@Param('id', ParseUUIDPipe) id: string) {
+    const file = await this.expensesService.findPdfFile(id);
+    if (!file) throw new NotFoundException('PDF no disponible todavía');
+    return file;
   }
 
   @Patch(':id')

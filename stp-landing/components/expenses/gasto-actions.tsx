@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, FileText, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -285,6 +285,21 @@ export function GastoActions({
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <Pencil className="size-4" />
             Editar
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            render={<a href={`/api/files/expense/${gasto.id}`} target="_blank" rel="noopener noreferrer" />}
+          >
+            <FileText className="size-4" />
+            Ver PDF
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              const win = window.open(`/api/files/expense/${gasto.id}`, '_blank')
+              if (win) win.addEventListener('load', () => setTimeout(() => win.print(), 400))
+            }}
+          >
+            <Printer className="size-4" />
+            Imprimir
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>

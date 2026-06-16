@@ -103,6 +103,10 @@ export class ExpensesService {
     await this.expensesRepository.remove(expense);
   }
 
+  async findPdfFile(expenseId: string): Promise<FileUpload | null> {
+    return this.fileRepo.findOne({ where: { filename: `GASTO-${expenseId}.pdf` } });
+  }
+
   async sumByProject(projectId: string): Promise<number> {
     const { sum } = await this.expensesRepository
       .createQueryBuilder('expense')
