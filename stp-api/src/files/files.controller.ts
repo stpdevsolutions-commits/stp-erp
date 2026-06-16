@@ -23,10 +23,12 @@ import { QueryFilesDto } from './dto/query-files.dto';
 import {
   clientProfileOpts,
   clientQuotesOpts,
+  clientPaymentsOpts,
   projectPhotosOpts,
   projectDocumentsOpts,
   projectExpensesOpts,
   projectQuotesOpts,
+  projectPaymentsOpts,
   FILE_UPLOAD_BODY,
 } from './files.utils';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -161,6 +163,43 @@ export class FilesController {
     @CurrentUser() user: any,
   ) {
     return this.filesService.saveRecord(file, FileContext.PROJECT_QUOTES, clientId, projectId, user.id);
+  }
+
+  // ── Pagos del cliente (sin proyecto) ────────────────────────────
+
+  @Post('clients/:clientId/payments')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
+  @UseInterceptors(FileInterceptor('file', clientPaymentsOpts))
+  @ApiOperation({ summary: 'Subir comprobante de pago del cliente' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(FILE_UPLOAD_BODY)
+  uploadClientPayment(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @UploadedFile(new ParseFilePipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    file: Express.Multer.File,
+    @CurrentUser() user: any,
+  ) {
+    return this.filesService.saveRecord(file, FileContext.CLIENT_PAYMENTS, clientId, null, user.id);
+  }
+
+  // ── Pagos del proyecto ───────────────────────────────────────────
+
+  @Post('clients/:clientId/projects/:projectId/payments')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
+  @UseInterceptors(FileInterceptor('file', projectPaymentsOpts))
+  @ApiOperation({ summary: 'Subir comprobante de pago del proyecto' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(FILE_UPLOAD_BODY)
+  uploadProjectPayment(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @UploadedFile(new ParseFilePipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    file: Express.Multer.File,
+    @CurrentUser() user: any,
+  ) {
+    return this.filesService.saveRecord(file, FileContext.PROJECT_PAYMENTS, clientId, projectId, user.id);
   }
 
   // ── Listados ────────────────────────────────────────────────────

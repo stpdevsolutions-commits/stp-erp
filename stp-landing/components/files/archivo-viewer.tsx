@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useState, useRef } from 'react'
-import { FileText, Download, Trash2, Upload, FolderOpen, Images, BookText, Receipt, Quote } from 'lucide-react'
+import { FileText, Eye, Printer, Trash2, Upload, FolderOpen, Images, BookText, Receipt, Quote, CreditCard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -30,6 +30,7 @@ const PROJECT_TABS: ProjectTab[] = [
   { context: 'project-documents', label: 'Documentos', suffix: 'documents', icon: BookText, accept: 'application/pdf,image/jpeg,image/png,image/webp' },
   { context: 'project-expenses', label: 'Comprobantes', suffix: 'expenses', icon: Receipt, accept: 'application/pdf,image/jpeg,image/png,image/webp' },
   { context: 'project-quotes', label: 'Cotizaciones', suffix: 'quotes', icon: Quote, accept: 'application/pdf' },
+  { context: 'project-payments', label: 'Pagos', suffix: 'payments', icon: CreditCard, accept: 'application/pdf' },
 ]
 
 const ACCEPT_ALL = 'image/jpeg,image/png,image/webp,application/pdf'
@@ -231,6 +232,16 @@ function DeleteButton({ id }: { id: string }) {
   )
 }
 
+// ── Print helper ──────────────────────────────────────────────────────────────
+
+function printFile(id: string) {
+  const url = `/api/files/${id}/download`
+  const win = window.open(url, '_blank')
+  if (win) {
+    win.addEventListener('load', () => setTimeout(() => win.print(), 400))
+  }
+}
+
 // ── File Grid ─────────────────────────────────────────────────────────────────
 
 function FileGrid({
@@ -275,9 +286,16 @@ function FileGrid({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Button size="icon-sm" variant="secondary">
-                    <Download className="size-3.5" />
+                    <Eye className="size-3.5" />
                   </Button>
                 </a>
+                <Button
+                  size="icon-sm"
+                  variant="secondary"
+                  onClick={(e) => { e.stopPropagation(); printFile(file.id) }}
+                >
+                  <Printer className="size-3.5" />
+                </Button>
                 {canDelete && <DeleteButton id={file.id} />}
               </div>
               <p className="absolute bottom-0 left-0 right-0 text-xs text-white bg-black/60 px-1.5 py-0.5 truncate">
@@ -310,9 +328,16 @@ function FileGrid({
                   rel="noopener noreferrer"
                 >
                   <Button size="icon-sm" variant="outline">
-                    <Download className="size-3.5" />
+                    <Eye className="size-3.5" />
                   </Button>
                 </a>
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  onClick={() => printFile(file.id)}
+                >
+                  <Printer className="size-3.5" />
+                </Button>
                 {canDelete && <DeleteButton id={file.id} />}
               </div>
             </div>
@@ -346,6 +371,7 @@ export function ArchivoViewer({
     const CLIENT_TABS = [
       { context: 'client-profile' as FileContext, label: 'Perfil', icon: Images, uploadPath: `/files/clients/${clientId}/profile`, accept: 'image/jpeg,image/png,image/webp' },
       { context: 'client-quotes' as FileContext, label: 'Cotizaciones', icon: Quote, uploadPath: `/files/clients/${clientId}/quotes`, accept: 'application/pdf' },
+      { context: 'client-payments' as FileContext, label: 'Pagos', icon: CreditCard, uploadPath: `/files/clients/${clientId}/payments`, accept: 'application/pdf' },
     ]
     const activeClientTabDef = CLIENT_TABS.find((t) => t.context === activeTab) ?? CLIENT_TABS[0]
     const clientTabFiles = files.filter((f) => f.context === activeClientTabDef.context)

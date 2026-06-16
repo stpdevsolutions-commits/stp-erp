@@ -3,11 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Expense } from './entities/expense.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
+import { FileUpload } from '../files/entities/file-upload.entity';
 import { ExpensesService } from './expenses.service';
 import { ExpensesController } from './expenses.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Expense, Project, Supplier])],
+  imports: [TypeOrmModule.forFeature([Expense, Project, Supplier, FileUpload])],
   providers: [ExpensesService],
   controllers: [ExpensesController],
   exports: [ExpensesService],

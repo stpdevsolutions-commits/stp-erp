@@ -4,11 +4,12 @@ import { Payment } from './entities/payment.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Quote } from '../quotes/entities/quote.entity';
+import { FileUpload } from '../files/entities/file-upload.entity';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Payment, Client, Project, Quote])],
+  imports: [TypeOrmModule.forFeature([Payment, Client, Project, Quote, FileUpload])],
   providers: [PaymentsService],
   controllers: [PaymentsController],
   exports: [PaymentsService],

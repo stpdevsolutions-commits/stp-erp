@@ -11,10 +11,12 @@ import { User } from '../../users/entities/user.entity';
 export enum FileContext {
   CLIENT_PROFILE = 'client-profile',
   CLIENT_QUOTES = 'client-quotes',
+  CLIENT_PAYMENTS = 'client-payments',
   PROJECT_PHOTOS = 'project-photos',
   PROJECT_DOCUMENTS = 'project-documents',
   PROJECT_EXPENSES = 'project-expenses',
   PROJECT_QUOTES = 'project-quotes',
+  PROJECT_PAYMENTS = 'project-payments',
 }
 
 @Entity('uploaded_files')

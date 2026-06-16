@@ -62,6 +62,15 @@ export const projectQuotesOpts = opts(
     join(getUploadRoot(), 'clients', req.params.clientId, 'projects', req.params.projectId, 'quotes'),
 );
 
+export const clientPaymentsOpts = opts(
+  (req) => join(getUploadRoot(), 'clients', req.params.clientId, 'payments'),
+);
+
+export const projectPaymentsOpts = opts(
+  (req) =>
+    join(getUploadRoot(), 'clients', req.params.clientId, 'projects', req.params.projectId, 'payments'),
+);
+
 /**
  * Validates file content against known magic byte signatures.
  * Guards against MIME type spoofing (Content-Type header is client-controlled).

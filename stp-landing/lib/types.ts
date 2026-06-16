@@ -167,10 +167,12 @@ export interface ApiError {
 export type FileContext =
   | 'client-profile'
   | 'client-quotes'
+  | 'client-payments'
   | 'project-photos'
   | 'project-documents'
   | 'project-expenses'
   | 'project-quotes'
+  | 'project-payments'
 
 export interface FileUpload {
   id: string
