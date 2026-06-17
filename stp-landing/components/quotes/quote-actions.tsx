@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { MoreHorizontal, Pencil, Trash2, Plus, Printer, FileText, FolderPlus } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, Plus, FileText, FolderPlus, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -565,161 +565,6 @@ function EditSectionBlock({
   )
 }
 
-// ── Print dialog ──────────────────────────────────────────────────────────────
-
-function PrintDialog({
-  cotizacion,
-  open,
-  onOpenChange,
-}: {
-  cotizacion: Quote
-  open: boolean
-  onOpenChange: (o: boolean) => void
-}) {
-  const DOP_FMT = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
-  const showITBIS = cotizacion.taxRate > 0
-
-  // Group items by section
-  const sectionNames: string[] = []
-  const sectionMap = new Map<string, typeof cotizacion.items>()
-  for (const item of cotizacion.items ?? []) {
-    const key = item.sectionName ?? ''
-    if (!sectionMap.has(key)) { sectionMap.set(key, []); sectionNames.push(key) }
-    sectionMap.get(key)!.push(item)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Vista de impresión</DialogTitle>
-          <DialogDescription>{cotizacion.number}</DialogDescription>
-        </DialogHeader>
-
-        <div id="quote-print" className="space-y-5 text-sm">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xl font-bold">Cotización</p>
-              <p className="font-mono text-muted-foreground">{cotizacion.number}</p>
-            </div>
-            <div className="text-right text-muted-foreground space-y-0.5">
-              {cotizacion.validUntil && (
-                <p>Válida hasta: {new Date(cotizacion.validUntil).toLocaleDateString('es-DO')}</p>
-              )}
-              <p>Fecha: {new Date(cotizacion.createdAt).toLocaleDateString('es-DO')}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <p className="font-semibold mb-1">Cliente</p>
-              <p>{cotizacion.client?.name ?? '—'}</p>
-              {cotizacion.client?.email && (
-                <p className="text-muted-foreground">{cotizacion.client.email}</p>
-              )}
-            </div>
-            {cotizacion.project && (
-              <div>
-                <p className="font-semibold mb-1">Proyecto</p>
-                <p className="font-mono text-xs text-muted-foreground">{cotizacion.project.code}</p>
-                <p>{cotizacion.project.name}</p>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <p className="font-semibold text-base mb-2">{cotizacion.title}</p>
-          </div>
-
-          {sectionNames.map((sectionName, si) => {
-            const items = sectionMap.get(sectionName)!
-            return (
-              <div key={si}>
-                {sectionName && (
-                  <div className="bg-slate-100 px-3 py-1.5 rounded text-sm font-semibold text-slate-700 mb-1">
-                    {sectionName}
-                  </div>
-                )}
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b-2">
-                      <th className="text-left py-1.5 pr-3">Descripción</th>
-                      <th className="text-left py-1.5 px-2 w-16">Unidad</th>
-                      <th className="text-right py-1.5 px-2 w-14">Cant.</th>
-                      <th className="text-right py-1.5 px-2 w-28">Precio unit.</th>
-                      <th className="text-right py-1.5 px-2 w-14">Desc.</th>
-                      <th className="text-right py-1.5 pl-2 w-28">Total</th>
-                      {showITBIS && <th className="text-right py-1.5 pl-2 w-28">ITBIS</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item) => {
-                      const disc = item.discountPct ?? 0
-                      const rowTotal = item.total ?? item.quantity * item.unitPrice * (1 - disc / 100)
-                      const rowItbis = showITBIS ? rowTotal * (cotizacion.taxRate / 100) : 0
-                      return (
-                        <tr key={item.id} className="border-b border-muted">
-                          <td className="py-1.5 pr-3">{item.description}</td>
-                          <td className="py-1.5 px-2 text-muted-foreground">{item.unit ?? '—'}</td>
-                          <td className="py-1.5 px-2 text-right tabular-nums">{item.quantity}</td>
-                          <td className="py-1.5 px-2 text-right tabular-nums">{DOP_FMT.format(item.unitPrice)}</td>
-                          <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">
-                            {disc > 0 ? `${disc}%` : '—'}
-                          </td>
-                          <td className="py-1.5 pl-2 text-right tabular-nums">{DOP_FMT.format(rowTotal)}</td>
-                          {showITBIS && (
-                            <td className="py-1.5 pl-2 text-right tabular-nums text-muted-foreground">
-                              {DOP_FMT.format(rowItbis)}
-                            </td>
-                          )}
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )
-          })}
-
-          <div className="flex justify-end">
-            <div className="w-56 space-y-1">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span className="tabular-nums">{DOP_FMT.format(cotizacion.subtotal)}</span>
-              </div>
-              {showITBIS && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>ITBIS ({cotizacion.taxRate}%)</span>
-                  <span className="tabular-nums">{DOP_FMT.format(cotizacion.taxAmount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold border-t pt-1 text-base">
-                <span>Total</span>
-                <span className="tabular-nums">{DOP_FMT.format(cotizacion.total)}</span>
-              </div>
-            </div>
-          </div>
-
-          {cotizacion.notes && (
-            <div>
-              <p className="font-semibold mb-1">Notas</p>
-              <p className="text-muted-foreground whitespace-pre-wrap">{cotizacion.notes}</p>
-            </div>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cerrar</Button>
-          <Button onClick={() => window.print()}>
-            <Printer className="size-4 mr-1" />
-            Imprimir
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 // ── Delete dialog ─────────────────────────────────────────────────────────────
 
 function DeleteDialog({
@@ -783,10 +628,10 @@ export function QuoteActions({
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [printOpen, setPrintOpen] = useState(false)
 
   const isAdmin = userRole === 'ADMIN' || userRole === 'admin'
   const isLocked = !isAdmin && (cotizacion.status === 'approved' || cotizacion.status === 'rejected')
+  const pdfUrl = `/api/files/quote/${cotizacion.id}`
 
   return (
     <>
@@ -801,12 +646,17 @@ export function QuoteActions({
             {isLocked ? 'Bloqueada' : 'Editar'}
           </DropdownMenuItem>
           <DropdownMenuItem
-            render={<a href={`/api/files/quote/${cotizacion.id}`} target="_blank" rel="noopener noreferrer" />}
+            render={<a href={pdfUrl} target="_blank" rel="noopener noreferrer" />}
           >
             <FileText className="size-4" />
             Ver PDF
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setPrintOpen(true)}>
+          <DropdownMenuItem
+            onClick={() => {
+              const win = window.open(pdfUrl, '_blank')
+              if (win) win.addEventListener('load', () => setTimeout(() => win.print(), 400))
+            }}
+          >
             <Printer className="size-4" />
             Imprimir
           </DropdownMenuItem>
@@ -827,7 +677,6 @@ export function QuoteActions({
           onOpenChange={setEditOpen}
         />
       )}
-      <PrintDialog cotizacion={cotizacion} open={printOpen} onOpenChange={setPrintOpen} />
       <DeleteDialog cotizacion={cotizacion} open={deleteOpen} onOpenChange={setDeleteOpen} />
     </>
   )

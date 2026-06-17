@@ -3,6 +3,7 @@ import PDFDocument from 'pdfkit';
 import type { Expense } from './entities/expense.entity';
 import { ExpenseCategory } from './entities/expense.entity';
 import { findLogoPath } from '../common/logo.utils';
+import { drawDocumentHeader, CONTENT_Y } from '../common/pdf.header';
 
 const DARK_BLUE = '#1a3c6e';
 const MID_GRAY = '#6b7280';
@@ -43,38 +44,13 @@ export function generateExpensePdf(expense: Expense, outputPath: string): Promis
     doc.pipe(stream);
     stream.on('error', reject);
 
-    // ── Header bar ────────────────────────────────────────────────────────────
-    doc.rect(0, 0, 595, 72).fill(DARK_BLUE);
-
-    const logoPath = findLogoPath();
-    if (logoPath) {
-      try {
-        doc.image(logoPath, LEFT, 10, { fit: [52, 52] });
-        doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(14)
-          .text('Soluciones Técnicas Profesionales', LEFT + 60, 18, { width: 200, lineBreak: false });
-        doc.fillColor('#a8c4e0').font('Helvetica').fontSize(9)
-          .text('stpsoluciones.com', LEFT + 60, 38, { width: 200, lineBreak: false });
-      } catch {
-        doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(16)
-          .text('Soluciones Técnicas Profesionales', LEFT, 18, { width: 260, lineBreak: false });
-        doc.fillColor('#a8c4e0').font('Helvetica').fontSize(9)
-          .text('stpsoluciones.com', LEFT, 42, { width: 260, lineBreak: false });
-      }
-    } else {
-      doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(16)
-        .text('Soluciones Técnicas Profesionales', LEFT, 18, { width: 260, lineBreak: false });
-      doc.fillColor('#a8c4e0').font('Helvetica').fontSize(9)
-        .text('stpsoluciones.com', LEFT, 42, { width: 260, lineBreak: false });
-    }
-
-    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(22)
-      .text('COMPROBANTE DE GASTO', LEFT + 260, 13, { width: 235, align: 'right', lineBreak: false });
+    // ── Unified header ────────────────────────────────────────────────────────
+    drawDocumentHeader(doc, 'COMPROBANTE DE GASTO', `GASTO · ${dateFmt(expense.date)}`, findLogoPath());
 
     // ── Project + client block ────────────────────────────────────────────────
-    let y = 90;
+    let y = CONTENT_Y;
 
     if (expense.project) {
-      // Left column: project
       doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
         .text('PROYECTO', LEFT, y, { lineBreak: false });
       y += 11;
@@ -82,10 +58,9 @@ export function generateExpensePdf(expense: Expense, outputPath: string): Promis
         .text(`${expense.project.code} — ${expense.project.name}`, LEFT, y, { width: 240, lineBreak: false });
       y += 14;
 
-      // Right column: client
       if (expense.project.client) {
         const rcol = LEFT + 265;
-        let ry = 90;
+        let ry = CONTENT_Y;
         doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
           .text('CLIENTE', rcol, ry, { width: 230, lineBreak: false });
         ry += 11;
@@ -143,9 +118,9 @@ export function generateExpensePdf(expense: Expense, outputPath: string): Promis
     // ── Footer ────────────────────────────────────────────────────────────────
     const footerY = 800;
     doc.moveTo(LEFT, footerY).lineTo(RIGHT, footerY).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
-    doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8)
+    doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
       .text(
-        'Soluciones Técnicas Profesionales · República Dominicana · stpsoluciones.com',
+        'Soluciones Técnicas Profesionales STP  ·  RNC 132-94-3058  ·  Santo Domingo, Rep. Dom.  ·  stpsoluciones.com',
         LEFT, footerY + 8, { width: WIDTH, align: 'center', lineBreak: false },
       );
 

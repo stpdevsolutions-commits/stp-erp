@@ -59,7 +59,7 @@ export class PaymentsService {
       });
     }
 
-    void this.savePdfForPayment(loaded).catch((err: Error) =>
+    await this.savePdfForPayment(loaded).catch((err: Error) =>
       this.logger.error(`PDF generation failed for payment ${loaded.id}: ${err.message}`),
     );
 
@@ -129,7 +129,7 @@ export class PaymentsService {
     Object.assign(payment, defined);
     await this.paymentsRepository.save(payment);
     const updated = await this.findOne(id);
-    void this.savePdfForPayment(updated).catch((err: Error) =>
+    await this.savePdfForPayment(updated).catch((err: Error) =>
       this.logger.error(`PDF regeneration failed for payment ${id}: ${err.message}`),
     );
     return updated;

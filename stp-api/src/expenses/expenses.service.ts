@@ -39,7 +39,7 @@ export class ExpensesService {
     const expense = this.expensesRepository.create({ ...dto, createdById });
     const saved = await this.expensesRepository.save(expense);
     const result = await this.findOne(saved.id);
-    void this.savePdfForExpense(result).catch((err: Error) =>
+    await this.savePdfForExpense(result).catch((err: Error) =>
       this.logger.error(`PDF generation failed for expense ${result.id}: ${err.message}`),
     );
     return result;
@@ -92,7 +92,7 @@ export class ExpensesService {
     Object.assign(expense, defined);
     await this.expensesRepository.save(expense);
     const updated = await this.findOne(id);
-    void this.savePdfForExpense(updated).catch((err: Error) =>
+    await this.savePdfForExpense(updated).catch((err: Error) =>
       this.logger.error(`PDF regeneration failed for expense ${id}: ${err.message}`),
     );
     return updated;

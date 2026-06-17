@@ -117,7 +117,7 @@ export class QuotesService implements OnModuleInit {
       });
     }
 
-    void this.savePdfForQuote(result).catch((err: Error) =>
+    await this.savePdfForQuote(result).catch((err: Error) =>
       this.logger.error(`PDF generation failed for quote ${result.id}: ${err.message}`),
     );
 
@@ -227,7 +227,7 @@ export class QuotesService implements OnModuleInit {
       }
     }
 
-    void this.savePdfForQuote(updated).catch((err: Error) =>
+    await this.savePdfForQuote(updated).catch((err: Error) =>
       this.logger.error(`PDF regeneration failed for quote ${id}: ${err.message}`),
     );
 
