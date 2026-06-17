@@ -89,51 +89,51 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     // ── Client info block ──────────────────────────────────────────────────
     const COL1 = LEFT + 14;
     const COL2 = LEFT + 268;
-    const BLOCK_H = 96;
+    const BLOCK_H = 74;
 
     doc.rect(LEFT, y, WIDTH, BLOCK_H).fill(INFO_BG);
     doc.rect(LEFT, y, 4, BLOCK_H).fill(TEAL);
 
     // Row 1 — CLIENTE / CONTACTO
-    const r1Y = y + 10;
+    const r1Y = y + 8;
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text('CLIENTE', COL1, r1Y, { lineBreak: false })
       .text('CONTACTO', COL2, r1Y, { lineBreak: false });
 
-    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9.5)
-      .text(quote.client?.name ?? '—', COL1, r1Y + 11, { width: 222, lineBreak: false });
+    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(8.5)
+      .text(quote.client?.name ?? '—', COL1, r1Y + 9, { width: 222, lineBreak: false });
 
     if ((quote.client as any)?.rnc) {
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
-        .text(`RNC/Cédula: ${(quote.client as any).rnc}`, COL1, r1Y + 24, { width: 222, lineBreak: false });
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
+        .text(`RNC/Cédula: ${(quote.client as any).rnc}`, COL1, r1Y + 21, { width: 222, lineBreak: false });
     }
 
-    let ctY = r1Y + 11;
+    let ctY = r1Y + 9;
     if (quote.client?.email) {
-      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8)
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(7.5)
         .text(quote.client.email, COL2, ctY, { width: 222, lineBreak: false });
-      ctY += 12;
+      ctY += 11;
     }
     if ((quote.client as any)?.phone) {
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
         .text(`Tel: ${(quote.client as any).phone}`, COL2, ctY, { width: 222, lineBreak: false });
     }
 
     // Divider inside block
-    const divY = y + 58;
+    const divY = y + 40;
     doc.moveTo(COL1, divY).lineTo(RIGHT - 14, divY)
       .strokeColor('#e2e8f0').lineWidth(0.5).stroke();
 
     // Row 2 — FECHA / VÁLIDA HASTA
-    const r2Y = divY + 8;
+    const r2Y = divY + 6;
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text('FECHA DE EMISIÓN', COL1, r2Y, { lineBreak: false })
       .text('VÁLIDA HASTA',     COL2, r2Y, { lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9)
-      .text(dateLong(quote.createdAt),  COL1, r2Y + 11, { width: 222, lineBreak: false })
-      .text(dateLong(quote.validUntil), COL2, r2Y + 11, { width: 222, lineBreak: false });
+    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(8.5)
+      .text(dateLong(quote.createdAt),  COL1, r2Y + 9, { width: 222, lineBreak: false })
+      .text(dateLong(quote.validUntil), COL2, r2Y + 9, { width: 222, lineBreak: false });
 
-    y += BLOCK_H + 14;
+    y += BLOCK_H + 12;
 
     // ── Quote title + project ──────────────────────────────────────────────
     doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(12)
@@ -309,34 +309,42 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     y = SIG_ANCHOR;
 
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
-    y += 20;
+    y += 16;
 
-    const SIG1 = LEFT + 15;
-    const SIG2 = LEFT + 220;
-    const SIGW = 140;
-
-    doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8)
-      .text('Firma Autorizado', SIG1, y, { lineBreak: false })
-      .text('Firma Cliente',    SIG2, y, { lineBreak: false });
+    // Two signature columns, evenly split across the page
+    const SIGW  = 160;
+    const halfW = WIDTH / 2;
+    const SIG1  = LEFT + (halfW / 2) - (SIGW / 2);
+    const SIG2  = LEFT + halfW + (halfW / 2) - (SIGW / 2);
 
     const authorizedName = quote.createdBy
       ? `${(quote.createdBy as any).firstName ?? ''} ${(quote.createdBy as any).lastName ?? ''}`.trim()
       : 'Firma Autorizada';
 
+    // Labels
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
-      .text(`Documento generado el ${dateFmt(new Date())}`, LEFT + 360, y, { width: 180, lineBreak: false })
-      .text(`${COMPANY.website}  |  RNC: ${COMPANY.rnc}`, LEFT + 360, y + 11, { width: 180, lineBreak: false });
+      .text('Firma Autorizado', SIG1, y, { width: SIGW, align: 'center', lineBreak: false })
+      .text('Firma Cliente',    SIG2, y, { width: SIGW, align: 'center', lineBreak: false });
 
-    y += 32;
+    // Signature lines
+    y += 34;
     doc.moveTo(SIG1, y).lineTo(SIG1 + SIGW, y).strokeColor('#94a3b8').lineWidth(0.5).stroke();
     doc.moveTo(SIG2, y).lineTo(SIG2 + SIGW, y).strokeColor('#94a3b8').lineWidth(0.5).stroke();
-    y += 8;
+    y += 7;
 
-    doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
-      .text(authorizedName,   SIG1, y, { lineBreak: false })
-      .text('Recibido conforme', SIG2, y, { lineBreak: false });
+    // Names below lines
+    doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
+      .text(authorizedName,     SIG1, y, { width: SIGW, align: 'center', lineBreak: false })
+      .text('Recibido conforme', SIG2, y, { width: SIGW, align: 'center', lineBreak: false });
+    y += 18;
 
-    y += 30;
+    // Generation date centered below both signatures
+    doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
+      .text(
+        `Documento generado el ${dateFmt(new Date())}  ·  ${COMPANY.website}  ·  RNC: ${COMPANY.rnc}`,
+        LEFT, y, { width: WIDTH, align: 'center', lineBreak: false },
+      );
+    y += 18;
 
     // ── Footer line ────────────────────────────────────────────────────────
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
@@ -345,6 +353,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
         `${COMPANY.name}  ·  RNC: ${COMPANY.rnc}  ·  ${COMPANY.email}  ·  ${COMPANY.website}`,
         LEFT, y + 7, { width: WIDTH, align: 'center', lineBreak: false },
       );
+
 
     doc.end();
     stream.on('finish', resolve);
