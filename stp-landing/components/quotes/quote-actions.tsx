@@ -631,7 +631,6 @@ export function QuoteActions({
 
   const isAdmin = userRole === 'ADMIN' || userRole === 'admin'
   const isLocked = !isAdmin && (cotizacion.status === 'approved' || cotizacion.status === 'rejected')
-  const pdfUrl = `/api/files/quote/${cotizacion.id}`
 
   return (
     <>
@@ -646,14 +645,14 @@ export function QuoteActions({
             {isLocked ? 'Bloqueada' : 'Editar'}
           </DropdownMenuItem>
           <DropdownMenuItem
-            render={<a href={pdfUrl} target="_blank" rel="noopener noreferrer" />}
+            onClick={() => window.open(`/api/files/quote/${cotizacion.id}?v=${Date.now()}`, '_blank')}
           >
             <FileText className="size-4" />
             Ver PDF
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              const win = window.open(pdfUrl, '_blank')
+              const win = window.open(`/api/files/quote/${cotizacion.id}?v=${Date.now()}`, '_blank')
               if (win) win.addEventListener('load', () => setTimeout(() => win.print(), 400))
             }}
           >

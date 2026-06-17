@@ -324,14 +324,14 @@ export function PagoActions({
             Editar
           </DropdownMenuItem>
           <DropdownMenuItem
-            render={<a href={`/api/files/payment/${pago.id}`} target="_blank" rel="noopener noreferrer" />}
+            onClick={() => window.open(`/api/files/payment/${pago.id}?v=${Date.now()}`, '_blank')}
           >
             <FileText className="size-4" />
             Ver PDF
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              const win = window.open(`/api/files/payment/${pago.id}`, '_blank')
+              const win = window.open(`/api/files/payment/${pago.id}?v=${Date.now()}`, '_blank')
               if (win) win.addEventListener('load', () => setTimeout(() => win.print(), 400))
             }}
           >
