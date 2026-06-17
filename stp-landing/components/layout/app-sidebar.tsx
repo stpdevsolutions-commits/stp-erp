@@ -56,14 +56,15 @@ const accountItems = [
   { href: '/dashboard/perfil', label: 'Mi perfil', icon: CircleUser },
 ]
 
-const ROLE_RANK: Record<string, number> = { USER: 1, MANAGER: 2, ADMIN: 3 }
+const ROLE_RANK: Record<string, number> = { user: 1, manager: 2, admin: 3 }
 
-export function AppSidebar({ role = 'USER' }: { role?: string }) {
+export function AppSidebar({ role = 'user' }: { role?: string }) {
   const pathname = usePathname()
   const router = useRouter()
 
+  const normalizedRole = role.toLowerCase()
   const visibleAdminItems = adminItems.filter(
-    (item) => (ROLE_RANK[role] ?? 1) >= (ROLE_RANK[item.minRole] ?? 1),
+    (item) => (ROLE_RANK[normalizedRole] ?? 1) >= (ROLE_RANK[item.minRole.toLowerCase()] ?? 1),
   )
 
   function isActive(href: string, exact?: boolean) {
