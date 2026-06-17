@@ -1,54 +1,62 @@
 import type PDFDocument from 'pdfkit';
 import { COMPANY } from './company';
 
-const DARK_BLUE = '#1a3c6e';
-const LIGHT_BLUE = '#a8c4e0';
-const LEFT = 50;
-export const HEADER_H = 100;
-export const CONTENT_Y = HEADER_H + 20;
+export const DARK_BLUE   = '#1a3c6e';
+export const TEAL        = '#0d9488';
+export const MID_GRAY    = '#6b7280';
+export const DARK_TEXT   = '#1f2937';
+export const BORDER_GRAY = '#e5e7eb';
 
-/**
- * Draws the unified company header on the PDF document.
- * Returns the y position where document-specific content should begin.
- */
+export const LEFT  = 50;
+export const RIGHT = 545;
+export const WIDTH = RIGHT - LEFT;
+
+export const HEADER_H  = 110;
+export const CONTENT_Y = HEADER_H + 16;
+
 export function drawDocumentHeader(
   doc: InstanceType<typeof PDFDocument>,
   documentType: string,
   documentNumber: string,
   logoPath: string | null,
 ): void {
-  doc.rect(0, 0, 595, HEADER_H).fill(DARK_BLUE);
-
-  const textX = LEFT + 65;
-  const rightX = LEFT + 265;
-  const rightW = 595 - LEFT - rightX + LEFT;
-
-  // ── Logo ──────────────────────────────────────────────────────────────────
+  // ── Logo ─────────────────────────────────────────────────────────────────
   if (logoPath) {
     try {
-      doc.image(logoPath, LEFT, 14, { fit: [56, 56] });
-    } catch {
-      // logo load error is non-fatal
-    }
+      doc.image(logoPath, LEFT, 20, { fit: [60, 60] });
+    } catch { /* non-fatal */ }
   }
 
-  // ── Left column: company info ──────────────────────────────────────────────
-  doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(13)
-    .text(COMPANY.name, textX, 17, { width: 210, lineBreak: false });
+  // ── Company info (left column) ────────────────────────────────────────────
+  const infoX = LEFT + 72;
+  const infoW = 248;
 
-  doc.fillColor(LIGHT_BLUE).font('Helvetica').fontSize(8)
-    .text(`RNC ${COMPANY.rnc}  ·  ${COMPANY.website}`, textX, 34, { width: 210, lineBreak: false });
+  doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(14)
+    .text(COMPANY.name, infoX, 22, { width: infoW, lineBreak: false });
 
-  doc.fillColor(LIGHT_BLUE).font('Helvetica').fontSize(7.5)
-    .text(COMPANY.address, textX, 46, { width: 210, lineBreak: false });
+  doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(8.5)
+    .text(`${COMPANY.shortName}  ·  RNC: ${COMPANY.rnc}`, infoX, 41, { width: infoW, lineBreak: false });
 
-  doc.fillColor(LIGHT_BLUE).font('Helvetica').fontSize(7.5)
-    .text(`Tel: ${COMPANY.phones}`, textX, 57, { width: 210, lineBreak: false });
+  doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
+    .text(COMPANY.address1, infoX, 54, { width: infoW, lineBreak: false })
+    .text(COMPANY.address2, infoX, 64, { width: infoW, lineBreak: false })
+    .text(`Tel: ${COMPANY.phones}`, infoX, 74, { width: infoW, lineBreak: false })
+    .text(`${COMPANY.email}  ·  ${COMPANY.website}`, infoX, 84, { width: infoW, lineBreak: false });
 
-  // ── Right column: document type + number ──────────────────────────────────
-  doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(20)
-    .text(documentType, rightX, 18, { width: rightW, align: 'right', lineBreak: false });
+  // ── Document type + number (right column) ─────────────────────────────────
+  const docX = 358;
+  const docW = RIGHT - docX;
+  const typeLines = documentType.split('\n').length;
 
-  doc.fillColor(LIGHT_BLUE).font('Helvetica').fontSize(10)
-    .text(documentNumber, rightX, 44, { width: rightW, align: 'right', lineBreak: false });
+  doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(20)
+    .text(documentType, docX, 20, { width: docW, align: 'right' });
+
+  // Position number below all type lines (approx 24pt per line)
+  const numY = 20 + typeLines * 26 + 4;
+  doc.fillColor(TEAL).font('Helvetica').fontSize(11)
+    .text(documentNumber, docX, numY, { width: docW, align: 'right', lineBreak: false });
+
+  // ── Separator line ────────────────────────────────────────────────────────
+  doc.moveTo(LEFT, HEADER_H).lineTo(RIGHT, HEADER_H)
+    .strokeColor('#cbd5e1').lineWidth(1.2).stroke();
 }
