@@ -2,6 +2,12 @@
 postgres-data/
 redis-data/
 
+# Certificados SSL y datos de certbot (contienen claves privadas)
+nginx/certbot/
+
+# Archivos subidos por usuarios
+uploads/
+
 # Variables de entorno (contienen secretos)
 .env
 .env.local
