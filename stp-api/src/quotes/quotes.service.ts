@@ -171,13 +171,28 @@ export class QuotesService implements OnModuleInit {
       await this.assertProjectExists(dto.projectId);
     }
 
+    const { items: itemsDto, ...headerDto } = dto;
     const defined = Object.fromEntries(
-      Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
+      Object.entries(headerDto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
     Object.assign(quote, defined);
     await this.quotesRepository.save(quote);
 
-    if (dto.taxRate !== undefined || dto.discount !== undefined) {
+    if (itemsDto !== undefined) {
+      await this.itemsRepository.delete({ quoteId: id });
+      if (itemsDto.length > 0) {
+        const newItems = itemsDto.map((d, idx) =>
+          this.itemsRepository.create({
+            ...d,
+            quoteId: id,
+            total: parseFloat((d.quantity * d.unitPrice * (1 - (d.discountPct ?? 0) / 100)).toFixed(2)),
+            sortOrder: d.sortOrder ?? idx,
+          }),
+        );
+        await this.itemsRepository.save(newItems);
+      }
+      await this.recalculate(id);
+    } else if (dto.taxRate !== undefined || dto.discount !== undefined) {
       await this.recalculate(id);
     }
 
@@ -327,6 +342,12 @@ export class QuotesService implements OnModuleInit {
       uploadedById: quote.createdById ?? undefined,
     });
     await this.fileRepo.save(record);
+  }
+
+  async findPdfFile(quoteId: string): Promise<FileUpload | null> {
+    const quote = await this.quotesRepository.findOneBy({ id: quoteId });
+    if (!quote) return null;
+    return this.fileRepo.findOne({ where: { filename: `${quote.number}.pdf` } });
   }
 
   private assertEditable(quote: Quote, userRole?: UserRole): void {

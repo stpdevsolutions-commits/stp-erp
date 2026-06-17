@@ -5,11 +5,15 @@ import {
   IsUUID,
   IsNumber,
   IsDateString,
+  IsArray,
+  ValidateNested,
   MinLength,
   Min,
   Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { QuoteStatus } from '../entities/quote.entity';
+import { CreateQuoteItemDto } from './create-quote-item.dto';
 
 export class UpdateQuoteDto {
   @IsOptional()
@@ -51,4 +55,10 @@ export class UpdateQuoteDto {
   @IsOptional()
   @IsString()
   terms?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateQuoteItemDto)
+  items?: CreateQuoteItemDto[];
 }

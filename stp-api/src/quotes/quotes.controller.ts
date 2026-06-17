@@ -11,6 +11,7 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { QuotesService } from './quotes.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
@@ -46,6 +47,13 @@ export class QuotesController {
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.quotesService.findOne(id);
+  }
+
+  @Get(':id/pdf-file')
+  async getPdfFile(@Param('id', ParseUUIDPipe) id: string) {
+    const file = await this.quotesService.findPdfFile(id);
+    if (!file) throw new NotFoundException('PDF no disponible todavía');
+    return file;
   }
 
   @Patch(':id')

@@ -1,10 +1,10 @@
-﻿﻿'use client'
+'use client'
 
-import { useState } from 'react'
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useState, useCallback } from 'react'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, FolderPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -27,36 +27,44 @@ import {
 import type { Client, Project } from '@/lib/types'
 import { createQuote } from '@/lib/actions/quotes'
 
-// ── Schema ────────────────────────────────────────────────────────────────────
+// ── Section / Item types (local state, not persisted to form) ─────────────────
 
-const itemSchema = z.object({
-  description: z.string().min(1, 'Requerido'),
-  unit: z.string().optional(),
-  quantity: z
-    .string()
-    .min(1, 'Requerido')
-    .refine((v) => parseFloat(v) > 0, 'Debe ser > 0'),
-  unitPrice: z
-    .string()
-    .min(1, 'Requerido')
-    .refine((v) => parseFloat(v) >= 0, 'Debe ser ≥ 0'),
-  discountPct: z
-    .string()
-    .optional()
-    .refine((v) => !v || (parseFloat(v) >= 0 && parseFloat(v) <= 100), 'Entre 0 y 100'),
-})
+type ItemRow = {
+  id: string
+  description: string
+  unit: string
+  quantity: string
+  unitPrice: string
+  discountPct: string
+}
 
-const schema = z.object({
+type Section = {
+  id: string
+  name: string
+  items: ItemRow[]
+}
+
+function genId() {
+  return Math.random().toString(36).slice(2, 9)
+}
+function makeItem(): ItemRow {
+  return { id: genId(), description: '', unit: '', quantity: '1', unitPrice: '', discountPct: '' }
+}
+function makeSection(label: string): Section {
+  return { id: genId(), name: label, items: [makeItem()] }
+}
+
+// ── Header schema (sections/items managed separately with useState) ───────────
+
+const headerSchema = z.object({
   title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
   clientId: z.string().min(1, 'Selecciona un cliente'),
   projectId: z.string().optional(),
   status: z.enum(['draft', 'sent', 'approved', 'rejected', 'expired']),
   validUntil: z.string().optional(),
   notes: z.string().optional(),
-  items: z.array(itemSchema).min(1, 'Agrega al menos un ítem'),
 })
-
-type FormValues = z.infer<typeof schema>
+type HeaderValues = z.infer<typeof headerSchema>
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -69,23 +77,23 @@ const STATUS_LABELS = {
 }
 
 const UNITS = [
-  { value: 'unid', label: 'Unid.' },
-  { value: 'm', label: 'm (Metro)' },
-  { value: 'm2', label: 'm² (M. cuadrado)' },
-  { value: 'm3', label: 'm³ (M. cúbico)' },
-  { value: 'kg', label: 'kg (Kilogramo)' },
-  { value: 'lb', label: 'lb (Libra)' },
-  { value: 'hr', label: 'hr (Hora)' },
-  { value: 'dia', label: 'día' },
-  { value: 'pie', label: 'pie' },
-  { value: 'pulg', label: 'pulg. (Pulgada)' },
-  { value: 'gl', label: 'gl (Galón)' },
-  { value: 'lt', label: 'lt (Litro)' },
-  { value: 'rollo', label: 'rollo' },
-  { value: 'caja', label: 'caja' },
-  { value: 'juego', label: 'juego' },
+  { value: 'unid',     label: 'Unid.' },
+  { value: 'm',        label: 'm (Metro)' },
+  { value: 'm2',       label: 'm² (M. cuadrado)' },
+  { value: 'm3',       label: 'm³ (M. cúbico)' },
+  { value: 'kg',       label: 'kg (Kilogramo)' },
+  { value: 'lb',       label: 'lb (Libra)' },
+  { value: 'hr',       label: 'hr (Hora)' },
+  { value: 'dia',      label: 'día' },
+  { value: 'pie',      label: 'pie' },
+  { value: 'pulg',     label: 'pulg. (Pulgada)' },
+  { value: 'gl',       label: 'gl (Galón)' },
+  { value: 'lt',       label: 'lt (Litro)' },
+  { value: 'rollo',    label: 'rollo' },
+  { value: 'caja',     label: 'caja' },
+  { value: 'juego',    label: 'juego' },
   { value: 'servicio', label: 'servicio' },
-  { value: 'otro', label: 'otro' },
+  { value: 'otro',     label: 'otro' },
 ]
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
@@ -102,7 +110,9 @@ export function NuevaCotizacionDialog({
 }) {
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [itemsError, setItemsError] = useState<string | null>(null)
   const [applyITBIS, setApplyITBIS] = useState(true)
+  const [sections, setSections] = useState<Section[]>(() => [makeSection('Partida 1')])
 
   const {
     register,
@@ -110,20 +120,64 @@ export function NuevaCotizacionDialog({
     setValue,
     watch,
     reset,
-    control,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      status: 'draft',
-      items: [{ description: '', unit: '', quantity: '1', unitPrice: '', discountPct: '' }],
-    },
+  } = useForm<HeaderValues>({
+    resolver: zodResolver(headerSchema),
+    defaultValues: { status: 'draft' },
   })
 
-  const { fields, append, remove } = useFieldArray({ control, name: 'items' })
+  const clientId = watch('clientId')
+  const projectId = watch('projectId')
+  const filteredProjects = projects.filter((p) => p.clientId === clientId)
+  const selectedClient = clients.find((c) => c.id === clientId)
+  const selectedProject = filteredProjects.find((p) => p.id === projectId)
 
-  const watchedItems = watch('items')
-  const subtotal = watchedItems.reduce((sum, item) => {
+  // ── Section mutations ─────────────────────────────────────────────────────
+
+  const addSection = useCallback(() => {
+    setSections((prev) => [...prev, makeSection(`Partida ${prev.length + 1}`)])
+  }, [])
+
+  const removeSection = useCallback((sectionId: string) => {
+    setSections((prev) => prev.filter((s) => s.id !== sectionId))
+  }, [])
+
+  const renameSection = useCallback((sectionId: string, name: string) => {
+    setSections((prev) => prev.map((s) => (s.id === sectionId ? { ...s, name } : s)))
+  }, [])
+
+  const addItem = useCallback((sectionId: string) => {
+    setSections((prev) =>
+      prev.map((s) => (s.id === sectionId ? { ...s, items: [...s.items, makeItem()] } : s)),
+    )
+  }, [])
+
+  const removeItem = useCallback((sectionId: string, itemId: string) => {
+    setSections((prev) =>
+      prev.map((s) => {
+        if (s.id !== sectionId) return s
+        if (s.items.length <= 1) return s
+        return { ...s, items: s.items.filter((i) => i.id !== itemId) }
+      }),
+    )
+  }, [])
+
+  const updateItem = useCallback(
+    (sectionId: string, itemId: string, field: keyof Omit<ItemRow, 'id'>, value: string) => {
+      setSections((prev) =>
+        prev.map((s) => {
+          if (s.id !== sectionId) return s
+          return { ...s, items: s.items.map((i) => (i.id === itemId ? { ...i, [field]: value } : i)) }
+        }),
+      )
+    },
+    [],
+  )
+
+  // ── Computed totals ───────────────────────────────────────────────────────
+
+  const allItems = sections.flatMap((s) => s.items)
+  const subtotal = allItems.reduce((sum, item) => {
     const qty = parseFloat(item.quantity) || 0
     const price = parseFloat(item.unitPrice) || 0
     const disc = parseFloat(item.discountPct || '0') || 0
@@ -132,63 +186,79 @@ export function NuevaCotizacionDialog({
   const itbis = applyITBIS ? subtotal * ITBIS_RATE : 0
   const total = subtotal + itbis
 
-  const clientId = watch('clientId')
-  const projectId = watch('projectId')
+  // ── Handlers ─────────────────────────────────────────────────────────────
 
-  const selectedClient = clients.find((c) => c.id === clientId)
-  const filteredProjects = projects.filter((p) => p.clientId === clientId)
-  const selectedProject = filteredProjects.find((p) => p.id === projectId)
-
-  function handleClientChange(newClientId: string | null) {
-    if (!newClientId) return
-    setValue('clientId', newClientId)
-    setValue('projectId', undefined)
-  }
-
-  function handleProjectChange(newProjectId: string | null) {
-    if (!newProjectId || newProjectId === '__none__') {
-      setValue('projectId', undefined)
-    } else {
-      setValue('projectId', newProjectId)
-    }
-  }
-
-  async function onSubmit(data: FormValues) {
+  function handleClose() {
+    setOpen(false)
+    setSections([makeSection('Partida 1')])
+    reset()
     setServerError(null)
-    const result = await createQuote({
-      title: data.title,
-      clientId: data.clientId,
-      projectId: data.projectId || undefined,
-      status: data.status,
-      validUntil: data.validUntil || undefined,
-      notes: data.notes || undefined,
-      taxRate: applyITBIS ? 18 : 0,
-      items: data.items.map((item) => ({
+    setItemsError(null)
+    setApplyITBIS(true)
+  }
+
+  async function onSubmit(headerData: HeaderValues) {
+    setItemsError(null)
+    setServerError(null)
+
+    const allRows = sections.flatMap((s) => s.items)
+    if (allRows.length === 0) {
+      setItemsError('Agrega al menos un ítem')
+      return
+    }
+    for (const section of sections) {
+      for (const item of section.items) {
+        if (!item.description.trim()) {
+          setItemsError('Todos los ítems necesitan descripción')
+          return
+        }
+        if (!item.quantity || parseFloat(item.quantity) <= 0) {
+          setItemsError('Cantidad debe ser mayor a 0')
+          return
+        }
+        if (item.unitPrice === '' || parseFloat(item.unitPrice) < 0) {
+          setItemsError('Precio unitario inválido')
+          return
+        }
+      }
+    }
+
+    const flatItems = sections.flatMap((section, si) =>
+      section.items.map((item, ii) => ({
         description: item.description,
         unit: item.unit || undefined,
         quantity: parseFloat(item.quantity),
         unitPrice: parseFloat(item.unitPrice),
         discountPct: parseFloat(item.discountPct || '0') || 0,
+        sectionName: section.name || `Partida ${si + 1}`,
+        sortOrder: si * 1000 + ii,
       })),
+    )
+
+    const result = await createQuote({
+      title: headerData.title,
+      clientId: headerData.clientId,
+      projectId: headerData.projectId || undefined,
+      status: headerData.status,
+      validUntil: headerData.validUntil || undefined,
+      notes: headerData.notes || undefined,
+      taxRate: applyITBIS ? 18 : 0,
+      items: flatItems,
     })
+
     if (!result.ok) {
       setServerError(result.error ?? 'Error desconocido')
       return
     }
-    reset()
-    setOpen(false)
+    handleClose()
   }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        setOpen(o)
-        if (!o) {
-          reset()
-          setServerError(null)
-          setApplyITBIS(true)
-        }
+        if (!o) handleClose()
+        else setOpen(true)
       }}
     >
       <DialogTrigger render={<Button size="sm" />}>
@@ -215,39 +285,28 @@ export function NuevaCotizacionDialog({
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
-            {/* Client selector (primary) */}
             <div className="space-y-1.5">
               <Label>
                 Cliente <span className="text-destructive">*</span>
               </Label>
-              <Select
-                value={clientId ?? ''}
-                onValueChange={handleClientChange}
-              >
+              <Select value={clientId ?? ''} onValueChange={(v) => { setValue('clientId', v ?? ''); setValue('projectId', undefined) }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar cliente">
-                    {selectedClient?.name}
-                  </SelectValue>
+                  <SelectValue placeholder="Seleccionar cliente">{selectedClient?.name}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.clientId && (
-                <p className="text-xs text-destructive">{errors.clientId.message}</p>
-              )}
+              {errors.clientId && <p className="text-xs text-destructive">{errors.clientId.message}</p>}
             </div>
 
-            {/* Project selector (optional, filtered by client) */}
             <div className="space-y-1.5">
               <Label>Proyecto (opcional)</Label>
               <Select
                 value={projectId ?? '__none__'}
-                onValueChange={handleProjectChange}
+                onValueChange={(v) => setValue('projectId', !v || v === '__none__' ? undefined : v)}
                 disabled={!clientId}
               >
                 <SelectTrigger>
@@ -258,9 +317,7 @@ export function NuevaCotizacionDialog({
                 <SelectContent>
                   <SelectItem value="__none__">— Sin proyecto —</SelectItem>
                   {filteredProjects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.code} — {p.name}
-                    </SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -270,16 +327,12 @@ export function NuevaCotizacionDialog({
               <Label>Estado</Label>
               <Select
                 value={watch('status')}
-                onValueChange={(v) => v && setValue('status', v as FormValues['status'])}
+                onValueChange={(v) => v && setValue('status', v as HeaderValues['status'])}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -296,174 +349,73 @@ export function NuevaCotizacionDialog({
             </div>
           </div>
 
-          {/* Line items */}
-          <div className="space-y-2">
+          {/* Partidas / Sections */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>
-                Ítems <span className="text-destructive">*</span>
-              </Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => append({ description: '', unit: '', quantity: '1', unitPrice: '', discountPct: '' })}
-              >
-                <Plus className="size-3.5 mr-1" />
-                Agregar ítem
-              </Button>
+              <Label>Partidas e ítems <span className="text-destructive">*</span></Label>
             </div>
 
-            {errors.items?.root && (
-              <p className="text-xs text-destructive">{errors.items.root.message}</p>
-            )}
+            {sections.map((section, si) => (
+              <SectionBlock
+                key={section.id}
+                section={section}
+                sectionIndex={si}
+                applyITBIS={applyITBIS}
+                canDelete={sections.length > 1}
+                onRename={renameSection}
+                onAddItem={addItem}
+                onRemoveSection={removeSection}
+                onRemoveItem={removeItem}
+                onUpdateItem={updateItem}
+              />
+            ))}
 
-            <div className="rounded-md border overflow-x-auto">
-              <table className="w-full text-sm min-w-[700px]">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
-                    <th className="px-2 py-2 text-left font-medium text-muted-foreground w-28">Unidad</th>
-                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-18">Cant.</th>
-                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Precio unit.</th>
-                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-18">Desc. %</th>
-                    <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Total</th>
-                    <th className="w-9" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {fields.map((field, index) => {
-                    const qty = parseFloat(watchedItems[index]?.quantity) || 0
-                    const price = parseFloat(watchedItems[index]?.unitPrice) || 0
-                    const disc = parseFloat(watchedItems[index]?.discountPct || '0') || 0
-                    const rowTotal = qty * price * (1 - disc / 100)
-                    const unitVal = watchedItems[index]?.unit || ''
+            <Button type="button" variant="outline" size="sm" className="w-full" onClick={addSection}>
+              <FolderPlus className="size-4 mr-1.5" />
+              Agregar partida
+            </Button>
+          </div>
 
-                    return (
-                      <tr key={field.id}>
-                        <td className="px-3 py-1.5">
-                          <Input
-                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-sm"
-                            placeholder="Descripción del ítem"
-                            {...register(`items.${index}.description`)}
-                          />
-                          {errors.items?.[index]?.description && (
-                            <p className="text-xs text-destructive">
-                              {errors.items[index].description?.message}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-2 py-1.5">
-                          <Select
-                            value={unitVal || '__none__'}
-                            onValueChange={(v) => {
-                              if (!v) return
-                              setValue(`items.${index}.unit`, v === '__none__' ? '' : v)
-                            }}
-                          >
-                            <SelectTrigger className="h-8 text-xs border-0 shadow-none focus:ring-0 px-0">
-                              <SelectValue placeholder="—" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">—</SelectItem>
-                              {UNITS.map((u) => (
-                                <SelectItem key={u.value} value={u.value}>
-                                  {u.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="px-2 py-1.5">
-                          <Input
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
-                            {...register(`items.${index}.quantity`)}
-                          />
-                        </td>
-                        <td className="px-2 py-1.5">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
-                            {...register(`items.${index}.unitPrice`)}
-                          />
-                        </td>
-                        <td className="px-2 py-1.5">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
-                            placeholder="0"
-                            {...register(`items.${index}.discountPct`)}
-                          />
-                        </td>
-                        <td className="px-2 py-1.5 text-right tabular-nums">
-                          {DOP.format(rowTotal)}
-                        </td>
-                        <td className="px-1 py-1.5">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => remove(index)}
-                            disabled={fields.length === 1}
-                          >
-                            <Trash2 className="size-3.5 text-destructive" />
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+          {itemsError && (
+            <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{itemsError}</p>
+          )}
 
-            {/* ITBIS toggle + Totals */}
-            <div className="flex items-end justify-between">
-              <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
-                <input
-                  type="checkbox"
-                  checked={applyITBIS}
-                  onChange={(e) => setApplyITBIS(e.target.checked)}
-                  className="rounded border-input"
-                />
-                Aplicar ITBIS (18%)
-              </label>
+          {/* ITBIS toggle + Totals */}
+          <div className="flex items-end justify-between">
+            <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+              <input
+                type="checkbox"
+                checked={applyITBIS}
+                onChange={(e) => setApplyITBIS(e.target.checked)}
+                className="rounded border-input"
+              />
+              Aplicar ITBIS (18%)
+            </label>
 
-              <div className="w-64 space-y-1 text-sm">
+            <div className="w-64 space-y-1 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{DOP.format(subtotal)}</span>
+              </div>
+              {applyITBIS && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal</span>
-                  <span className="tabular-nums">{DOP.format(subtotal)}</span>
+                  <span>ITBIS (18%)</span>
+                  <span className="tabular-nums">{DOP.format(itbis)}</span>
                 </div>
-                {applyITBIS && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>ITBIS (18%)</span>
-                    <span className="tabular-nums">{DOP.format(itbis)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-semibold border-t pt-1">
-                  <span>Total</span>
-                  <span className="tabular-nums">{DOP.format(total)}</span>
-                </div>
+              )}
+              <div className="flex justify-between font-semibold border-t pt-1">
+                <span>Total</span>
+                <span className="tabular-nums">{DOP.format(total)}</span>
               </div>
             </div>
           </div>
 
           {serverError && (
-            <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">
-              {serverError}
-            </p>
+            <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{serverError}</p>
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancelar
-            </Button>
+            <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Guardando...' : 'Crear cotización'}
             </Button>
@@ -471,5 +423,156 @@ export function NuevaCotizacionDialog({
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ── Shared SectionBlock ───────────────────────────────────────────────────────
+
+function SectionBlock({
+  section,
+  sectionIndex,
+  applyITBIS,
+  canDelete,
+  onRename,
+  onAddItem,
+  onRemoveSection,
+  onRemoveItem,
+  onUpdateItem,
+}: {
+  section: Section
+  sectionIndex: number
+  applyITBIS: boolean
+  canDelete: boolean
+  onRename: (id: string, name: string) => void
+  onAddItem: (id: string) => void
+  onRemoveSection: (id: string) => void
+  onRemoveItem: (sectionId: string, itemId: string) => void
+  onUpdateItem: (sectionId: string, itemId: string, field: keyof Omit<ItemRow, 'id'>, value: string) => void
+}) {
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      {/* Section header */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-muted/60 border-b">
+        <span className="text-xs font-medium text-muted-foreground shrink-0">Partida</span>
+        <Input
+          value={section.name}
+          onChange={(e) => onRename(section.id, e.target.value)}
+          className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 px-1 bg-transparent flex-1"
+          placeholder={`Partida ${sectionIndex + 1}`}
+        />
+        <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => onAddItem(section.id)}>
+          <Plus className="size-3.5 mr-1" />
+          Ítem
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => onRemoveSection(section.id)}
+          disabled={!canDelete}
+          className="text-destructive hover:text-destructive shrink-0"
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      </div>
+
+      {/* Items table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[780px]">
+          <thead className="bg-muted/30">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
+              <th className="px-2 py-2 text-left font-medium text-muted-foreground w-28">Unidad</th>
+              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-16">Cant.</th>
+              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Precio unit.</th>
+              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-16">Desc.%</th>
+              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Total</th>
+              {applyITBIS && (
+                <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">ITBIS</th>
+              )}
+              <th className="w-9" />
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {section.items.map((item) => {
+              const qty = parseFloat(item.quantity) || 0
+              const price = parseFloat(item.unitPrice) || 0
+              const disc = parseFloat(item.discountPct || '0') || 0
+              const rowTotal = qty * price * (1 - disc / 100)
+              const rowItbis = applyITBIS ? rowTotal * ITBIS_RATE : 0
+
+              return (
+                <tr key={item.id}>
+                  <td className="px-3 py-1.5">
+                    <Input
+                      value={item.description}
+                      onChange={(e) => onUpdateItem(section.id, item.id, 'description', e.target.value)}
+                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-sm"
+                      placeholder="Descripción del ítem"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Select
+                      value={item.unit || '__none__'}
+                      onValueChange={(v) => onUpdateItem(section.id, item.id, 'unit', !v || v === '__none__' ? '' : v)}
+                    >
+                      <SelectTrigger className="h-8 text-xs border-0 shadow-none focus:ring-0 px-0">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">—</SelectItem>
+                        {UNITS.map((u) => (
+                          <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      type="number" min="0.01" step="0.01"
+                      value={item.quantity}
+                      onChange={(e) => onUpdateItem(section.id, item.id, 'quantity', e.target.value)}
+                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      type="number" min="0" step="0.01"
+                      value={item.unitPrice}
+                      onChange={(e) => onUpdateItem(section.id, item.id, 'unitPrice', e.target.value)}
+                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      type="number" min="0" max="100" step="0.01"
+                      value={item.discountPct}
+                      onChange={(e) => onUpdateItem(section.id, item.id, 'discountPct', e.target.value)}
+                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
+                      placeholder="0"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{DOP.format(rowTotal)}</td>
+                  {applyITBIS && (
+                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                      {DOP.format(rowItbis)}
+                    </td>
+                  )}
+                  <td className="px-1 py-1.5">
+                    <Button
+                      type="button" variant="ghost" size="icon-sm"
+                      onClick={() => onRemoveItem(section.id, item.id)}
+                      disabled={section.items.length === 1}
+                    >
+                      <Trash2 className="size-3.5 text-destructive" />
+                    </Button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }

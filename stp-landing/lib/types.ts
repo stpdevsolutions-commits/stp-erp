@@ -66,6 +66,7 @@ export interface QuoteItem {
   unitPrice: number
   discountPct?: number
   total: number
+  sectionName?: string
 }
 
 export interface Quote {

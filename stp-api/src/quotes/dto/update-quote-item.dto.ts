@@ -30,4 +30,8 @@ export class UpdateQuoteItemDto {
   @IsNumber()
   @Min(0)
   sortOrder?: number;
+
+  @IsOptional()
+  @IsString()
+  sectionName?: string;
 }

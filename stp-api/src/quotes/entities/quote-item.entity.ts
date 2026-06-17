@@ -47,6 +47,9 @@ export class QuoteItem {
   @Column({ type: 'int', default: 0 })
   sortOrder: number;
 
+  @Column({ type: 'varchar', nullable: true })
+  sectionName: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -21,6 +21,8 @@ export interface QuoteItemInput {
   quantity: number
   unitPrice: number
   discountPct?: number
+  sectionName?: string
+  sortOrder?: number
 }
 
 export interface CreateQuoteInput {

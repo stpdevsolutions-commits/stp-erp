@@ -19,6 +19,7 @@ const DARK_BLUE = '#1a3c6e';
 const MID_GRAY = '#6b7280';
 const BORDER_GRAY = '#e5e7eb';
 const DARK_TEXT = '#1f2937';
+const SECTION_BG = '#f0f4f9';
 const LEFT = 50;
 const RIGHT = 545;
 const WIDTH = RIGHT - LEFT;
@@ -44,6 +45,29 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     const stream = createWriteStream(outputPath);
     doc.pipe(stream);
     stream.on('error', reject);
+
+    const showITBIS = (quote.taxRate ?? 0) > 0;
+
+    // Column layout — with or without ITBIS column
+    const C = showITBIS
+      ? {
+          desc:  { x: LEFT,          w: 155 },
+          unit:  { x: LEFT + 155,    w: 38  },
+          qty:   { x: LEFT + 193,    w: 32  },
+          price: { x: LEFT + 225,    w: 72  },
+          disc:  { x: LEFT + 297,    w: 35  },
+          itbis: { x: LEFT + 332,    w: 68  },
+          total: { x: LEFT + 400,    w: 95  },
+        }
+      : {
+          desc:  { x: LEFT,          w: 200 },
+          unit:  { x: LEFT + 200,    w: 45  },
+          qty:   { x: LEFT + 245,    w: 40  },
+          price: { x: LEFT + 285,    w: 80  },
+          disc:  { x: LEFT + 365,    w: 40  },
+          itbis: null,
+          total: { x: LEFT + 405,    w: 90  },
+        };
 
     // ── Header bar ────────────────────────────────────────────────────────────
     doc.rect(0, 0, 595, 72).fill(DARK_BLUE);
@@ -77,7 +101,6 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     // ── Client + metadata block ───────────────────────────────────────────────
     let y = 90;
 
-    // Left column: client
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
       .text('CLIENTE', LEFT, y, { lineBreak: false });
     y += 11;
@@ -90,7 +113,6 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
       y += 13;
     }
 
-    // Right column: metadata
     const rcol = LEFT + 265;
     let ry = 90;
 
@@ -120,54 +142,70 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(1).stroke();
     y += 12;
 
-    // ── Items table ───────────────────────────────────────────────────────────
-    const C = {
-      desc: { x: LEFT, w: 200 },
-      unit: { x: LEFT + 200, w: 45 },
-      qty: { x: LEFT + 245, w: 40 },
-      price: { x: LEFT + 285, w: 80 },
-      disc: { x: LEFT + 365, w: 40 },
-      total: { x: LEFT + 405, w: 90 },
-    };
-
-    // Header row
+    // ── Items table header ────────────────────────────────────────────────────
     doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(8);
-    doc.text('Descripción', C.desc.x, y, { width: C.desc.w, lineBreak: false });
-    doc.text('Unidad', C.unit.x, y, { width: C.unit.w, lineBreak: false });
-    doc.text('Cant.', C.qty.x, y, { width: C.qty.w, align: 'right', lineBreak: false });
-    doc.text('Precio unit.', C.price.x, y, { width: C.price.w, align: 'right', lineBreak: false });
-    doc.text('Desc.', C.disc.x, y, { width: C.disc.w, align: 'right', lineBreak: false });
-    doc.text('Total', C.total.x, y, { width: C.total.w, align: 'right', lineBreak: false });
+    doc.text('Descripción',   C.desc.x,  y, { width: C.desc.w,  lineBreak: false });
+    doc.text('Unidad',        C.unit.x,  y, { width: C.unit.w,  lineBreak: false });
+    doc.text('Cant.',         C.qty.x,   y, { width: C.qty.w,   align: 'right', lineBreak: false });
+    doc.text('Precio unit.',  C.price.x, y, { width: C.price.w, align: 'right', lineBreak: false });
+    doc.text('Desc.',         C.disc.x,  y, { width: C.disc.w,  align: 'right', lineBreak: false });
+    if (C.itbis) {
+      doc.text('ITBIS',       C.itbis.x, y, { width: C.itbis.w, align: 'right', lineBreak: false });
+    }
+    doc.text('Total',         C.total.x, y, { width: C.total.w, align: 'right', lineBreak: false });
     y += 13;
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(DARK_BLUE).lineWidth(0.5).stroke();
     y += 5;
 
-    // Item rows
-    doc.font('Helvetica').fontSize(9).fillColor(DARK_TEXT);
-    for (const item of quote.items ?? []) {
-      const descH = doc.heightOfString(item.description, { width: C.desc.w });
-      const rowH = Math.max(descH + 4, 14);
-      const disc = Number(item.discountPct ?? 0);
+    // ── Items grouped by section ──────────────────────────────────────────────
+    const items = quote.items ?? [];
+    const sectionNames = [...new Set(items.map((i) => i.sectionName ?? ''))];
 
-      doc.text(item.description, C.desc.x, y, { width: C.desc.w });
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8)
-        .text(item.unit ?? '', C.unit.x, y, { width: C.unit.w, lineBreak: false });
-      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9)
-        .text(String(item.quantity), C.qty.x, y, { width: C.qty.w, align: 'right', lineBreak: false });
-      doc.text(money(item.unitPrice), C.price.x, y, { width: C.price.w, align: 'right', lineBreak: false });
-      doc.fillColor(disc > 0 ? MID_GRAY : DARK_TEXT).text(disc > 0 ? `${disc}%` : '—', C.disc.x, y, { width: C.disc.w, align: 'right', lineBreak: false });
-      doc.fillColor(DARK_TEXT).text(money(item.total ?? item.quantity * item.unitPrice * (1 - disc / 100)), C.total.x, y, { width: C.total.w, align: 'right', lineBreak: false });
+    for (const sectionName of sectionNames) {
+      const sectionItems = items.filter((i) => (i.sectionName ?? '') === sectionName);
 
-      y += rowH;
-      doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.3).stroke();
-      y += 4;
+      // Section header row (only when there are named sections)
+      if (sectionName) {
+        doc.rect(LEFT, y, WIDTH, 14).fill(SECTION_BG);
+        doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(8.5)
+          .text(sectionName, LEFT + 4, y + 3, { width: WIDTH - 8, lineBreak: false });
+        y += 16;
+      }
+
+      doc.font('Helvetica').fontSize(9).fillColor(DARK_TEXT);
+      for (const item of sectionItems) {
+        const descH = doc.heightOfString(item.description, { width: C.desc.w });
+        const rowH = Math.max(descH + 4, 14);
+        const disc = Number(item.discountPct ?? 0);
+        const itemTotal = item.total ?? item.quantity * item.unitPrice * (1 - disc / 100);
+        const itemItbis = showITBIS ? itemTotal * ((quote.taxRate ?? 0) / 100) : 0;
+
+        doc.text(item.description, C.desc.x, y, { width: C.desc.w });
+        doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8)
+          .text(item.unit ?? '', C.unit.x, y, { width: C.unit.w, lineBreak: false });
+        doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9)
+          .text(String(item.quantity), C.qty.x, y, { width: C.qty.w, align: 'right', lineBreak: false });
+        doc.text(money(item.unitPrice), C.price.x, y, { width: C.price.w, align: 'right', lineBreak: false });
+        doc.fillColor(disc > 0 ? MID_GRAY : DARK_TEXT)
+          .text(disc > 0 ? `${disc}%` : '—', C.disc.x, y, { width: C.disc.w, align: 'right', lineBreak: false });
+        if (C.itbis) {
+          doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8)
+            .text(money(itemItbis), C.itbis.x, y, { width: C.itbis.w, align: 'right', lineBreak: false });
+        }
+        doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9)
+          .text(money(itemTotal), C.total.x, y, { width: C.total.w, align: 'right', lineBreak: false });
+
+        y += rowH;
+        doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.3).stroke();
+        y += 4;
+      }
     }
 
     y += 8;
 
     // ── Totals ────────────────────────────────────────────────────────────────
     const tLabelX = C.price.x;
-    const tLabelW = C.price.w + C.disc.w;
+    const tLabelW = C.price.w + C.disc.w + (C.itbis?.w ?? 0);
     const tValueX = C.total.x;
     const tValueW = C.total.w;
 
@@ -183,7 +221,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     doc.moveTo(tLabelX, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
     y += 5;
     totRow('Subtotal', money(quote.subtotal));
-    if (quote.taxRate > 0) {
+    if (showITBIS) {
       totRow(`ITBIS (${quote.taxRate}%)`, money(quote.taxAmount));
     }
     doc.moveTo(tLabelX, y).lineTo(RIGHT, y).strokeColor(DARK_BLUE).lineWidth(0.5).stroke();

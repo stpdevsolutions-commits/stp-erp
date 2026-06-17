@@ -27,4 +27,8 @@ export class CreateQuoteItemDto {
   @IsNumber()
   @Min(0)
   sortOrder?: number;
+
+  @IsOptional()
+  @IsString()
+  sectionName?: string;
 }
