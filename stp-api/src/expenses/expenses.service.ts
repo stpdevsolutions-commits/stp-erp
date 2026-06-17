@@ -128,7 +128,7 @@ export class ExpensesService {
 
   private async savePdfForExpense(expense: Expense): Promise<void> {
     // clientId is not a direct column on Expense — resolve it from the project
-    let clientId = expense.project?.clientId;
+    let clientId: string | undefined = expense.project?.clientId;
     if (!clientId) {
       const project = await this.projectsRepository.findOne({
         where: { id: expense.projectId },
