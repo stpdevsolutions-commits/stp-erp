@@ -100,22 +100,22 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
       .text('CLIENTE', COL1, r1Y, { lineBreak: false })
       .text('CONTACTO', COL2, r1Y, { lineBreak: false });
 
-    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(11)
+    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9.5)
       .text(quote.client?.name ?? '—', COL1, r1Y + 11, { width: 222, lineBreak: false });
 
     if ((quote.client as any)?.rnc) {
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8.5)
-        .text(`RNC/Cédula: ${(quote.client as any).rnc}`, COL1, r1Y + 26, { width: 222, lineBreak: false });
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
+        .text(`RNC/Cédula: ${(quote.client as any).rnc}`, COL1, r1Y + 24, { width: 222, lineBreak: false });
     }
 
     let ctY = r1Y + 11;
     if (quote.client?.email) {
-      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9)
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8)
         .text(quote.client.email, COL2, ctY, { width: 222, lineBreak: false });
-      ctY += 13;
+      ctY += 12;
     }
     if ((quote.client as any)?.phone) {
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8.5)
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
         .text(`Tel: ${(quote.client as any).phone}`, COL2, ctY, { width: 222, lineBreak: false });
     }
 
@@ -129,7 +129,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text('FECHA DE EMISIÓN', COL1, r2Y, { lineBreak: false })
       .text('VÁLIDA HASTA',     COL2, r2Y, { lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(10)
+    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9)
       .text(dateLong(quote.createdAt),  COL1, r2Y + 11, { width: 222, lineBreak: false })
       .text(dateLong(quote.validUntil), COL2, r2Y + 11, { width: 222, lineBreak: false });
 
@@ -265,11 +265,11 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     doc.moveTo(tLabelX, y).lineTo(RIGHT, y).strokeColor(TEAL).lineWidth(0.8).stroke();
     y += 6;
 
-    doc.fillColor(MID_GRAY).font('Helvetica-Bold').fontSize(9.5)
+    doc.fillColor(MID_GRAY).font('Helvetica-Bold').fontSize(9)
       .text('TOTAL NETO', tLabelX, y, { width: tLabelW, lineBreak: false });
-    doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(13)
-      .text(money(quote.total), tValueX, y - 2, { width: tValueW, align: 'right', lineBreak: false });
-    y += 22;
+    doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(10.5)
+      .text(money(quote.total), tValueX, y - 1, { width: tValueW, align: 'right', lineBreak: false });
+    y += 18;
 
     // ── Notes ──────────────────────────────────────────────────────────────
     if (quote.notes) {
@@ -299,9 +299,14 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
       y += doc.heightOfString(termsText, { width: WIDTH }) + 14;
     }
 
-    // ── Signature section ───────────────────────────────────────────────────
-    y = checkBreak(y, 72);
-    y += 8;
+    // ── Signature section — always anchored to bottom of last page ─────────
+    // Total height consumed by sig block below this point: ~112pt
+    const SIG_ANCHOR = 730;
+    if (y > SIG_ANCHOR - 10) {
+      // Content reached the signature zone — start a fresh page
+      y = newPage();
+    }
+    y = SIG_ANCHOR;
 
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
     y += 20;
