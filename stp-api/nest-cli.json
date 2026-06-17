@@ -4,6 +4,7 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
+    "assets": [{ "include": "assets/**/*", "watchAssets": true }],
     "watchOptions": {
       "usePolling": true,
       "interval": 1000

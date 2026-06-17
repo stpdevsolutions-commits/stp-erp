@@ -1,20 +1,8 @@
-import { createWriteStream, existsSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { createWriteStream } from 'fs';
 import PDFDocument from 'pdfkit';
 import type { Expense } from './entities/expense.entity';
 import { ExpenseCategory } from './entities/expense.entity';
-import { getUploadRoot } from '../files/files.utils';
-
-function findLogoPath(): string | null {
-  const brandDir = join(getUploadRoot(), 'brand');
-  if (!existsSync(brandDir)) return null;
-  try {
-    const files = readdirSync(brandDir).filter((f) => /^logo\.(png|jpg|jpeg|webp)$/i.test(f));
-    return files.length ? join(brandDir, files[0]) : null;
-  } catch {
-    return null;
-  }
-}
+import { findLogoPath } from '../common/logo.utils';
 
 const DARK_BLUE = '#1a3c6e';
 const MID_GRAY = '#6b7280';
