@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { join, relative } from 'path';
-import { mkdirSync, statSync } from 'fs';
+import { mkdirSync, statSync, existsSync, unlink } from 'fs';
 import { Quote, QuoteStatus } from './entities/quote.entity';
 import { QuoteItem } from './entities/quote-item.entity';
 import { Client } from '../clients/entities/client.entity';
@@ -254,7 +254,11 @@ export class QuotesService implements OnModuleInit {
     });
     await this.itemsRepository.save(item);
     await this.recalculate(quoteId);
-    return this.findOne(quoteId);
+    const result = await this.findOne(quoteId);
+    await this.savePdfForQuote(result).catch((err: Error) =>
+      this.logger.error(`PDF regeneration failed for quote ${quoteId}: ${err.message}`),
+    );
+    return result;
   }
 
   async updateItem(quoteId: string, itemId: string, dto: UpdateQuoteItemDto, userRole?: UserRole): Promise<Quote> {
@@ -271,7 +275,11 @@ export class QuotesService implements OnModuleInit {
     item.total = parseFloat((item.quantity * item.unitPrice * (1 - (item.discountPct ?? 0) / 100)).toFixed(2));
     await this.itemsRepository.save(item);
     await this.recalculate(quoteId);
-    return this.findOne(quoteId);
+    const result = await this.findOne(quoteId);
+    await this.savePdfForQuote(result).catch((err: Error) =>
+      this.logger.error(`PDF regeneration failed for quote ${quoteId}: ${err.message}`),
+    );
+    return result;
   }
 
   async removeItem(quoteId: string, itemId: string, userRole?: UserRole): Promise<Quote> {
@@ -283,7 +291,11 @@ export class QuotesService implements OnModuleInit {
 
     await this.itemsRepository.remove(item);
     await this.recalculate(quoteId);
-    return this.findOne(quoteId);
+    const result = await this.findOne(quoteId);
+    await this.savePdfForQuote(result).catch((err: Error) =>
+      this.logger.error(`PDF regeneration failed for quote ${quoteId}: ${err.message}`),
+    );
+    return result;
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -318,17 +330,24 @@ export class QuotesService implements OnModuleInit {
 
     const filename = `${quote.number}.pdf`;
     const filePath = join(destDir, filename);
-
-    await generateQuotePdf(quote, filePath);
-
-    const { size } = statSync(filePath);
     const relativePath = relative(getUploadRoot(), filePath);
 
-    // Replace existing record (regeneration on update)
-    const existing = await this.fileRepo.findOne({
-      where: { filename, clientId: quote.clientId },
-    });
-    if (existing) await this.fileRepo.remove(existing);
+    await generateQuotePdf(quote, filePath);
+    const { size } = statSync(filePath);
+
+    // Search by filename only — it is globally unique per quote and clientId may have changed
+    const existing = await this.fileRepo.findOne({ where: { filename } });
+    if (existing) {
+      if (existing.path !== relativePath) {
+        const oldAbsPath = join(getUploadRoot(), existing.path);
+        if (existsSync(oldAbsPath)) {
+          unlink(oldAbsPath, (err) => {
+            if (err) this.logger.error(`Failed to delete old quote PDF ${oldAbsPath}: ${err.message}`);
+          });
+        }
+      }
+      await this.fileRepo.remove(existing);
+    }
 
     const record = this.fileRepo.create({
       originalName: filename,

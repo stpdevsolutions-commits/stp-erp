@@ -33,7 +33,7 @@ export async function GET(
     headers: {
       'Content-Type': contentType,
       'Content-Disposition': contentDisposition,
-      'Cache-Control': 'private, max-age=3600',
+      'Cache-Control': 'no-store',
     },
   })
 }

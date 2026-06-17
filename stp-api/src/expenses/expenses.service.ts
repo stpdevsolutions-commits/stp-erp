@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { join, relative } from 'path';
-import { mkdirSync, statSync } from 'fs';
+import { mkdirSync, statSync, existsSync, unlink } from 'fs';
 import { Expense } from './entities/expense.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
@@ -158,8 +158,19 @@ export class ExpensesService {
     const { size } = statSync(filePath);
     const relativePath = relative(getUploadRoot(), filePath);
 
-    const existing = await this.fileRepo.findOne({ where: { filename, clientId } });
-    if (existing) await this.fileRepo.remove(existing);
+    // Search by filename only — it is globally unique per expense and clientId may have changed
+    const existing = await this.fileRepo.findOne({ where: { filename } });
+    if (existing) {
+      if (existing.path !== relativePath) {
+        const oldAbsPath = join(getUploadRoot(), existing.path);
+        if (existsSync(oldAbsPath)) {
+          unlink(oldAbsPath, (err) => {
+            if (err) this.logger.error(`Failed to delete old expense PDF ${oldAbsPath}: ${err.message}`);
+          });
+        }
+      }
+      await this.fileRepo.remove(existing);
+    }
 
     const record = this.fileRepo.create({
       originalName: filename,
