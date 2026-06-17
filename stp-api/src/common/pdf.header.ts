@@ -1,5 +1,5 @@
 import type PDFDocument from 'pdfkit';
-import { COMPANY } from './company';
+import type { CompanyData } from './company';
 
 export const DARK_BLUE   = '#1a3c6e';
 export const TEAL        = '#0d9488';
@@ -19,6 +19,7 @@ export function drawDocumentHeader(
   documentType: string,
   documentNumber: string,
   logoPath: string | null,
+  company: CompanyData,
 ): void {
   // ── Logo ─────────────────────────────────────────────────────────────────
   if (logoPath) {
@@ -32,16 +33,16 @@ export function drawDocumentHeader(
   const infoW = 248;
 
   doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(14)
-    .text(COMPANY.name, infoX, 22, { width: infoW, lineBreak: false });
+    .text(company.name, infoX, 22, { width: infoW, lineBreak: false });
 
   doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(8.5)
-    .text(`${COMPANY.shortName}  ·  RNC: ${COMPANY.rnc}`, infoX, 41, { width: infoW, lineBreak: false });
+    .text(`${company.shortName}  ·  RNC: ${company.rnc}`, infoX, 41, { width: infoW, lineBreak: false });
 
   doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
-    .text(COMPANY.address1, infoX, 54, { width: infoW, lineBreak: false })
-    .text(COMPANY.address2, infoX, 64, { width: infoW, lineBreak: false })
-    .text(`Tel: ${COMPANY.phones}`, infoX, 74, { width: infoW, lineBreak: false })
-    .text(`${COMPANY.email}  ·  ${COMPANY.website}`, infoX, 84, { width: infoW, lineBreak: false });
+    .text(company.address1, infoX, 54, { width: infoW, lineBreak: false })
+    .text(company.address2, infoX, 64, { width: infoW, lineBreak: false })
+    .text(`Tel: ${company.phones}`, infoX, 74, { width: infoW, lineBreak: false })
+    .text(`${company.email}  ·  ${company.website}`, infoX, 84, { width: infoW, lineBreak: false });
 
   // ── Document type + number (right column) ─────────────────────────────────
   const docX = 358;

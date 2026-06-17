@@ -1,4 +1,15 @@
-export const COMPANY = {
+export type CompanyData = {
+  name: string;
+  shortName: string;
+  rnc: string;
+  address1: string;
+  address2: string;
+  phones: string;
+  email: string;
+  website: string;
+};
+
+export const COMPANY: CompanyData = {
   name: 'Soluciones Técnicas Profesionales',
   shortName: 'STP',
   rnc: '132943058',
@@ -7,4 +18,4 @@ export const COMPANY = {
   phones: '809-537-6566 / 809-350-9162',
   email: 'proyectos@stpsoluciones.com',
   website: 'stpsoluciones.com',
-} as const;
+};

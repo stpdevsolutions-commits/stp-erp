@@ -15,6 +15,7 @@ import { Quote } from '../quotes/entities/quote.entity';
 import { FileUpload, FileContext } from '../files/entities/file-upload.entity';
 import { getUploadRoot } from '../files/files.utils';
 import { generatePaymentPdf } from './pdf.generator';
+import { SettingsService } from '../settings/settings.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
@@ -37,6 +38,7 @@ export class PaymentsService {
     @InjectRepository(FileUpload)
     private readonly fileRepo: Repository<FileUpload>,
     private readonly notifications: NotificationsService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async create(dto: CreatePaymentDto, createdById: string): Promise<Payment> {
@@ -183,7 +185,8 @@ export class PaymentsService {
     const filename = `PAGO-${payment.id}.pdf`;
     const filePath = join(destDir, filename);
 
-    await generatePaymentPdf(payment, filePath);
+    const company = await this.settingsService.getCompanyData();
+    await generatePaymentPdf(payment, filePath, company);
 
     const { size } = statSync(filePath);
     const relativePath = relative(getUploadRoot(), filePath);

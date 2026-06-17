@@ -14,6 +14,7 @@ import { Supplier } from '../suppliers/entities/supplier.entity';
 import { FileUpload, FileContext } from '../files/entities/file-upload.entity';
 import { getUploadRoot } from '../files/files.utils';
 import { generateExpensePdf } from './pdf.generator';
+import { SettingsService } from '../settings/settings.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { QueryExpensesDto } from './dto/query-expenses.dto';
@@ -31,6 +32,7 @@ export class ExpensesService {
     private readonly suppliersRepository: Repository<Supplier>,
     @InjectRepository(FileUpload)
     private readonly fileRepo: Repository<FileUpload>,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async create(dto: CreateExpenseDto, createdById: string): Promise<Expense> {
@@ -153,7 +155,8 @@ export class ExpensesService {
     const filename = `GASTO-${expense.id}.pdf`;
     const filePath = join(destDir, filename);
 
-    await generateExpensePdf(expense, filePath);
+    const company = await this.settingsService.getCompanyData();
+    await generateExpensePdf(expense, filePath, company);
 
     const { size } = statSync(filePath);
     const relativePath = relative(getUploadRoot(), filePath);

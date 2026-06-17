@@ -6,7 +6,7 @@ import {
   drawDocumentHeader, CONTENT_Y,
   DARK_BLUE, TEAL, MID_GRAY, DARK_TEXT, BORDER_GRAY, LEFT, RIGHT, WIDTH,
 } from '../common/pdf.header';
-import { COMPANY } from '../common/company';
+import type { CompanyData } from '../common/company';
 
 // ── Additional palette ─────────────────────────────────────────────────────
 const TABLE_HDR_BG = '#dbeafe';
@@ -41,7 +41,7 @@ function dateFmt(d: Date | null | undefined): string {
 
 // ── Main generator ─────────────────────────────────────────────────────────
 
-export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void> {
+export function generateQuotePdf(quote: Quote, outputPath: string, company: CompanyData): Promise<void> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 0, size: 'A4', autoFirstPage: true });
     const stream = createWriteStream(outputPath);
@@ -75,7 +75,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     // ── Helper: check page break and add new page if needed ────────────────
     const newPage = (): number => {
       doc.addPage();
-      drawDocumentHeader(doc, 'COTIZACIÓN', quote.number, logoPath);
+      drawDocumentHeader(doc, 'COTIZACIÓN', quote.number, logoPath, company);
       return CONTENT_Y;
     };
 
@@ -83,7 +83,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
       y + needed > 758 ? newPage() : y;
 
     // ── PAGE 1: Header ─────────────────────────────────────────────────────
-    drawDocumentHeader(doc, 'COTIZACIÓN', quote.number, logoPath);
+    drawDocumentHeader(doc, 'COTIZACIÓN', quote.number, logoPath, company);
     let y = CONTENT_Y;
 
     // ── Client info block ──────────────────────────────────────────────────
@@ -341,7 +341,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     // Generation date centered below both signatures
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text(
-        `Documento generado el ${dateFmt(new Date())}  ·  ${COMPANY.website}  ·  RNC: ${COMPANY.rnc}`,
+        `Documento generado el ${dateFmt(new Date())}  ·  ${company.website}  ·  RNC: ${company.rnc}`,
         LEFT, y, { width: WIDTH, align: 'center', lineBreak: false },
       );
     y += 18;
@@ -350,7 +350,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string): Promise<void
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text(
-        `${COMPANY.name}  ·  RNC: ${COMPANY.rnc}  ·  ${COMPANY.email}  ·  ${COMPANY.website}`,
+        `${company.name}  ·  RNC: ${company.rnc}  ·  ${company.email}  ·  ${company.website}`,
         LEFT, y + 7, { width: WIDTH, align: 'center', lineBreak: false },
       );
 

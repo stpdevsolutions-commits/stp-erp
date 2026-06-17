@@ -7,7 +7,7 @@ import {
   drawDocumentHeader, CONTENT_Y,
   DARK_BLUE, TEAL, MID_GRAY, DARK_TEXT, BORDER_GRAY, LEFT, RIGHT, WIDTH,
 } from '../common/pdf.header';
-import { COMPANY } from '../common/company';
+import type { CompanyData } from '../common/company';
 
 const INFO_BG = '#f8fafc';
 
@@ -49,7 +49,7 @@ const STATUS_LABELS: Record<PaymentStatus, string> = {
   [PaymentStatus.REFUNDED]:  'Reembolsado',
 };
 
-export function generatePaymentPdf(payment: Payment, outputPath: string): Promise<void> {
+export function generatePaymentPdf(payment: Payment, outputPath: string, company: CompanyData): Promise<void> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 0, size: 'A4', autoFirstPage: true });
     const stream = createWriteStream(outputPath);
@@ -61,7 +61,7 @@ export function generatePaymentPdf(payment: Payment, outputPath: string): Promis
       ? `PAGO  ·  ${String(payDate.getUTCDate()).padStart(2,'0')}/${String(payDate.getUTCMonth()+1).padStart(2,'0')}/${payDate.getUTCFullYear()}`
       : 'RECIBO';
 
-    drawDocumentHeader(doc, 'RECIBO\nDE PAGO', docNumber, findLogoPath());
+    drawDocumentHeader(doc, 'RECIBO\nDE PAGO', docNumber, findLogoPath(), company);
     let y = CONTENT_Y;
 
     // ── Info block ─────────────────────────────────────────────────────────
@@ -174,7 +174,7 @@ export function generatePaymentPdf(payment: Payment, outputPath: string): Promis
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text(
-        `Documento generado el ${dateFmt(new Date())}  ·  ${COMPANY.name}  ·  RNC: ${COMPANY.rnc}  ·  ${COMPANY.email}`,
+        `Documento generado el ${dateFmt(new Date())}  ·  ${company.name}  ·  RNC: ${company.rnc}  ·  ${company.email}`,
         LEFT, y + 7, { width: WIDTH, align: 'center', lineBreak: false },
       );
 

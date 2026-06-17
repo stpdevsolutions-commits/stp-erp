@@ -24,6 +24,7 @@ import { UpdateQuoteItemDto } from './dto/update-quote-item.dto';
 import { QueryQuotesDto } from './dto/query-quotes.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UserRole } from '../users/entities/user.entity';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class QuotesService implements OnModuleInit {
@@ -41,6 +42,7 @@ export class QuotesService implements OnModuleInit {
     @InjectRepository(FileUpload)
     private readonly fileRepo: Repository<FileUpload>,
     private readonly notifications: NotificationsService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   onModuleInit() {
@@ -332,7 +334,8 @@ export class QuotesService implements OnModuleInit {
     const filePath = join(destDir, filename);
     const relativePath = relative(getUploadRoot(), filePath);
 
-    await generateQuotePdf(quote, filePath);
+    const company = await this.settingsService.getCompanyData();
+    await generateQuotePdf(quote, filePath, company);
     const { size } = statSync(filePath);
 
     // Search by filename only — it is globally unique per quote and clientId may have changed

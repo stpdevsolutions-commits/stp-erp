@@ -2,6 +2,8 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
+  Body,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -20,6 +22,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { getUploadRoot } from '../files/files.utils';
+import type { CompanyData } from '../common/company';
 
 const ALLOWED_IMAGE_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -68,5 +71,33 @@ export class SettingsController {
 
     const stream = createReadStream(fullPath);
     return new StreamableFile(stream);
+  }
+
+  @Get('company')
+  @UseGuards(JwtAuthGuard)
+  async getCompany(): Promise<CompanyData> {
+    return this.settingsService.getCompanyData();
+  }
+
+  @Patch('company')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateCompany(@Body() body: Partial<CompanyData>): Promise<CompanyData> {
+    await this.settingsService.setCompanyData(body);
+    return this.settingsService.getCompanyData();
+  }
+
+  @Get('terms')
+  @UseGuards(JwtAuthGuard)
+  async getTerms(): Promise<{ terms: string | null }> {
+    return { terms: await this.settingsService.getDefaultTerms() };
+  }
+
+  @Patch('terms')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateTerms(@Body() body: { terms: string }): Promise<{ terms: string | null }> {
+    await this.settingsService.setDefaultTerms(body.terms);
+    return { terms: await this.settingsService.getDefaultTerms() };
   }
 }

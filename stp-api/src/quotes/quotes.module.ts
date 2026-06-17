@@ -7,9 +7,10 @@ import { Project } from '../projects/entities/project.entity';
 import { FileUpload } from '../files/entities/file-upload.entity';
 import { QuotesService } from './quotes.service';
 import { QuotesController } from './quotes.controller';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Quote, QuoteItem, Client, Project, FileUpload])],
+  imports: [TypeOrmModule.forFeature([Quote, QuoteItem, Client, Project, FileUpload]), SettingsModule],
   providers: [QuotesService],
   controllers: [QuotesController],
   exports: [QuotesService],
