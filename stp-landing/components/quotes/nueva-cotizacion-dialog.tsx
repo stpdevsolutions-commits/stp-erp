@@ -63,6 +63,7 @@ const headerSchema = z.object({
   status: z.enum(['draft', 'sent', 'approved', 'rejected', 'expired']),
   validUntil: z.string().optional(),
   notes: z.string().optional(),
+  terms: z.string().optional(),
 })
 type HeaderValues = z.infer<typeof headerSchema>
 
@@ -104,9 +105,11 @@ const ITBIS_RATE = 0.18
 export function NuevaCotizacionDialog({
   clients,
   projects,
+  defaultTerms = '',
 }: {
   clients: Client[]
   projects: Project[]
+  defaultTerms?: string
 }) {
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -123,7 +126,7 @@ export function NuevaCotizacionDialog({
     formState: { errors, isSubmitting },
   } = useForm<HeaderValues>({
     resolver: zodResolver(headerSchema),
-    defaultValues: { status: 'draft' },
+    defaultValues: { status: 'draft', terms: defaultTerms },
   })
 
   const clientId = watch('clientId')
@@ -191,7 +194,7 @@ export function NuevaCotizacionDialog({
   function handleClose() {
     setOpen(false)
     setSections([makeSection('Partida 1')])
-    reset()
+    reset({ status: 'draft', terms: defaultTerms })
     setServerError(null)
     setItemsError(null)
     setApplyITBIS(true)
@@ -242,6 +245,7 @@ export function NuevaCotizacionDialog({
       status: headerData.status,
       validUntil: headerData.validUntil || undefined,
       notes: headerData.notes || undefined,
+      terms: headerData.terms || undefined,
       taxRate: applyITBIS ? 18 : 0,
       items: flatItems,
     })
@@ -345,7 +349,18 @@ export function NuevaCotizacionDialog({
 
             <div className="col-span-full space-y-1.5">
               <Label htmlFor="notes">Notas</Label>
-              <Input id="notes" placeholder="Condiciones, garantía..." {...register('notes')} />
+              <Input id="notes" placeholder="Condiciones especiales, garantía..." {...register('notes')} />
+            </div>
+
+            <div className="col-span-full space-y-1.5">
+              <Label htmlFor="terms">Términos y condiciones</Label>
+              <textarea
+                id="terms"
+                rows={3}
+                placeholder="Términos de pago, validez, condiciones..."
+                className="w-full resize-y text-sm rounded-md border border-input bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                {...register('terms')}
+              />
             </div>
           </div>
 

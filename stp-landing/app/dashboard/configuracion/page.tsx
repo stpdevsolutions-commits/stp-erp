@@ -2,15 +2,18 @@ import { LogoUpload } from '@/components/settings/logo-upload'
 import { CompanyForm } from '@/components/settings/company-form'
 import { TermsForm } from '@/components/settings/terms-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { getCompanySettings, getDefaultTerms } from '@/lib/actions/settings'
+import { api } from '@/lib/api'
+import type { CompanyFormData } from '@/lib/actions/settings'
 
 export default async function ConfiguracionPage() {
-  const [company, terms] = await Promise.all([
-    getCompanySettings(),
-    getDefaultTerms(),
+  const [company, termsData] = await Promise.allSettled([
+    api.get<CompanyFormData>('/settings/company'),
+    api.get<{ terms: string | null }>('/settings/terms'),
   ])
 
-  const companyDefaults = company ?? {
+  const terms = termsData.status === 'fulfilled' ? (termsData.value.terms ?? '') : ''
+
+  const companyDefaults = company.status === 'fulfilled' ? company.value : {
     name: 'Soluciones Técnicas Profesionales',
     shortName: 'STP',
     rnc: '132943058',

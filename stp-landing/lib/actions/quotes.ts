@@ -32,6 +32,7 @@ export interface CreateQuoteInput {
   status?: 'draft' | 'sent' | 'approved' | 'rejected' | 'expired'
   validUntil?: string
   notes?: string
+  terms?: string
   taxRate?: number
   items: QuoteItemInput[]
 }

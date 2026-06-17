@@ -50,20 +50,23 @@ export default async function CotizacionesPage({
   let projects: Project[] = []
   let clients: Client[] = []
   let userRole: string = 'USER'
+  let defaultTerms = ''
   let error: string | null = null
 
   try {
-    const [quotesRes, proyRes, clientsRes, meRes] = await Promise.allSettled([
+    const [quotesRes, proyRes, clientsRes, meRes, termsRes] = await Promise.allSettled([
       api.get<PaginatedResponse<Quote>>(`/quotes?${q.toString()}`),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
       api.get<PaginatedResponse<Client>>('/clients?limit=200'),
       api.get<Pick<User, 'role'>>('/users/me'),
+      api.get<{ terms: string | null }>('/settings/terms'),
     ])
     if (quotesRes.status === 'fulfilled') cotizacionesRes = quotesRes.value
     else error = quotesRes.reason instanceof Error ? quotesRes.reason.message : 'Error al cargar cotizaciones'
     if (proyRes.status === 'fulfilled') projects = proyRes.value.data
     if (clientsRes.status === 'fulfilled') clients = clientsRes.value.data
     if (meRes.status === 'fulfilled') userRole = meRes.value.role
+    if (termsRes.status === 'fulfilled') defaultTerms = termsRes.value.terms ?? ''
   } catch (e) {
     error = e instanceof Error ? e.message : 'Error al cargar cotizaciones'
   }
@@ -83,7 +86,7 @@ export default async function CotizacionesPage({
           <h1 className="text-2xl font-bold tracking-tight">Cotizaciones</h1>
           <p className="text-muted-foreground text-sm">Gestión de cotizaciones y propuestas</p>
         </div>
-        <NuevaCotizacionDialog clients={clients} projects={projects} />
+        <NuevaCotizacionDialog clients={clients} projects={projects} defaultTerms={defaultTerms} />
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
