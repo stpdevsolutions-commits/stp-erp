@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
-import { authFetch, apiError } from './utils'
+import { authFetch } from './utils'
+import { apiError } from '@/lib/utils'
 
 export async function uploadFile(
   uploadPath: string,

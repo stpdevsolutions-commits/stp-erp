@@ -1,7 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { authFetch, apiError } from './utils'
+import { authFetch } from './utils'
+import { apiError } from '@/lib/utils'
 
 export interface ActionResult {
   ok: boolean

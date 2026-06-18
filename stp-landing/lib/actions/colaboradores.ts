@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
-import { authFetch, apiError, API_URL } from './utils'
+import { authFetch, API_URL } from './utils'
+import { apiError } from '@/lib/utils'
 import type { Collaborator, CollaboratorStatus, PaginatedResponse } from '@/lib/types'
 import { cookies } from 'next/headers'
 
