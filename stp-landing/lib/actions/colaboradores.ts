@@ -1,19 +1,10 @@
 'use server'
 
-import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { isRedirectError } from 'next/dist/client/components/redirect-error'
+import { authFetch, apiError, API_URL } from './utils'
 import type { Collaborator, CollaboratorStatus, PaginatedResponse } from '@/lib/types'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://stp-api:3001'
-
-async function authHeaders() {
-  const jar = await cookies()
-  const token = jar.get('stp-token')?.value
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
-}
+import { cookies } from 'next/headers'
 
 export async function getColaboradores(params?: {
   search?: string
@@ -27,8 +18,13 @@ export async function getColaboradores(params?: {
   if (params?.page) qs.set('page', String(params.page))
   if (params?.limit) qs.set('limit', String(params.limit))
 
-  const res = await fetch(`${API}/collaborators?${qs}`, {
-    headers: await authHeaders(),
+  const store = await cookies()
+  const token = store.get('stp-token')?.value
+  const res = await fetch(`${API_URL}/collaborators?${qs}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     cache: 'no-store',
   })
   if (!res.ok) return { data: [], total: 0, page: 1, limit: 20 }
@@ -37,47 +33,44 @@ export async function getColaboradores(params?: {
 
 export async function createColaborador(input: Partial<Collaborator>): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${API}/collaborators`, {
+    const res = await authFetch('/collaborators', {
       method: 'POST',
-      headers: await authHeaders(),
       body: JSON.stringify(input),
     })
-    const data = await res.json().catch(() => ({})) as { message?: string | string[] }
+    const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const msg = Array.isArray(data.message) ? data.message.join(', ') : (data.message ?? 'Error')
-      return { ok: false, error: msg }
+      return { ok: false, error: apiError(data, 'Error') }
     }
     revalidatePath('/dashboard/colaboradores')
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isRedirectError(err)) throw err
     return { ok: false, error: 'Error de conexión' }
   }
 }
 
 export async function updateColaborador(id: string, input: Partial<Collaborator>): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${API}/collaborators/${id}`, {
+    const res = await authFetch(`/collaborators/${id}`, {
       method: 'PATCH',
-      headers: await authHeaders(),
       body: JSON.stringify(input),
     })
-    const data = await res.json().catch(() => ({})) as { message?: string | string[] }
+    const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const msg = Array.isArray(data.message) ? data.message.join(', ') : (data.message ?? 'Error')
-      return { ok: false, error: msg }
+      return { ok: false, error: apiError(data, 'Error') }
     }
     revalidatePath('/dashboard/colaboradores')
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isRedirectError(err)) throw err
     return { ok: false, error: 'Error de conexión' }
   }
 }
 
 export async function deleteColaborador(id: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${API}/collaborators/${id}`, {
+    const res = await authFetch(`/collaborators/${id}`, {
       method: 'DELETE',
-      headers: await authHeaders(),
     })
     if (!res.ok && res.status !== 204) {
       const data = await res.json().catch(() => ({})) as { message?: string }
@@ -85,7 +78,8 @@ export async function deleteColaborador(id: string): Promise<{ ok: boolean; erro
     }
     revalidatePath('/dashboard/colaboradores')
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isRedirectError(err)) throw err
     return { ok: false, error: 'Error de conexión' }
   }
 }

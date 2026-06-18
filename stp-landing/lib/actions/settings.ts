@@ -1,43 +1,23 @@
 'use server'
 
-import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://stp-api:3001'
-
-async function authToken() {
-  const jar = await cookies()
-  return jar.get('stp-token')?.value
-}
-
-async function apiFetch(path: string, init?: RequestInit) {
-  const token = await authToken()
-  return fetch(`${API}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  })
-}
+import { isRedirectError } from 'next/dist/client/components/redirect-error'
+import { authFetch, apiError } from './utils'
 
 export async function uploadLogo(formData: FormData): Promise<{ ok: boolean; error?: string }> {
   try {
-    const token = await authToken()
-    const res = await fetch(`${API}/settings/logo`, {
+    const res = await authFetch('/settings/logo', {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
     })
-    const data = await res.json().catch(() => ({})) as { message?: string | string[] }
+    const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const msg = Array.isArray(data.message) ? data.message.join(', ') : (data.message ?? 'Error al subir')
-      return { ok: false, error: msg }
+      return { ok: false, error: apiError(data, 'Error al subir') }
     }
     revalidatePath('/', 'layout')
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isRedirectError(err)) throw err
     return { ok: false, error: 'Error de conexión' }
   }
 }
@@ -50,57 +30,59 @@ export type CompanyFormData = {
 
 export async function getCompanySettings(): Promise<CompanyFormData | null> {
   try {
-    const res = await apiFetch('/settings/company')
+    const res = await authFetch('/settings/company')
     if (!res.ok) return null
     return res.json() as Promise<CompanyFormData>
-  } catch {
+  } catch (err) {
+    if (isRedirectError(err)) throw err
     return null
   }
 }
 
 export async function updateCompanySettings(data: CompanyFormData): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await apiFetch('/settings/company', {
+    const res = await authFetch('/settings/company', {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
     if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as { message?: string | string[] }
-      const msg = Array.isArray(body.message) ? body.message.join(', ') : (body.message ?? 'Error al guardar')
-      return { ok: false, error: msg }
+      const body = await res.json().catch(() => ({}))
+      return { ok: false, error: apiError(body, 'Error al guardar') }
     }
     revalidatePath('/dashboard/configuracion')
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isRedirectError(err)) throw err
     return { ok: false, error: 'Error de conexión' }
   }
 }
 
 export async function getDefaultTerms(): Promise<string> {
   try {
-    const res = await apiFetch('/settings/terms')
+    const res = await authFetch('/settings/terms')
     if (!res.ok) return ''
     const body = await res.json() as { terms: string | null }
     return body.terms ?? ''
-  } catch {
+  } catch (err) {
+    if (isRedirectError(err)) throw err
     return ''
   }
 }
 
 export async function updateDefaultTerms(terms: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await apiFetch('/settings/terms', {
+    const res = await authFetch('/settings/terms', {
       method: 'PATCH',
       body: JSON.stringify({ terms }),
     })
     if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as { message?: string | string[] }
-      const msg = Array.isArray(body.message) ? body.message.join(', ') : (body.message ?? 'Error al guardar')
-      return { ok: false, error: msg }
+      const body = await res.json().catch(() => ({}))
+      return { ok: false, error: apiError(body, 'Error al guardar') }
     }
     revalidatePath('/dashboard/configuracion')
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isRedirectError(err)) throw err
     return { ok: false, error: 'Error de conexión' }
   }
 }

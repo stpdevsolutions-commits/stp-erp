@@ -2,6 +2,13 @@ import { cookies } from 'next/headers'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
+export class UnauthorizedError extends Error {
+  constructor() {
+    super('Sesión expirada')
+    this.name = 'UnauthorizedError'
+  }
+}
+
 async function getToken(): Promise<string | undefined> {
   const store = await cookies()
   return store.get('stp-token')?.value
@@ -21,9 +28,11 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     cache: 'no-store',
   })
 
+  if (res.status === 401) throw new UnauthorizedError()
+
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: res.statusText }))
-    throw new Error(error.message ?? 'API error')
+    throw new Error(error.message ?? 'Error de conexión')
   }
 
   if (res.status === 204) return undefined as T

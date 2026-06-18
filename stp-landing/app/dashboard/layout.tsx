@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Separator } from '@/components/ui/separator'
-import { api } from '@/lib/api'
+import { api, UnauthorizedError } from '@/lib/api'
 
 export default async function DashboardLayout({
   children,
@@ -17,8 +17,18 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
-  const me = await api.get<{ role: string }>('/users/me').catch(() => null)
-  const role = me?.role ?? 'USER'
+  let role = 'user'
+  try {
+    const me = await api.get<{ role: string }>('/users/me')
+    role = me.role
+  } catch (e) {
+    if (e instanceof UnauthorizedError) {
+      cookieStore.delete('stp-token')
+      cookieStore.delete('stp-user')
+      redirect('/login')
+    }
+    // otros errores (red caída, etc.) → seguir con rol 'user'
+  }
 
   return (
     <SidebarProvider>
