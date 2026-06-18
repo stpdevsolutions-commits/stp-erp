@@ -116,7 +116,13 @@ export class QuotesService implements OnModuleInit {
 
     const result = await this.findOne(saved.id);
 
+    await this.savePdfForQuote(result).catch((err: Error) =>
+      this.logger.error(`PDF generation failed for quote ${result.id}: ${err.message}`),
+    );
+
     if (dto.status === QuoteStatus.SENT && result.client?.email) {
+      const pdfFile = await this.findPdfFile(result.id);
+      const pdfPath = pdfFile ? join(getUploadRoot(), pdfFile.path) : undefined;
       this.notifications.sendQuoteSent({
         clientEmail: result.client.email,
         clientName: result.client.name,
@@ -124,12 +130,9 @@ export class QuotesService implements OnModuleInit {
         quoteTitle: result.title,
         total: result.total,
         validUntil: result.validUntil,
+        pdfPath,
       });
     }
-
-    await this.savePdfForQuote(result).catch((err: Error) =>
-      this.logger.error(`PDF generation failed for quote ${result.id}: ${err.message}`),
-    );
 
     return result;
   }
@@ -208,8 +211,14 @@ export class QuotesService implements OnModuleInit {
 
     const updated = await this.findOne(id);
 
+    await this.savePdfForQuote(updated).catch((err: Error) =>
+      this.logger.error(`PDF regeneration failed for quote ${id}: ${err.message}`),
+    );
+
     if (dto.status && dto.status !== previousStatus) {
       if (dto.status === QuoteStatus.SENT && updated.client?.email) {
+        const pdfFile = await this.findPdfFile(id);
+        const pdfPath = pdfFile ? join(getUploadRoot(), pdfFile.path) : undefined;
         this.notifications.sendQuoteSent({
           clientEmail: updated.client.email,
           clientName: updated.client.name,
@@ -217,6 +226,7 @@ export class QuotesService implements OnModuleInit {
           quoteTitle: updated.title,
           total: updated.total,
           validUntil: updated.validUntil,
+          pdfPath,
         });
       }
       if (dto.status === QuoteStatus.APPROVED) {
@@ -227,19 +237,14 @@ export class QuotesService implements OnModuleInit {
           total: updated.total,
         });
       }
-      if (dto.status === QuoteStatus.REJECTED && updated.client?.email) {
+      if (dto.status === QuoteStatus.REJECTED) {
         this.notifications.sendQuoteRejected({
-          clientEmail: updated.client.email,
-          clientName: updated.client.name,
+          clientName: updated.client?.name ?? 'Cliente',
           quoteNumber: updated.number,
           quoteTitle: updated.title,
         });
       }
     }
-
-    await this.savePdfForQuote(updated).catch((err: Error) =>
-      this.logger.error(`PDF regeneration failed for quote ${id}: ${err.message}`),
-    );
 
     return updated;
   }
@@ -249,6 +254,15 @@ export class QuotesService implements OnModuleInit {
     if (!quote.client?.email) {
       throw new BadRequestException('El cliente no tiene email registrado');
     }
+
+    if (quote.status === QuoteStatus.DRAFT) {
+      quote.status = QuoteStatus.SENT;
+      await this.quotesRepository.save(quote);
+    }
+
+    const pdfFile = await this.findPdfFile(id);
+    const pdfPath = pdfFile ? join(getUploadRoot(), pdfFile.path) : undefined;
+
     this.notifications.sendQuoteSent({
       clientEmail: quote.client.email,
       clientName: quote.client.name,
@@ -256,6 +270,7 @@ export class QuotesService implements OnModuleInit {
       quoteTitle: quote.title,
       total: quote.total,
       validUntil: quote.validUntil,
+      pdfPath,
     });
   }
 

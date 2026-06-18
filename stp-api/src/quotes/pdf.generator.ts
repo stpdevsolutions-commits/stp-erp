@@ -338,14 +338,6 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
       .text('Recibido conforme', SIG2, y, { width: SIGW, align: 'center', lineBreak: false });
     y += 18;
 
-    // Generation date centered below both signatures
-    doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
-      .text(
-        `Documento generado el ${dateFmt(new Date())}  ·  ${company.website}  ·  RNC: ${company.rnc}`,
-        LEFT, y, { width: WIDTH, align: 'center', lineBreak: false },
-      );
-    y += 18;
-
     // ── Footer line ────────────────────────────────────────────────────────
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)

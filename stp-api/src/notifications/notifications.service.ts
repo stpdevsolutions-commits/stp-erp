@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { existsSync, readFileSync } from 'fs';
 import { Resend } from 'resend';
 
 @Injectable()
@@ -29,11 +30,17 @@ export class NotificationsService {
     quoteTitle: string;
     total: number;
     validUntil?: string;
+    pdfPath?: string;
   }): void {
-    const { clientEmail, clientName, quoteNumber, quoteTitle, total, validUntil } = params;
+    const { clientEmail, clientName, quoteNumber, quoteTitle, total, validUntil, pdfPath } = params;
+    const attachments: { filename: string; content: Buffer }[] = [];
+    if (pdfPath && existsSync(pdfPath)) {
+      attachments.push({ filename: `${quoteNumber}.pdf`, content: readFileSync(pdfPath) });
+    }
     void this.send({
       to: clientEmail,
       subject: `Cotización ${quoteNumber} — ${quoteTitle}`,
+      attachments,
       html: `
         <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
           <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
@@ -109,36 +116,31 @@ export class NotificationsService {
     });
   }
 
-  // ── Quote: rejected (to client) ───────────────────────────────────────────
+  // ── Quote: rejected (internal) ────────────────────────────────────────────
 
   sendQuoteRejected(params: {
-    clientEmail: string;
     clientName: string;
     quoteNumber: string;
     quoteTitle: string;
   }): void {
-    const { clientEmail, clientName, quoteNumber, quoteTitle } = params;
+    const { clientName, quoteNumber, quoteTitle } = params;
     void this.send({
-      to: clientEmail,
-      subject: `Cotización ${quoteNumber} rechazada`,
+      to: this.adminEmail,
+      subject: `❌ Cotización rechazada: ${quoteNumber} — ${clientName}`,
       html: `
         <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
           <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
             <div style="background:#7f1d1d;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:20px">Cotización Rechazada</h1>
-              <p style="color:#fca5a5;margin:4px 0 0;font-size:13px">Soluciones Técnicas Profesionales</p>
+              <h1 style="color:#fff;margin:0;font-size:20px">❌ Cotización Rechazada</h1>
+              <p style="color:#fca5a5;margin:4px 0 0;font-size:13px">STP ERP — Notificación interna</p>
             </div>
             <div style="padding:32px">
-              <p style="color:#374151;font-size:15px">Estimado(a) <strong>${clientName}</strong>,</p>
-              <p style="color:#374151;font-size:15px">Le informamos que la siguiente cotización ha sido marcada como rechazada:</p>
-              <div style="background:#fef2f2;border-left:4px solid #7f1d1d;border-radius:4px;padding:20px 24px;margin:24px 0">
+              <div style="background:#fef2f2;border-left:4px solid #7f1d1d;border-radius:4px;padding:20px 24px;margin-bottom:24px">
                 <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#7f1d1d">${quoteNumber}</p>
-                <p style="margin:0;color:#374151">${quoteTitle}</p>
+                <p style="margin:0 0 4px;color:#374151">${quoteTitle}</p>
+                <p style="margin:0;color:#6b7280;font-size:14px">Cliente: <strong>${clientName}</strong></p>
               </div>
-              <p style="color:#374151;font-size:14px">Si tiene alguna duda o desea solicitar una nueva propuesta, no dude en contactarnos.</p>
-            </div>
-            <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">Soluciones Técnicas Profesionales · República Dominicana</p>
+              <p style="color:#374151;font-size:14px">El cliente ha rechazado la cotización. Considere contactarlo para discutir ajustes o emitir una nueva propuesta.</p>
             </div>
           </div>
         </div>
@@ -262,7 +264,12 @@ export class NotificationsService {
 
   // ── Internal sender ────────────────────────────────────────────────────────
 
-  private async send(options: { to: string; subject: string; html: string }): Promise<void> {
+  private async send(options: {
+    to: string;
+    subject: string;
+    html: string;
+    attachments?: { filename: string; content: Buffer }[];
+  }): Promise<void> {
     if (!this.resend) return;
     try {
       await this.resend.emails.send({
@@ -270,6 +277,7 @@ export class NotificationsService {
         to: options.to,
         subject: options.subject,
         html: options.html,
+        ...(options.attachments?.length ? { attachments: options.attachments } : {}),
       });
       this.logger.log(`Email sent to ${options.to}: ${options.subject}`);
     } catch (err) {
