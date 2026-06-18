@@ -63,6 +63,14 @@ export class QuotesController {
     return this.quotesService.update(id, dto, user.role);
   }
 
+  @Post(':id/send')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  sendEmail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.quotesService.sendEmail(id);
+  }
+
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)

@@ -46,8 +46,16 @@ export class QuotesService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    void this.expireOverdueQuotes();
-    setInterval(() => void this.expireOverdueQuotes(), 24 * 60 * 60 * 1000);
+    void this.expireOverdueQuotes().catch((err: Error) =>
+      this.logger.error(`Initial expiry check failed: ${err.message}`),
+    );
+    setInterval(
+      () =>
+        void this.expireOverdueQuotes().catch((err: Error) =>
+          this.logger.error(`Scheduled expiry check failed: ${err.message}`),
+        ),
+      24 * 60 * 60 * 1000,
+    );
   }
 
   private async expireOverdueQuotes(): Promise<void> {
@@ -234,6 +242,21 @@ export class QuotesService implements OnModuleInit {
     );
 
     return updated;
+  }
+
+  async sendEmail(id: string): Promise<void> {
+    const quote = await this.findOne(id);
+    if (!quote.client?.email) {
+      throw new BadRequestException('El cliente no tiene email registrado');
+    }
+    this.notifications.sendQuoteSent({
+      clientEmail: quote.client.email,
+      clientName: quote.client.name,
+      quoteNumber: quote.number,
+      quoteTitle: quote.title,
+      total: quote.total,
+      validUntil: quote.validUntil,
+    });
   }
 
   async remove(id: string): Promise<void> {

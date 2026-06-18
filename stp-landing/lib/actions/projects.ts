@@ -87,6 +87,7 @@ export async function updateProject(id: string, input: UpdateProjectInput): Prom
   }
 
   revalidatePath('/dashboard/proyectos')
+  revalidatePath(`/dashboard/proyectos/${id}`)
   revalidatePath('/dashboard')
   return { ok: true }
 }

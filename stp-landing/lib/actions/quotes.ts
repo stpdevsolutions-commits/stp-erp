@@ -44,6 +44,7 @@ export interface UpdateQuoteInput {
   status?: 'draft' | 'sent' | 'approved' | 'rejected' | 'expired'
   validUntil?: string | null
   notes?: string | null
+  terms?: string | null
   taxRate?: number
   items?: QuoteItemInput[]
 }
@@ -96,7 +97,26 @@ export async function updateQuote(id: string, input: UpdateQuoteInput): Promise<
   }
 
   revalidatePath('/dashboard/cotizaciones')
+  revalidatePath(`/dashboard/cotizaciones/${id}`)
   revalidatePath('/dashboard')
+  return { ok: true }
+}
+
+export async function sendQuoteEmail(id: string): Promise<ActionResult> {
+  const token = await getToken()
+  if (!token) return { ok: false, error: 'No autenticado' }
+
+  const res = await fetch(`${API_URL}/quotes/${id}/send`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    return { ok: false, error: err.message ?? 'Error al enviar la cotización' }
+  }
+
+  revalidatePath('/dashboard/cotizaciones')
   return { ok: true }
 }
 

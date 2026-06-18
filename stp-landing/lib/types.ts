@@ -80,6 +80,7 @@ export interface Quote {
   taxAmount: number
   total: number
   notes?: string
+  terms?: string
   projectId?: string
   project?: Pick<Project, 'id' | 'name' | 'code'>
   clientId: string

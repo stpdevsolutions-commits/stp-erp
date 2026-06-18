@@ -1,4 +1,5 @@
-﻿﻿import { api } from '@/lib/api'
+﻿import Link from 'next/link'
+import { api } from '@/lib/api'
 import type { Client, Project, Quote, PaginatedResponse, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -143,7 +144,14 @@ export default async function CotizacionesPage({
                 ) : (
                   cotizaciones.map((q) => (
                     <TableRow key={q.id}>
-                      <TableCell className="font-mono text-sm">{q.number}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        <Link
+                          href={`/dashboard/cotizaciones/${q.id}`}
+                          className="hover:underline text-primary"
+                        >
+                          {q.number}
+                        </Link>
+                      </TableCell>
                       <TableCell className="font-medium">
                         <div>{q.title}</div>
                         {q.project && (

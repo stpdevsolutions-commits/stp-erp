@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { MoreHorizontal, Pencil, Trash2, Plus, FileText, FolderPlus, Printer } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, Plus, FileText, FolderPlus, Printer, Send, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { Client, Project, Quote } from '@/lib/types'
-import { updateQuote, deleteQuote } from '@/lib/actions/quotes'
+import { updateQuote, deleteQuote, sendQuoteEmail } from '@/lib/actions/quotes'
 
 // ── Local types for section/item state ───────────────────────────────────────
 
@@ -122,6 +122,7 @@ const editSchema = z.object({
   status: z.enum(['draft', 'sent', 'approved', 'rejected', 'expired']),
   validUntil: z.string().optional(),
   notes: z.string().optional(),
+  terms: z.string().optional(),
 })
 type EditFormValues = z.infer<typeof editSchema>
 
@@ -160,6 +161,7 @@ function EditDialog({
       status: cotizacion.status,
       validUntil: cotizacion.validUntil ? cotizacion.validUntil.slice(0, 10) : '',
       notes: cotizacion.notes ?? '',
+      terms: cotizacion.terms ?? '',
     },
   })
 
@@ -262,6 +264,7 @@ function EditDialog({
       status: data.status,
       validUntil: data.validUntil || null,
       notes: data.notes || null,
+      terms: data.terms || null,
       taxRate: applyITBIS ? 18 : 0,
       items: flatItems,
     })
@@ -346,6 +349,17 @@ function EditDialog({
             <div className="col-span-full space-y-1.5">
               <Label htmlFor="edit-notes">Notas</Label>
               <Input id="edit-notes" {...register('notes')} />
+            </div>
+
+            <div className="col-span-full space-y-1.5">
+              <Label htmlFor="edit-terms">Términos y condiciones</Label>
+              <textarea
+                id="edit-terms"
+                {...register('terms')}
+                rows={4}
+                className="w-full resize-y text-sm rounded-md border border-input bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Términos y condiciones aplicables a esta cotización..."
+              />
             </div>
           </div>
 
@@ -628,22 +642,44 @@ export function QuoteActions({
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailResult, setEmailResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   const isAdmin = userRole === 'ADMIN' || userRole === 'admin'
   const isLocked = !isAdmin && (cotizacion.status === 'approved' || cotizacion.status === 'rejected')
+  const hasClientEmail = !!cotizacion.client?.email
+
+  async function handleSendEmail() {
+    setSendingEmail(true)
+    setEmailResult(null)
+    const result = await sendQuoteEmail(cotizacion.id)
+    setSendingEmail(false)
+    setEmailResult({ ok: result.ok, msg: result.ok ? 'Email enviado correctamente' : (result.error ?? 'Error al enviar') })
+    if (result.ok) setTimeout(() => setEmailResult(null), 4000)
+  }
 
   return (
     <>
+      {emailResult && (
+        <span className={`text-xs ${emailResult.ok ? 'text-green-600' : 'text-destructive'}`}>
+          {emailResult.msg}
+        </span>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
           <MoreHorizontal className="size-4" />
           <span className="sr-only">Acciones</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => { window.location.href = `/dashboard/cotizaciones/${cotizacion.id}` }}>
+            <ExternalLink className="size-4" />
+            Ver detalle
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => !isLocked && setEditOpen(true)} disabled={isLocked}>
             <Pencil className="size-4" />
             {isLocked ? 'Bloqueada' : 'Editar'}
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => window.open(`/api/files/quote/${cotizacion.id}?v=${Date.now()}`, '_blank')}
           >
@@ -658,6 +694,13 @@ export function QuoteActions({
           >
             <Printer className="size-4" />
             Imprimir
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={handleSendEmail}
+            disabled={sendingEmail || !hasClientEmail}
+          >
+            <Send className="size-4" />
+            {sendingEmail ? 'Enviando...' : 'Enviar por email'}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
