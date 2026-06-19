@@ -21,6 +21,8 @@ import { FilesModule } from './files/files.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { CollaboratorsModule } from './collaborators/collaborators.module';
 import { SettingsModule } from './settings/settings.module';
+import { FichasModule } from './fichas/fichas.module';
+import { Ficha } from './fichas/entities/ficha.entity';
 import { FileUpload } from './files/entities/file-upload.entity';
 import { InventoryItem } from './inventory/entities/inventory-item.entity';
 import { Collaborator } from './collaborators/entities/collaborator.entity';
@@ -45,7 +47,7 @@ import { Supplier } from './suppliers/entities/supplier.entity';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',
@@ -69,6 +71,7 @@ import { Supplier } from './suppliers/entities/supplier.entity';
     InventoryModule,
     CollaboratorsModule,
     SettingsModule,
+    FichasModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

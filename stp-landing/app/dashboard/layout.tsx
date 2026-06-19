@@ -23,9 +23,7 @@ export default async function DashboardLayout({
     role = me.role
   } catch (e) {
     if (e instanceof UnauthorizedError) {
-      cookieStore.delete('stp-token')
-      cookieStore.delete('stp-user')
-      redirect('/login')
+      redirect('/api/auth/logout')
     }
     // otros errores (red caída, etc.) → seguir con rol 'user'
   }
