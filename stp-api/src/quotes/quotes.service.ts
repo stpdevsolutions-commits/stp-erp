@@ -13,7 +13,7 @@ import { mkdirSync, statSync, existsSync, unlink } from 'fs';
 import { Quote, QuoteStatus } from './entities/quote.entity';
 import { QuoteItem } from './entities/quote-item.entity';
 import { Client } from '../clients/entities/client.entity';
-import { Project } from '../projects/entities/project.entity';
+import { Project, ProjectStatus, ProjectType } from '../projects/entities/project.entity';
 import { FileUpload, FileContext } from '../files/entities/file-upload.entity';
 import { getUploadRoot } from '../files/files.utils';
 import { generateQuotePdf } from './pdf.generator';
@@ -277,6 +277,43 @@ export class QuotesService implements OnModuleInit {
   async remove(id: string): Promise<void> {
     const quote = await this.findOne(id);
     await this.quotesRepository.remove(quote);
+  }
+
+  async convertToProject(id: string, createdById: string): Promise<Project> {
+    const quote = await this.findOne(id);
+
+    if (quote.status !== QuoteStatus.APPROVED) {
+      throw new BadRequestException('Solo se pueden convertir cotizaciones aprobadas');
+    }
+    if (quote.projectId) {
+      throw new BadRequestException('Esta cotización ya está vinculada a un proyecto');
+    }
+
+    const year = new Date().getFullYear();
+    const row = await this.projectsRepository
+      .createQueryBuilder('p')
+      .select(`MAX(CAST(SPLIT_PART(p.code, '-', 3) AS INTEGER))`, 'max')
+      .where('p.code LIKE :pattern', { pattern: `PRJ-${year}-%` })
+      .getRawOne<{ max: string | null }>();
+    const next = (parseInt(row?.max ?? '0') || 0) + 1;
+    const code = `PRJ-${year}-${String(next).padStart(3, '0')}`;
+
+    const project = this.projectsRepository.create({
+      code,
+      name: quote.title,
+      clientId: quote.clientId,
+      budget: quote.total,
+      description: `Generado desde cotización ${quote.number}`,
+      status: ProjectStatus.DRAFT,
+      type: ProjectType.OTHER,
+      createdById,
+    });
+    const saved = await this.projectsRepository.save(project);
+
+    quote.projectId = saved.id;
+    await this.quotesRepository.save(quote);
+
+    return saved;
   }
 
   // ── Items ──────────────────────────────────────────────────────────────────

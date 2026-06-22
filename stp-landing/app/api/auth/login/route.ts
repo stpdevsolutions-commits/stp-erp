@@ -24,20 +24,27 @@ export async function POST(request: Request) {
   const data = await res.json()
   const cookieStore = await cookies()
 
+  const base = { secure: SECURE_COOKIES, sameSite: 'lax' as const, path: '/' }
+
   cookieStore.set('stp-token', data.access_token, {
+    ...base,
     httpOnly: true,
-    secure: SECURE_COOKIES,
-    sameSite: 'lax',
-    path: '/',
     maxAge: 60 * 60 * 24 * 7,
   })
-
+  cookieStore.set('stp-refresh-token', data.refresh_token, {
+    ...base,
+    httpOnly: true,
+    maxAge: 60 * 60 * 24 * 30,
+  })
   cookieStore.set('stp-user', JSON.stringify(data.user), {
+    ...base,
     httpOnly: false,
-    secure: SECURE_COOKIES,
-    sameSite: 'lax',
-    path: '/',
     maxAge: 60 * 60 * 24 * 7,
+  })
+  cookieStore.set('stp-last-activity', String(Date.now()), {
+    ...base,
+    httpOnly: false,
+    maxAge: 60 * 60 * 24 * 30,
   })
 
   return NextResponse.json({ user: data.user })

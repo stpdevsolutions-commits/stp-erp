@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Soluciones Técnicas Profesionales — Empresa dominicana especializada en instalaciones eléctricas, mecánicas y electromecánicas." />
+  <title>STP — Soluciones Técnicas Profesionales</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:    #1e40af;
+      --blue-l:  #3b82f6;
+      --blue-xl: #eff6ff;
+      --dark:    #0f172a;
+      --dark-2:  #1e293b;
+      --gray:    #64748b;
+      --gray-l:  #f1f5f9;
+      --white:   #ffffff;
+      --yellow:  #f59e0b;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: var(--dark);
+      background: var(--white);
+      line-height: 1.6;
+    }
+
+    /* ── Navbar ──────────────────────────────── */
+    nav {
+      position: fixed; top: 0; width: 100%; z-index: 100;
+      background: rgba(15,23,42,0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 0 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 0.6rem;
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--blue-l);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1rem; color: #fff;
+    }
+    .logo-text { color: #fff; font-weight: 700; font-size: 1.05rem; line-height: 1.2; }
+    .logo-sub  { color: #94a3b8; font-weight: 400; font-size: 0.72rem; display: block; }
+
+    .nav-links { display: flex; gap: 2rem; list-style: none; }
+    .nav-links a {
+      color: #cbd5e1; text-decoration: none;
+      font-size: 0.9rem; font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--white); }
+
+    .nav-cta {
+      background: var(--blue-l); color: #fff;
+      padding: 0.5rem 1.2rem; border-radius: 8px;
+      font-weight: 600; font-size: 0.875rem;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .nav-cta:hover { background: var(--blue); }
+
+    @media (max-width: 768px) {
+      .nav-links, .nav-cta { display: none; }
+    }
+
+    /* ── Hero ────────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--dark) 0%, var(--dark-2) 60%, #1e3a5f 100%);
+      display: flex; align-items: center;
+      padding: 6rem 1.5rem 4rem;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 70% 50%, rgba(59,130,246,0.15), transparent);
+    }
+    .hero-inner {
+      max-width: 1200px; margin: 0 auto; width: 100%;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem;
+      align-items: center; position: relative;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: rgba(59,130,246,0.2);
+      border: 1px solid rgba(59,130,246,0.4);
+      color: var(--blue-l); border-radius: 99px;
+      padding: 0.35rem 1rem; font-size: 0.8rem; font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+    .hero-badge span { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--blue-l); }
+    .hero h1 {
+      font-size: clamp(2.2rem, 4vw, 3.2rem);
+      font-weight: 800; color: #fff;
+      line-height: 1.15; margin-bottom: 1.25rem;
+    }
+    .hero h1 em { color: var(--blue-l); font-style: normal; }
+    .hero p {
+      color: #94a3b8; font-size: 1.1rem;
+      margin-bottom: 2rem; max-width: 500px;
+    }
+    .hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--blue-l); color: #fff;
+      padding: 0.8rem 1.75rem; border-radius: 10px;
+      font-weight: 700; font-size: 0.95rem;
+      text-decoration: none; transition: background 0.2s, transform 0.15s;
+      display: inline-flex; align-items: center; gap: 0.5rem;
+    }
+    .btn-primary:hover { background: var(--blue); transform: translateY(-1px); }
+    .btn-ghost {
+      color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2);
+      padding: 0.8rem 1.75rem; border-radius: 10px;
+      font-weight: 600; font-size: 0.95rem;
+      text-decoration: none; transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+
+    .hero-visual {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 1.5rem;
+      transition: background 0.2s;
+    }
+    .stat-card:hover { background: rgba(255,255,255,0.1); }
+    .stat-card .num { font-size: 2rem; font-weight: 800; color: var(--white); }
+    .stat-card .label { color: #94a3b8; font-size: 0.85rem; margin-top: 0.25rem; }
+    .stat-card .icon { font-size: 1.75rem; margin-bottom: 0.75rem; }
+
+    @media (max-width: 900px) {
+      .hero-inner { grid-template-columns: 1fr; text-align: center; }
+      .hero p, .hero h1 { max-width: 100%; }
+      .hero-ctas { justify-content: center; }
+      .hero-visual { display: none; }
+    }
+
+    /* ── Section base ────────────────────────── */
+    section { padding: 5rem 1.5rem; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .section-tag {
+      display: inline-block;
+      color: var(--blue-l); font-weight: 700; font-size: 0.8rem;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+    .section-title {
+      font-size: clamp(1.75rem, 3vw, 2.4rem);
+      font-weight: 800; color: var(--dark); line-height: 1.2;
+      margin-bottom: 1rem;
+    }
+    .section-sub { color: var(--gray); font-size: 1.05rem; max-width: 560px; }
+
+    /* ── Servicios ───────────────────────────── */
+    #servicios { background: var(--gray-l); }
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem; margin-top: 3rem;
+    }
+    .service-card {
+      background: var(--white);
+      border: 1px solid #e2e8f0;
+      border-radius: 16px; padding: 2rem;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .service-card:hover {
+      box-shadow: 0 12px 40px rgba(30,64,175,0.12);
+      transform: translateY(-4px);
+    }
+    .service-icon {
+      width: 52px; height: 52px; border-radius: 12px;
+      background: var(--blue-xl);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; margin-bottom: 1.25rem;
+    }
+    .service-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.6rem; }
+    .service-card p  { color: var(--gray); font-size: 0.92rem; line-height: 1.6; }
+
+    /* ── Por qué STP ─────────────────────────── */
+    #nosotros { background: var(--white); }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 2rem; margin-top: 3rem;
+    }
+    .feature { display: flex; gap: 1rem; }
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: var(--blue-xl); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.25rem;
+    }
+    .feature h4 { font-size: 1rem; font-weight: 700; margin-bottom: 0.35rem; }
+    .feature p  { color: var(--gray); font-size: 0.88rem; line-height: 1.5; }
+
+    /* ── Proceso ─────────────────────────────── */
+    #proceso { background: var(--dark); }
+    #proceso .section-title { color: var(--white); }
+    #proceso .section-sub   { color: #94a3b8; }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem; margin-top: 3rem; position: relative;
+    }
+    .step {
+      text-align: center; padding: 2rem 1.5rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+    }
+    .step-num {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--blue-l); color: #fff;
+      font-weight: 800; font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem;
+    }
+    .step h4 { color: #fff; font-weight: 700; margin-bottom: 0.5rem; }
+    .step p  { color: #94a3b8; font-size: 0.88rem; line-height: 1.5; }
+
+    /* ── Contacto ────────────────────────────── */
+    #contacto { background: var(--gray-l); }
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem; margin-top: 3rem;
+      align-items: start;
+    }
+    .contact-info h3 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.5rem; }
+    .contact-item {
+      display: flex; gap: 1rem; align-items: flex-start;
+      margin-bottom: 1.25rem;
+    }
+    .contact-item-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--blue-xl); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+    .contact-item strong { display: block; font-size: 0.85rem; color: var(--gray); margin-bottom: 0.15rem; }
+    .contact-item a, .contact-item span { color: var(--dark); font-weight: 500; text-decoration: none; }
+    .contact-item a:hover { color: var(--blue-l); }
+
+    .contact-form { background: var(--white); border-radius: 20px; padding: 2.5rem; border: 1px solid #e2e8f0; }
+    .form-row { margin-bottom: 1.25rem; }
+    .form-row label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--dark); }
+    .form-row input, .form-row textarea, .form-row select {
+      width: 100%; padding: 0.75rem 1rem;
+      border: 1.5px solid #e2e8f0; border-radius: 10px;
+      font-family: inherit; font-size: 0.95rem; color: var(--dark);
+      background: var(--white); outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-row input:focus, .form-row textarea:focus, .form-row select:focus {
+      border-color: var(--blue-l);
+    }
+    .form-row textarea { height: 120px; resize: vertical; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .btn-submit {
+      width: 100%; background: var(--blue-l); color: #fff;
+      padding: 0.9rem; border: none; border-radius: 10px;
+      font-family: inherit; font-size: 1rem; font-weight: 700;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-submit:hover { background: var(--blue); }
+
+    @media (max-width: 768px) {
+      .contact-grid { grid-template-columns: 1fr; gap: 2rem; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Footer ──────────────────────────────── */
+    footer {
+      background: var(--dark);
+      padding: 3rem 1.5rem 2rem;
+    }
+    .footer-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; flex-wrap: wrap; justify-content: space-between;
+      gap: 2rem; padding-bottom: 2rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .footer-brand p { color: #64748b; font-size: 0.875rem; margin-top: 0.75rem; max-width: 280px; }
+    .footer-col h5 { color: var(--white); font-weight: 700; margin-bottom: 1rem; }
+    .footer-col ul { list-style: none; }
+    .footer-col ul li { margin-bottom: 0.5rem; }
+    .footer-col ul a { color: #64748b; text-decoration: none; font-size: 0.875rem; transition: color 0.2s; }
+    .footer-col ul a:hover { color: var(--white); }
+    .footer-bottom {
+      max-width: 1200px; margin: 0 auto; padding-top: 1.5rem;
+      display: flex; flex-wrap: wrap; justify-content: space-between;
+      gap: 1rem;
+    }
+    .footer-bottom p { color: #475569; font-size: 0.8rem; }
+
+    /* ── WhatsApp FAB ────────────────────────── */
+    .whatsapp-btn {
+      position: fixed; bottom: 1.75rem; right: 1.75rem; z-index: 99;
+      width: 56px; height: 56px; border-radius: 50%;
+      background: #25d366;
+      display: flex; align-items: center; justify-content: center;
+      text-decoration: none;
+      box-shadow: 0 4px 20px rgba(37,211,102,0.5);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .whatsapp-btn:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(37,211,102,0.65); }
+    .whatsapp-btn svg { width: 28px; height: 28px; fill: #fff; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="logo">
+      <div class="logo-icon">STP</div>
+      <div class="logo-text">
+        Soluciones Técnicas
+        <span class="logo-sub">Profesionales</span>
+      </div>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#servicios">Servicios</a></li>
+      <li><a href="#nosotros">Nosotros</a></li>
+      <li><a href="#proceso">Proceso</a></li>
+      <li><a href="#contacto">Contacto</a></li>
+    </ul>
+    <a href="#contacto" class="nav-cta">Solicitar cotización</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-badge">
+        <span></span>
+        Empresa certificada · República Dominicana
+      </div>
+      <h1>
+        Ingeniería <em>eléctrica y mecánica</em> de confianza
+      </h1>
+      <p>
+        Diseñamos, instalamos y mantenemos sistemas electromecánicos para proyectos residenciales, comerciales e industriales en todo el país.
+      </p>
+      <div class="hero-ctas">
+        <a href="#contacto" class="btn-primary">
+          Solicitar cotización →
+        </a>
+        <a href="#servicios" class="btn-ghost">Ver servicios</a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="stat-card">
+        <div class="icon">⚡</div>
+        <div class="num">10+</div>
+        <div class="label">Años de experiencia</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">🏗️</div>
+        <div class="num">200+</div>
+        <div class="label">Proyectos completados</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">🤝</div>
+        <div class="num">150+</div>
+        <div class="label">Clientes satisfechos</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">🛡️</div>
+        <div class="num">100%</div>
+        <div class="label">Garantía en mano de obra</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Servicios -->
+<section id="servicios">
+  <div class="container">
+    <div class="section-tag">¿Qué hacemos?</div>
+    <h2 class="section-title">Nuestros servicios</h2>
+    <p class="section-sub">
+      Soluciones integrales en sistemas eléctricos y mecánicos, adaptadas a cada tipo de proyecto y cliente.
+    </p>
+    <div class="services-grid">
+      <div class="service-card">
+        <div class="service-icon">⚡</div>
+        <h3>Instalaciones eléctricas</h3>
+        <p>Diseño e instalación de sistemas eléctricos para viviendas, locales comerciales, naves industriales y edificios. Cumplimiento con el Código Eléctrico Nacional.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">⚙️</div>
+        <h3>Sistemas mecánicos</h3>
+        <p>Instalación y mantenimiento de equipos mecánicos: bombas, compresores, sistemas de climatización, tuberías y estructuras metálicas.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">🔧</div>
+        <h3>Mantenimiento preventivo</h3>
+        <p>Planes de mantenimiento periódico para equipos electromecánicos, tableros eléctricos, generadores y sistemas de emergencia.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">🏭</div>
+        <h3>Proyectos industriales</h3>
+        <p>Ejecución llave en mano de proyectos de automatización, subestaciones eléctricas, grupos electrógenos y sistemas de protección.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">💡</div>
+        <h3>Iluminación técnica</h3>
+        <p>Diseño e instalación de sistemas LED industriales, alumbrado de emergencia, iluminación exterior y domótica.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">🩺</div>
+        <h3>Diagnóstico y peritaje</h3>
+        <p>Inspección técnica de instalaciones existentes, termografía eléctrica, pruebas de aislamiento y elaboración de informes técnicos.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Por qué STP -->
+<section id="nosotros">
+  <div class="container">
+    <div class="section-tag">Por qué elegirnos</div>
+    <h2 class="section-title">Comprometidos con la calidad</h2>
+    <p class="section-sub">
+      Más de una década ejecutando proyectos con los más altos estándares técnicos y de seguridad.
+    </p>
+    <div class="features-grid">
+      <div class="feature">
+        <div class="feature-icon">📋</div>
+        <div>
+          <h4>Cotización detallada</h4>
+          <p>Presupuestos transparentes con partidas claras. Sin sorpresas al final del proyecto.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⏱️</div>
+        <div>
+          <h4>Cumplimiento de plazos</h4>
+          <p>Planificación rigurosa y seguimiento continuo para entregar cada proyecto a tiempo.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔒</div>
+        <div>
+          <h4>Seguridad primero</h4>
+          <p>Todos nuestros trabajos cumplen las normativas vigentes y los protocolos de seguridad industrial.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🏆</div>
+        <div>
+          <h4>Equipo certificado</h4>
+          <p>Ingenieros y técnicos con certificaciones nacionales e internacionales en su área.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔄</div>
+        <div>
+          <h4>Soporte post-entrega</h4>
+          <p>Respaldo técnico y garantía en todos los trabajos ejecutados por nuestro equipo.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📍</div>
+        <div>
+          <h4>Cobertura nacional</h4>
+          <p>Proyectos en todo el territorio dominicano, con equipo disponible para movilización.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Proceso -->
+<section id="proceso">
+  <div class="container">
+    <div class="section-tag" style="color:#60a5fa">Cómo trabajamos</div>
+    <h2 class="section-title">Proceso de trabajo</h2>
+    <p class="section-sub">
+      Un flujo claro y profesional desde la primera consulta hasta la entrega final.
+    </p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h4>Consulta inicial</h4>
+        <p>Evaluamos tus necesidades, visitamos el sitio si es necesario y discutimos los alcances del proyecto.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h4>Cotización</h4>
+        <p>Elaboramos una propuesta técnica y económica detallada, con desglose de materiales y mano de obra.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h4>Aprobación</h4>
+        <p>Revisamos la propuesta contigo, ajustamos según tus requerimientos y firmamos el contrato de trabajo.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h4>Ejecución</h4>
+        <p>Nuestro equipo trabaja con supervisión técnica constante, reportándote el avance en cada etapa.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <h4>Entrega y garantía</h4>
+        <p>Pruebas finales, documentación completa y garantía sobre la mano de obra realizada.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Contacto -->
+<section id="contacto">
+  <div class="container">
+    <div class="section-tag">Hablemos</div>
+    <h2 class="section-title">¿Tienes un proyecto?</h2>
+    <p class="section-sub">
+      Cuéntanos qué necesitas y te enviamos una cotización sin compromiso.
+    </p>
+    <div class="contact-grid">
+      <div class="contact-info">
+        <h3>Información de contacto</h3>
+        <div class="contact-item">
+          <div class="contact-item-icon">📞</div>
+          <div>
+            <strong>Teléfono / WhatsApp</strong>
+            <a href="tel:+18095550000">+1 (809) 555-0000</a>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-item-icon">📧</div>
+          <div>
+            <strong>Correo electrónico</strong>
+            <a href="mailto:info@stpsoluciones.com">info@stpsoluciones.com</a>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-item-icon">📍</div>
+          <div>
+            <strong>Ubicación</strong>
+            <span>Santo Domingo, República Dominicana</span>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-item-icon">🕐</div>
+          <div>
+            <strong>Horario de atención</strong>
+            <span>Lun – Vie: 8:00 AM – 5:00 PM</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="contact-form">
+        <form action="https://formspree.io/f/xyzwqpld" method="POST">
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="nombre">Nombre *</label>
+              <input type="text" id="nombre" name="nombre" placeholder="Tu nombre" required />
+            </div>
+            <div class="form-row">
+              <label for="empresa">Empresa</label>
+              <input type="text" id="empresa" name="empresa" placeholder="Tu empresa (opcional)" />
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="telefono">Teléfono *</label>
+              <input type="tel" id="telefono" name="telefono" placeholder="+1 (809) 000-0000" required />
+            </div>
+            <div class="form-row">
+              <label for="email">Correo electrónico *</label>
+              <input type="email" id="email" name="email" placeholder="correo@ejemplo.com" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="servicio">Servicio de interés</label>
+            <select id="servicio" name="servicio">
+              <option value="">Seleccionar servicio...</option>
+              <option>Instalación eléctrica</option>
+              <option>Sistema mecánico</option>
+              <option>Mantenimiento preventivo</option>
+              <option>Proyecto industrial</option>
+              <option>Iluminación técnica</option>
+              <option>Diagnóstico y peritaje</option>
+              <option>Otro</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="mensaje">Descripción del proyecto *</label>
+            <textarea id="mensaje" name="mensaje" placeholder="Cuéntanos brevemente sobre tu proyecto o necesidad..." required></textarea>
+          </div>
+          <button type="submit" class="btn-submit">Enviar solicitud →</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a href="#" class="logo">
+        <div class="logo-icon" style="background:#3b82f6">STP</div>
+        <div class="logo-text" style="color:#fff">
+          Soluciones Técnicas
+          <span class="logo-sub">Profesionales</span>
+        </div>
+      </a>
+      <p>Empresa dominicana de ingeniería electromecánica. Calidad, seguridad y compromiso en cada proyecto.</p>
+    </div>
+    <div class="footer-col">
+      <h5>Servicios</h5>
+      <ul>
+        <li><a href="#servicios">Instalaciones eléctricas</a></li>
+        <li><a href="#servicios">Sistemas mecánicos</a></li>
+        <li><a href="#servicios">Mantenimiento preventivo</a></li>
+        <li><a href="#servicios">Proyectos industriales</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h5>Empresa</h5>
+      <ul>
+        <li><a href="#nosotros">Sobre nosotros</a></li>
+        <li><a href="#proceso">Cómo trabajamos</a></li>
+        <li><a href="#contacto">Contacto</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2025 Soluciones Técnicas Profesionales, SRL. Todos los derechos reservados.</p>
+    <p>Santo Domingo, República Dominicana · RNC 1-23-45678-9</p>
+  </div>
+</footer>
+
+<!-- WhatsApp FAB -->
+<a href="https://wa.me/18095376566?text=Hola%2C%20me%20interesa%20una%20cotización" class="whatsapp-btn" target="_blank" rel="noopener" aria-label="Contactar por WhatsApp">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+  </svg>
+</a>
+
+</body>
+</html>

@@ -1,0 +1,70 @@
+{
+	admin off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+# HTTPS directo para Headscale — bypasa Cloudflare Tunnel
+vpn.stpsoluciones.com {
+	tls {
+		dns cloudflare {env.CF_DNS_API_TOKEN}
+	}
+	reverse_proxy stp-headscale:8080 {
+		header_up Upgrade {http.request.header.Upgrade}
+		header_up Connection "Upgrade"
+		flush_interval -1
+	}
+}
+
+:80 {
+	# ── Sitio público (landing page) ──────────────────────────────────────────
+	@landing host stpsoluciones.com www.stpsoluciones.com
+	handle @landing {
+		root * /srv/www
+		file_server
+	}
+
+	# ── ERP (solo acceso interno / VPN) ───────────────────────────────────────
+	@erp host erp.stpsoluciones.com
+	handle @erp {
+		reverse_proxy stp-landing:3000
+	}
+
+	@vaultwarden host vault.stpsoluciones.com
+	handle @vaultwarden {
+		reverse_proxy stp-vaultwarden:80
+	}
+
+	@nextcloud host cloud.stpsoluciones.com
+	handle @nextcloud {
+		reverse_proxy stp-nextcloud:80
+	}
+
+	@uptime host status.stpsoluciones.com
+	handle @uptime {
+		reverse_proxy stp-uptime-kuma:3001
+	}
+
+	@netdata host monitor.stpsoluciones.com
+	handle @netdata {
+		reverse_proxy stp-netdata:19999 {
+			header_up Host stp-netdata:19999
+		}
+	}
+
+	@adguard host dns.stpsoluciones.com
+	handle @adguard {
+		reverse_proxy stp-adguard:3000 {
+			header_up Host stp-adguard:3000
+		}
+	}
+
+	@outline host notes.stpsoluciones.com
+	handle @outline {
+		reverse_proxy stp-outline:3000 {
+			header_up X-Forwarded-Proto "https"
+			header_up X-Forwarded-Ssl "on"
+		}
+	}
+}

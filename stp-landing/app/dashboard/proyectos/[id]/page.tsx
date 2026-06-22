@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
-import type { Project, Task, Expense, Payment, FileUpload, PaginatedResponse } from '@/lib/types'
+import type { Project, Task, Expense, Payment, FileUpload, PaginatedResponse, Ficha } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -40,10 +40,11 @@ export default async function ProyectoDetallePage({
   }
 
   const rawFiles = await api.get<FileUpload[]>(`/files/clients/${project.clientId}/projects/${id}`).catch(() => [] as FileUpload[])
-  const [tasks, expenses, payments] = await Promise.all([
+  const [tasks, expenses, payments, fichas] = await Promise.all([
     api.get<PaginatedResponse<Task>>(`/tasks?projectId=${id}&limit=100`).catch(() => ({ data: [], total: 0, page: 1, limit: 100 })),
     api.get<PaginatedResponse<Expense>>(`/expenses?projectId=${id}&limit=100`).catch(() => ({ data: [], total: 0, page: 1, limit: 100 })),
     api.get<PaginatedResponse<Payment>>(`/payments?projectId=${id}&limit=100`).catch(() => ({ data: [], total: 0, page: 1, limit: 100 })),
+    api.get<Ficha[]>(`/fichas?projectId=${id}`).catch(() => [] as Ficha[]),
   ])
   const files = { data: rawFiles, total: rawFiles.length, page: 1, limit: rawFiles.length || 1 }
 
@@ -79,7 +80,11 @@ export default async function ProyectoDetallePage({
               <User className="size-3.5" />
               <span className="text-xs">Cliente</span>
             </div>
-            <p className="font-medium text-sm">{project.client?.name ?? '—'}</p>
+            {project.client ? (
+              <Link href={`/dashboard/clientes/${project.client.id}`} className="hover:underline font-medium text-sm">
+                {project.client.name}
+              </Link>
+            ) : <p className="font-medium text-sm">—</p>}
           </CardContent>
         </Card>
 
@@ -126,6 +131,9 @@ export default async function ProyectoDetallePage({
         expenses={expenses}
         payments={payments}
         files={files}
+        fichas={fichas}
+        clientId={project.clientId}
+        projectId={id}
       />
     </div>
   )

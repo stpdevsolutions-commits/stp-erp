@@ -108,3 +108,21 @@ export async function deleteQuote(id: string): Promise<ActionResult> {
   revalidatePath('/dashboard')
   return { ok: true }
 }
+
+export async function convertQuoteToProject(id: string): Promise<ActionResult & { projectId?: string }> {
+  const res = await authFetch(`/quotes/${id}/convert-to-project`, {
+    method: 'POST',
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    return { ok: false, error: apiError(err, 'Error al convertir la cotización') }
+  }
+
+  const project = await res.json().catch(() => ({}))
+  revalidatePath('/dashboard/cotizaciones')
+  revalidatePath(`/dashboard/cotizaciones/${id}`)
+  revalidatePath('/dashboard/proyectos')
+  revalidatePath('/dashboard')
+  return { ok: true, projectId: project.id }
+}

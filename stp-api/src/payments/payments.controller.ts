@@ -12,7 +12,9 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
@@ -40,6 +42,30 @@ export class PaymentsController {
   @Get()
   findAll(@Query() query: QueryPaymentsDto) {
     return this.paymentsService.findAll(query);
+  }
+
+  @Get('export/csv')
+  async exportCsv(@Query() query: QueryPaymentsDto, @Res() res: Response) {
+    const { data } = await this.paymentsService.findAll({ ...query, limit: 5000, page: 1 });
+    const METHOD: Record<string, string> = {
+      cash: 'Efectivo', transfer: 'Transferencia', check: 'Cheque', card: 'Tarjeta', other: 'Otro',
+    };
+    const STATUS: Record<string, string> = {
+      completed: 'Completado', pending: 'Pendiente', failed: 'Fallido', refunded: 'Reembolsado',
+    };
+    const header = 'Fecha,Descripción,Cliente,Proyecto,Método,Estado,Monto RD$\n';
+    const rows = data.map((p) => [
+      p.date,
+      `"${(p.description ?? '').replace(/"/g, '""')}"`,
+      `"${(p.client?.name ?? '').replace(/"/g, '""')}"`,
+      `"${(p.project?.name ?? '').replace(/"/g, '""')}"`,
+      METHOD[p.method] ?? p.method,
+      STATUS[p.status] ?? p.status,
+      p.amount.toFixed(2),
+    ].join(',')).join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="pagos_${new Date().toISOString().slice(0,10)}.csv"`);
+    res.send('﻿' + header + rows);
   }
 
   @Get(':id')

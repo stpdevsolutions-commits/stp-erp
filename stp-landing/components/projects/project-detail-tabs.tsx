@@ -11,8 +11,10 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Download, FileText, Image } from 'lucide-react'
-import type { Task, Expense, Payment, FileUpload, PaginatedResponse } from '@/lib/types'
+import { MapPin, ClipboardList } from 'lucide-react'
+import Link from 'next/link'
+import type { Task, Expense, Payment, FileUpload, PaginatedResponse, Ficha } from '@/lib/types'
+import { ArchivoViewer } from '@/components/files/archivo-viewer'
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 
@@ -66,26 +68,42 @@ const PAYMENT_STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destruct
   refunded: 'outline',
 }
 
-const FILE_CONTEXT: Record<string, string> = {
-  'client-profile': 'Perfil',
-  'project-photos': 'Fotos',
-  'project-documents': 'Documentos',
-  'project-expenses': 'Comprobantes',
-  'project-quotes': 'Cotizaciones',
+const FICHA_TYPE_LABEL: Record<string, string> = {
+  electrico: 'Eléctrico',
+  civil: 'Civil',
+  electromecanico: 'Electromecánico',
+  levantamiento: 'Levantamiento',
+  evaluacion_danos: 'Evaluación de daños',
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+const FICHA_STATUS_LABEL: Record<string, string> = {
+  borrador: 'Borrador',
+  en_progreso: 'En progreso',
+  enviada: 'Enviada',
+}
+
+const FICHA_STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  borrador: 'secondary',
+  en_progreso: 'outline',
+  enviada: 'default',
+}
 
 export function ProjectDetailTabs({
   tasks,
   expenses,
   payments,
   files,
+  fichas,
+  clientId,
+  projectId,
 }: {
   tasks: PaginatedResponse<Task>
   expenses: PaginatedResponse<Expense>
   payments: PaginatedResponse<Payment>
   files: PaginatedResponse<FileUpload>
+  fichas: Ficha[]
+  clientId: string
+  projectId: string
 }) {
   const totalExpenses = expenses.data.reduce((s, e) => s + (e.amount ?? 0), 0)
   const totalPayments = payments.data
@@ -98,6 +116,9 @@ export function ProjectDetailTabs({
       <TabsList>
         <TabsTrigger value="tareas">
           Tareas <span className="ml-1 text-xs opacity-60">({tasks.total})</span>
+        </TabsTrigger>
+        <TabsTrigger value="fichas">
+          Fichas <span className="ml-1 text-xs opacity-60">({fichas.length})</span>
         </TabsTrigger>
         <TabsTrigger value="gastos">
           Gastos <span className="ml-1 text-xs opacity-60">({expenses.total})</span>
@@ -146,6 +167,74 @@ export function ProjectDetailTabs({
                       {t.assignedTo
                         ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}`
                         : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </TabsContent>
+
+      {/* FICHAS */}
+      <TabsContent value="fichas">
+        <div className="rounded-md border mt-3 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Código</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Técnico</TableHead>
+                <TableHead>GPS</TableHead>
+                <TableHead>Fecha</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {fichas.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <ClipboardList className="size-8 opacity-30" />
+                      <span>No hay fichas de campo en este proyecto</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                fichas.map((f) => (
+                  <TableRow key={f.id}>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" className="font-mono px-0 h-auto" render={<Link href={`/dashboard/fichas/${f.id}`} />}>
+                        {f.code}
+                      </Button>
+                    </TableCell>
+                    <TableCell>{FICHA_TYPE_LABEL[f.type] ?? f.type}</TableCell>
+                    <TableCell>
+                      <Badge variant={FICHA_STATUS_VARIANT[f.status]}>
+                        {FICHA_STATUS_LABEL[f.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {f.technician
+                        ? `${f.technician.firstName} ${f.technician.lastName}`
+                        : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {f.latitude && f.longitude ? (
+                        <a
+                          href={`https://maps.google.com/?q=${f.latitude},${f.longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          <MapPin className="size-3" /> Ver
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(f.createdAt).toLocaleDateString('es-DO')}
                     </TableCell>
                   </TableRow>
                 ))
@@ -245,49 +334,14 @@ export function ProjectDetailTabs({
 
       {/* ARCHIVOS */}
       <TabsContent value="archivos">
-        {files.data.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8 text-sm mt-3">
-            No hay archivos en este proyecto
-          </p>
-        ) : (
-          <div className="grid gap-2 mt-3 sm:grid-cols-2 lg:grid-cols-3">
-            {files.data.map((f) => (
-              <div
-                key={f.id}
-                className="flex items-center gap-3 rounded-md border px-3 py-2.5"
-              >
-                <div className="shrink-0 text-muted-foreground">
-                  {f.mimetype.startsWith('image/') ? (
-                    <Image className="size-5" />
-                  ) : (
-                    <FileText className="size-5" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{f.originalName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {FILE_CONTEXT[f.context] ?? f.context} ·{' '}
-                    {(f.size / 1024).toFixed(0)} KB
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  render={
-                    <a
-                      href={`${API_URL}/files/${f.id}/download`}
-                      target="_blank"
-                      rel="noreferrer"
-                    />
-                  }
-                >
-                  <Download className="size-4" />
-                  <span className="sr-only">Descargar</span>
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="mt-3">
+          <ArchivoViewer
+            files={files.data}
+            clientId={clientId}
+            projectId={projectId}
+            canDelete={true}
+          />
+        </div>
       </TabsContent>
     </Tabs>
   )

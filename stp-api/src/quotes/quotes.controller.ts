@@ -71,6 +71,13 @@ export class QuotesController {
     return this.quotesService.sendEmail(id);
   }
 
+  @Post(':id/convert-to-project')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
+  convertToProject(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.quotesService.convertToProject(id, user.id);
+  }
+
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)

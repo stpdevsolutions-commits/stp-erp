@@ -22,6 +22,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { CollaboratorsModule } from './collaborators/collaborators.module';
 import { SettingsModule } from './settings/settings.module';
 import { FichasModule } from './fichas/fichas.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 import { Ficha } from './fichas/entities/ficha.entity';
 import { FileUpload } from './files/entities/file-upload.entity';
 import { InventoryItem } from './inventory/entities/inventory-item.entity';
@@ -72,6 +73,7 @@ import { Supplier } from './suppliers/entities/supplier.entity';
     CollaboratorsModule,
     SettingsModule,
     FichasModule,
+    SchedulerModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

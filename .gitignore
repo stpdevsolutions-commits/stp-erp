@@ -12,6 +12,7 @@ uploads/
 .env
 .env.local
 .env.*.local
+.env.vaultwarden
 stp-api/.env
 
 # Node
@@ -20,6 +21,12 @@ stp-api/dist/
 stp-landing/node_modules/
 stp-landing/.next/
 stp-landing/dist/
+
+# Mobile — repo independiente
+stp-mobile/
+
+# AdGuard — datos de runtime
+adguard/work/
 
 # Logs
 *.log

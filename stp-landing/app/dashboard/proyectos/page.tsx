@@ -133,7 +133,13 @@ export default async function ProyectosPage({
                           )}
                         </Link>
                       </TableCell>
-                      <TableCell>{p.client?.name ?? '—'}</TableCell>
+                      <TableCell>
+                        {p.client ? (
+                          <Link href={`/dashboard/clientes/${p.client.id}`} className="hover:underline">
+                            {p.client.name}
+                          </Link>
+                        ) : '—'}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={STATUS_VARIANTS[p.status]}>{STATUS_LABELS[p.status]}</Badge>
                       </TableCell>

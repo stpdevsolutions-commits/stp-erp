@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -10,6 +10,10 @@ export class UnauthorizedError extends Error {
 }
 
 async function getToken(): Promise<string | undefined> {
+  // El middleware puede haber refrescado el token y lo pasa via header
+  const headerStore = await headers()
+  const fresh = headerStore.get('x-stp-token')
+  if (fresh) return fresh
   const store = await cookies()
   return store.get('stp-token')?.value
 }

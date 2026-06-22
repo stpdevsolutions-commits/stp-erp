@@ -69,7 +69,7 @@ export class AuthService {
 
     const token = this.jwtService.sign(
       { sub: user.id, type: 'password-reset' },
-      { expiresIn: '1h' },
+      { expiresIn: '15m' },
     );
     const appUrl = this.config.get<string>('APP_URL') ?? 'https://stpsoluciones.com';
     this.notifications.sendPasswordReset({

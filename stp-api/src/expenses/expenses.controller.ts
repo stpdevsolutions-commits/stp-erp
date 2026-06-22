@@ -12,7 +12,9 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -38,6 +40,27 @@ export class ExpensesController {
   @Get()
   findAll(@Query() query: QueryExpensesDto) {
     return this.expensesService.findAll(query);
+  }
+
+  @Get('export/csv')
+  async exportCsv(@Query() query: QueryExpensesDto, @Res() res: Response) {
+    const { data } = await this.expensesService.findAll({ ...query, limit: 5000, page: 1 });
+    const CATEGORY: Record<string, string> = {
+      materials: 'Materiales', labor: 'Mano de obra', equipment: 'Equipos',
+      subcontract: 'Subcontrato', travel: 'Transporte', other: 'Otro',
+    };
+    const header = 'Fecha,Descripción,Categoría,Proveedor,Proyecto,Monto RD$\n';
+    const rows = data.map((e) => [
+      e.date,
+      `"${(e.description ?? '').replace(/"/g, '""')}"`,
+      CATEGORY[e.category] ?? e.category,
+      `"${(e.supplier?.name ?? '').replace(/"/g, '""')}"`,
+      `"${(e.project?.name ?? '').replace(/"/g, '""')}"`,
+      e.amount.toFixed(2),
+    ].join(',')).join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="gastos_${new Date().toISOString().slice(0,10)}.csv"`);
+    res.send('﻿' + header + rows);
   }
 
   @Get(':id')

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   stp-postgres:
@@ -67,7 +65,7 @@ services:
     container_name: stp-api
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     env_file:
       - .env
     volumes:
@@ -82,40 +80,207 @@ services:
         condition: service_healthy
     command: npm run start:dev
 
-  # Nginx Reverse Proxy
-  stp-nginx:
-    image: nginx:alpine
-    container_name: stp-nginx
+  # Vaultwarden — gestor de contraseñas
+  stp-vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: stp-vaultwarden
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
+    environment:
+      DOMAIN: "https://vault.stpsoluciones.com"
+      ADMIN_TOKEN: "${VAULTWARDEN_ADMIN_TOKEN}"
+      SIGNUPS_ALLOWED: "false"
+      INVITATIONS_ALLOWED: "true"
+      SMTP_HOST: "smtp.resend.com"
+      SMTP_FROM: "noreply@stpsoluciones.com"
+      SMTP_PORT: "465"
+      SMTP_SECURITY: "force_tls"
+      SMTP_USERNAME: "resend"
+      SMTP_PASSWORD: ${RESEND_API_KEY}
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certbot/conf:/etc/letsencrypt:ro
-      - ./nginx/certbot/www:/var/www/certbot:ro
+      - vaultwarden-data:/data
+    networks:
+      - stp-network
+
+  # Nextcloud — almacenamiento de archivos
+  stp-nextcloud:
+    image: nextcloud:apache
+    container_name: stp-nextcloud
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: stp-postgres
+      POSTGRES_DB: nextcloud_db
+      POSTGRES_USER: nextcloud_user
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASS}
+      NEXTCLOUD_TRUSTED_DOMAINS: "cloud.stpsoluciones.com"
+      REDIS_HOST: stp-redis
+      REDIS_HOST_PASSWORD: ${REDIS_PASSWORD}
+      PHP_MEMORY_LIMIT: 512M
+      PHP_UPLOAD_LIMIT: 512M
+      OVERWRITEPROTOCOL: https
+      OVERWRITECLIURL: "https://cloud.stpsoluciones.com"
+      OVERWRITEHOST: "cloud.stpsoluciones.com"
+      TRUSTED_PROXIES: "172.0.0.0/8"
+    volumes:
+      - nextcloud-app:/var/www/html
+      - /storage/nextcloud:/var/www/html/data
     networks:
       - stp-network
     depends_on:
+      stp-postgres:
+        condition: service_healthy
+      stp-redis:
+        condition: service_healthy
+
+  # Netdata — monitoreo del servidor
+  stp-netdata:
+    image: netdata/netdata:latest
+    container_name: stp-netdata
+    restart: unless-stopped
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - netdata-config:/etc/netdata
+      - netdata-lib:/var/lib/netdata
+      - netdata-cache:/var/cache/netdata
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - NETDATA_CLAIM_TOKEN=TCHji85a5ILynpCjdC1H2JAxl3YWjj3hTwVbQcjeTwkxAt0DshjPDOGKaX5ID1dCFT0V53Hv6V4NxD1Qp6ilo45tKxj3_1HxkkFIdqoWpdsqxH4XzE6CcCLwjzfNHd0FWi_5eT8
+      - NETDATA_CLAIM_ROOMS=ed6e193c-18ba-4f95-ba1f-8e054e6c20cf
+      - NETDATA_CLAIM_URL=https://app.netdata.cloud
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    networks:
+      - stp-network
+
+  # AdGuard Home — DNS con bloqueo de anuncios
+  stp-adguard:
+    image: adguard/adguardhome:latest
+    container_name: stp-adguard
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+    volumes:
+      - ./adguard/work:/opt/adguardhome/work
+      - ./adguard/conf:/opt/adguardhome/conf
+    networks:
+      - stp-network
+
+  # Outline — wiki / base de conocimiento
+  stp-outline:
+    image: outlinewiki/outline:latest
+    container_name: stp-outline
+    restart: unless-stopped
+    environment:
+      SECRET_KEY: ${OUTLINE_SECRET_KEY}
+      UTILS_SECRET: ${OUTLINE_UTILS_SECRET}
+      DATABASE_URL: postgres://outline_user:${OUTLINE_DB_PASS}@stp-postgres:5432/outline_db?sslmode=disable
+      PGSSLMODE: disable
+      REDIS_URL: redis://:${REDIS_PASSWORD}@stp-redis:6379
+      URL: https://notes.stpsoluciones.com
+      PORT: "3000"
+      FILE_STORAGE: local
+      FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
+      FILE_STORAGE_UPLOAD_MAX_SIZE: "26214400"
+      GOOGLE_CLIENT_ID: ${OUTLINE_GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${OUTLINE_GOOGLE_CLIENT_SECRET}
+      SMTP_HOST: smtp.resend.com
+      SMTP_PORT: "465"
+      SMTP_SECURE: "true"
+      SMTP_USERNAME: resend
+      SMTP_PASSWORD: ${RESEND_API_KEY}
+      SMTP_FROM_EMAIL: noreply@stpsoluciones.com
+      SMTP_REPLY_EMAIL: pedroangss@gmail.com
+      DEFAULT_LANGUAGE: es_ES
+      FORCE_HTTPS: "false"
+      ENABLE_UPDATES: "false"
+      LOG_LEVEL: warn
+    volumes:
+      - /storage/outline:/var/lib/outline/data
+    networks:
+      - stp-network
+    depends_on:
+      stp-postgres:
+        condition: service_healthy
+      stp-redis:
+        condition: service_healthy
+
+  # Uptime Kuma — monitoreo de servicios
+  stp-uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: stp-uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - uptime-kuma-data:/app/data
+    networks:
+      - stp-network
+
+  # Headscale — VPN self-hosted
+  stp-headscale:
+    image: headscale/headscale:latest
+    container_name: stp-headscale
+    restart: unless-stopped
+    command: serve
+    volumes:
+      - ./headscale/config:/etc/headscale
+      - headscale-data:/var/lib/headscale
+    networks:
+      - stp-network
+
+  # Caddy — reverse proxy interno (build personalizado con plugin cloudflare-dns)
+  stp-caddy:
+    build:
+      context: ./caddy
+      dockerfile: Dockerfile
+    container_name: stp-caddy
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    environment:
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./www:/srv/www:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - stp-network
+    depends_on:
+      - stp-landing
       - stp-api
 
-  # Certbot — renueva certificados automáticamente cada 12h
-  certbot:
-    image: certbot/certbot
-    container_name: stp-certbot
-    volumes:
-      - ./nginx/certbot/conf:/etc/letsencrypt
-      - ./nginx/certbot/www:/var/www/certbot
-    entrypoint: >
-      /bin/sh -c "trap exit TERM;
-      while :; do
-        certbot renew --quiet --webroot --webroot-path=/var/www/certbot;
-        sleep 12h & wait $${!};
-      done"
+  # Cloudflare Tunnel — expone servicios sin abrir puertos
+  stp-cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: stp-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - stp-network
+    depends_on:
+      - stp-caddy
 
 volumes:
+  netdata-config:
+  netdata-lib:
+  netdata-cache:
   postgres-data:
   redis-data:
+  caddy-data:
+  caddy-config:
+  headscale-data:
+  nextcloud-app:
+  uptime-kuma-data:
+  vaultwarden-data:
 
 networks:
   stp-network:

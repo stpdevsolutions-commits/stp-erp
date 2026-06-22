@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users } from 'lucide-react'
+import Link from 'next/link'
 import { NuevoClienteDialog } from '@/components/clients/nuevo-cliente-dialog'
 import { ClientActions } from '@/components/clients/client-actions'
 import { FiltrosClientes } from '@/components/clientes/filtros-clientes'
@@ -114,7 +115,12 @@ export default async function ClientesPage({
                   clientes.map((cliente) => (
                     <TableRow key={cliente.id}>
                       <TableCell className="font-medium">
-                        <div>{cliente.name}</div>
+                        <Link
+                          href={`/dashboard/clientes/${cliente.id}`}
+                          className="hover:underline underline-offset-2"
+                        >
+                          {cliente.name}
+                        </Link>
                         {cliente.email && (
                           <div className="text-xs text-muted-foreground">{cliente.email}</div>
                         )}

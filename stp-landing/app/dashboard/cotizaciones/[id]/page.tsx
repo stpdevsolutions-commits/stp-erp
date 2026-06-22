@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table'
 import { ChevronLeft, FileText, Calendar, User as UserIcon, FolderKanban } from 'lucide-react'
 import { QuoteActions } from '@/components/quotes/quote-actions'
+import { ConvertToProjectButton } from '@/components/quotes/convert-to-project-button'
 
 const STATUS_LABELS: Record<Quote['status'], string> = {
   draft: 'Borrador',
@@ -90,7 +91,10 @@ export default async function CotizacionDetallePage({
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{quote.title}</h1>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
+          {quote.status === 'approved' && !quote.projectId && (
+            <ConvertToProjectButton quoteId={quote.id} />
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -123,7 +127,11 @@ export default async function CotizacionDetallePage({
               <UserIcon className="size-3.5" />
               <span className="text-xs">Cliente</span>
             </div>
-            <p className="font-medium text-sm">{quote.client?.name ?? '—'}</p>
+            {quote.client ? (
+              <Link href={`/dashboard/clientes/${quote.client.id}`} className="hover:underline font-medium text-sm">
+                {quote.client.name}
+              </Link>
+            ) : <p className="font-medium text-sm">—</p>}
             {quote.client?.email && (
               <p className="text-xs text-muted-foreground">{quote.client.email}</p>
             )}

@@ -156,11 +156,19 @@ export default async function CotizacionesPage({
                         <div>{q.title}</div>
                         {q.project && (
                           <div className="text-xs text-muted-foreground">
-                            {q.project.code} — {q.project.name}
+                            <Link href={`/dashboard/proyectos/${q.project.id}`} className="hover:underline">
+                              {q.project.code} — {q.project.name}
+                            </Link>
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{q.client?.name ?? '—'}</TableCell>
+                      <TableCell>
+                        {q.client ? (
+                          <Link href={`/dashboard/clientes/${q.client.id}`} className="hover:underline">
+                            {q.client.name}
+                          </Link>
+                        ) : '—'}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={STATUS_VARIANTS[q.status]}>{STATUS_LABELS[q.status]}</Badge>
                       </TableCell>

@@ -168,7 +168,7 @@ Las facturas se desarrollan en una **app separada** que se integrará al ERP má
 
 ## Infraestructura del servidor
 - **Host**: stp-server (Ubuntu 22.04.5 LTS)
-- **IP local**: 10.0.0.86 | **Tailscale**: 100.76.193.7
+- **IP local**: 192.168.4.21 | **Tailscale**: 100.76.193.7 (pendiente conectar)
 - **Dominio**: stpsoluciones.com (DNS en Namecheap, pendiente configurar)
 - **Acceso**: `ssh stp@10.0.0.86`
 - **CPU**: i7-7700T | **RAM**: 8GB | **SSD**: 128GB

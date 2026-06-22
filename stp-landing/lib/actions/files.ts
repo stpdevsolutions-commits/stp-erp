@@ -20,7 +20,7 @@ export async function uploadFile(
       return { ok: false, error: apiError(data, 'Error al subir') }
     }
 
-    revalidatePath('/dashboard/archivos')
+    revalidatePath('/dashboard', 'layout')
     return { ok: true }
   } catch (err) {
     if (isRedirectError(err)) throw err
@@ -35,7 +35,7 @@ export async function deleteFile(id: string): Promise<{ ok: boolean; error?: str
       const err = await res.json().catch(() => ({}))
       return { ok: false, error: apiError(err, 'Error al eliminar') }
     }
-    revalidatePath('/dashboard/archivos')
+    revalidatePath('/dashboard', 'layout')
     return { ok: true }
   } catch (err) {
     if (isRedirectError(err)) throw err

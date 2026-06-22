@@ -263,3 +263,25 @@ export interface Collaborator {
   notes?: string
   createdAt: string
 }
+
+export type FichaType = 'electrico' | 'civil' | 'electromecanico' | 'levantamiento' | 'evaluacion_danos'
+export type FichaStatus = 'borrador' | 'en_progreso' | 'enviada'
+
+export interface Ficha {
+  id: string
+  code: string
+  type: FichaType
+  status: FichaStatus
+  projectId: string
+  project?: Pick<Project, 'id' | 'name' | 'code'>
+  technicianId: string
+  technician?: Pick<AuthUser, 'id' | 'firstName' | 'lastName'>
+  data: Record<string, unknown>
+  latitude?: number | null
+  longitude?: number | null
+  photos?: string[] | null
+  signature?: string | null
+  submittedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}

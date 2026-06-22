@@ -67,8 +67,7 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/dashboard')
-      router.refresh()
+      window.location.href = '/dashboard'
     } catch {
       setServerError('Error de conexión. Intente de nuevo.')
     }

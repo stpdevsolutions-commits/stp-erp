@@ -187,6 +187,81 @@ export class NotificationsService {
     });
   }
 
+  // ── Quote: expiring soon (internal alert) ─────────────────────────────────
+
+  sendQuoteExpiringSoon(params: {
+    quoteNumber: string;
+    quoteTitle: string;
+    clientName: string;
+    validUntil?: string;
+    total: number;
+  }): void {
+    const { quoteNumber, quoteTitle, clientName, validUntil, total } = params;
+    void this.send({
+      to: this.adminEmail,
+      subject: `⚠️ Cotización por vencer: ${quoteNumber} — ${clientName}`,
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
+          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden">
+            <div style="background:#78350f;padding:28px 32px">
+              <h1 style="color:#fff;margin:0;font-size:20px">⚠️ Cotización por vencer en 3 días</h1>
+            </div>
+            <div style="padding:32px">
+              <div style="background:#fffbeb;border-left:4px solid #78350f;border-radius:4px;padding:20px 24px;margin-bottom:24px">
+                <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#78350f">${quoteNumber}</p>
+                <p style="margin:0 0 4px;color:#374151">${quoteTitle}</p>
+                <p style="margin:0;color:#6b7280;font-size:14px">Cliente: <strong>${clientName}</strong></p>
+              </div>
+              <table style="width:100%;border-collapse:collapse">
+                <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">Monto</td><td style="padding:10px 0;text-align:right;font-weight:700;color:#1a3c6e">RD$ ${total.toLocaleString('es-DO',{minimumFractionDigits:2})}</td></tr>
+                ${validUntil ? `<tr><td style="padding:10px 0;color:#6b7280;font-size:14px">Vence el</td><td style="padding:10px 0;text-align:right;font-weight:600;color:#dc2626">${validUntil}</td></tr>` : ''}
+              </table>
+              <p style="color:#374151;font-size:14px;margin-top:24px">Considera hacer seguimiento al cliente para cerrar esta cotización antes de que expire.</p>
+            </div>
+          </div>
+        </div>`,
+    });
+  }
+
+  // ── Tasks: overdue summary (internal) ─────────────────────────────────────
+
+  sendOverdueTasksSummary(params: {
+    tasks: { title: string; projectName: string; assignedTo: string; dueDate: string }[];
+  }): void {
+    const { tasks } = params;
+    const rows = tasks.map((t) => `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#374151">${t.title}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280">${t.projectName}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280">${t.assignedTo}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#dc2626;font-weight:600">${t.dueDate}</td>
+      </tr>`).join('');
+    void this.send({
+      to: this.adminEmail,
+      subject: `🔴 ${tasks.length} tarea(s) vencida(s) — STP ERP`,
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
+          <div style="max-width:700px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden">
+            <div style="background:#7f1d1d;padding:28px 32px">
+              <h1 style="color:#fff;margin:0;font-size:20px">🔴 Tareas Vencidas — Resumen diario</h1>
+            </div>
+            <div style="padding:32px">
+              <p style="color:#374151;font-size:15px;margin-bottom:20px">Hay <strong>${tasks.length}</strong> tarea(s) con fecha límite vencida:</p>
+              <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb">
+                <thead><tr style="background:#f9fafb">
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Tarea</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Proyecto</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Asignado a</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Venció</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>`,
+    });
+  }
+
   // ── Auth: password reset ──────────────────────────────────────────────────
 
   sendPasswordReset(params: { email: string; firstName: string; resetUrl: string }): void {
