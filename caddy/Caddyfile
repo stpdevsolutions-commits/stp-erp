@@ -5,11 +5,21 @@
 	}
 }
 
-# HTTPS directo para Headscale — bypasa Cloudflare Tunnel
+# Headscale — HTTPS directo (grey cloud DNS)
 vpn.stpsoluciones.com {
 	tls {
 		dns cloudflare {env.CF_DNS_API_TOKEN}
 	}
+	reverse_proxy stp-headscale:8080 {
+		transport http {
+			versions 1.1
+		}
+		flush_interval -1
+	}
+}
+
+# Headscale — HTTP para Cloudflare Tunnel (no redirige a HTTPS)
+http://vpn.stpsoluciones.com {
 	reverse_proxy stp-headscale:8080 {
 		header_up Upgrade {http.request.header.Upgrade}
 		header_up Connection "Upgrade"

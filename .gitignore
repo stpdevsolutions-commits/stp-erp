@@ -28,6 +28,9 @@ stp-mobile/
 # AdGuard — datos de runtime
 adguard/work/
 
+# Headscale — config contiene client_secret de OIDC (ver config.yaml.example)
+headscale/config/config.yaml
+
 # Logs
 *.log
 npm-debug.log*

@@ -44,6 +44,18 @@ dns:
   search_domains: []
   extra_records: []
 
+oidc:
+  only_start_if_oidc_is_available: true
+  issuer: "https://accounts.google.com"
+  client_id: "YOUR_GOOGLE_OAUTH_CLIENT_ID"
+  client_secret: "YOUR_GOOGLE_OAUTH_CLIENT_SECRET"
+  scope:
+    - openid
+    - profile
+    - email
+  allowed_domains: []
+  allowed_users: []
+
 unix_socket: /var/run/headscale/headscale.sock
 unix_socket_permission: "0770"
 
