@@ -11,9 +11,8 @@ vpn.stpsoluciones.com {
 		dns cloudflare {env.CF_DNS_API_TOKEN}
 	}
 	reverse_proxy stp-headscale:8080 {
-		transport http {
-			versions 1.1
-		}
+		header_up Upgrade {http.request.header.Upgrade}
+		header_up Connection "Upgrade"
 		flush_interval -1
 	}
 }
