@@ -1,9 +1,7 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('health')
-@UseGuards(JwtAuthGuard)
 export class HealthController {
   constructor(
     private readonly health: HealthCheckService,
