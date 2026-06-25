@@ -5,75 +5,90 @@
 	}
 }
 
-# Headscale — HTTPS directo (grey cloud DNS)
-vpn.stpsoluciones.com {
+# ── Landing page — pública (Cloudflare maneja HTTPS, Caddy sirve HTTP) ────────
+http://stpsoluciones.com, http://www.stpsoluciones.com {
+	root * /srv/www
+	file_server
+}
+
+# ── Apps privadas — HTTPS wildcard, solo VPN (100.64.0.0/10) o LAN (10.0.0.0/8)
+*.stpsoluciones.com {
 	tls {
 		dns cloudflare {env.CF_DNS_API_TOKEN}
 	}
-	reverse_proxy stp-headscale:8080 {
-		header_up Upgrade {http.request.header.Upgrade}
-		header_up Connection "Upgrade"
-		flush_interval -1
-	}
-}
 
-# Headscale — HTTP para Cloudflare Tunnel (no redirige a HTTPS)
-http://vpn.stpsoluciones.com {
-	reverse_proxy stp-headscale:8080 {
-		header_up Upgrade {http.request.header.Upgrade}
-		header_up Connection "Upgrade"
-		flush_interval -1
+	# ERP
+	@erp {
+		host erp.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8
 	}
-}
-
-:80 {
-	# ── Sitio público (landing page) ──────────────────────────────────────────
-	@landing host stpsoluciones.com www.stpsoluciones.com
-	handle @landing {
-		root * /srv/www
-		file_server
-	}
-
-	# ── ERP (solo acceso interno / VPN) ───────────────────────────────────────
-	@erp host erp.stpsoluciones.com
 	handle @erp {
 		reverse_proxy stp-landing:3000
 	}
 
-	@vaultwarden host vault.stpsoluciones.com
+	# Vaultwarden
+	@vaultwarden {
+		host vault.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8
+	}
 	handle @vaultwarden {
 		reverse_proxy stp-vaultwarden:80
 	}
 
-	@nextcloud host cloud.stpsoluciones.com
+	# Nextcloud
+	@nextcloud {
+		host cloud.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8
+	}
 	handle @nextcloud {
 		reverse_proxy stp-nextcloud:80
 	}
 
-	@uptime host status.stpsoluciones.com
+	# Uptime Kuma
+	@uptime {
+		host status.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8
+	}
 	handle @uptime {
 		reverse_proxy stp-uptime-kuma:3001
 	}
 
-	@netdata host monitor.stpsoluciones.com
+	# Netdata
+	@netdata {
+		host monitor.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8
+	}
 	handle @netdata {
 		reverse_proxy stp-netdata:19999 {
 			header_up Host stp-netdata:19999
 		}
 	}
 
-	@adguard host dns.stpsoluciones.com
+	# AdGuard
+	@adguard {
+		host dns.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8
+	}
 	handle @adguard {
 		reverse_proxy stp-adguard:3000 {
 			header_up Host stp-adguard:3000
 		}
 	}
 
-	@outline host notes.stpsoluciones.com
+	# Outline
+	@outline {
+		host notes.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8
+	}
 	handle @outline {
 		reverse_proxy stp-outline:3000 {
 			header_up X-Forwarded-Proto "https"
 			header_up X-Forwarded-Ssl "on"
 		}
+	}
+
+	# Catch-all: cualquier subdominio sin IP válida → 403
+	handle {
+		respond "Acceso restringido. Conéctate a la VPN." 403
 	}
 }

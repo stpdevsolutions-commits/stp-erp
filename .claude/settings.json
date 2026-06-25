@@ -1,5 +1,46 @@
 {
   "permissions": {
     "defaultMode": "bypassPermissions"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "docker exec stp-api sh -c \"cd /app && ./node_modules/.bin/tsc --noEmit 2>&1 | tail -20\" | python3 -c \"import json,sys; o=sys.stdin.read().strip(); print(json.dumps({'hookSpecificOutput':{'hookEventName':'PostToolUse','additionalContext':'[tsc] ' + (o or 'Sin errores de TypeScript')}}))\" 2>/dev/null || true",
+            "timeout": 60,
+            "statusMessage": "Verificando TypeScript..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "docker exec stp-api sh -c \"./node_modules/.bin/ts-node -r tsconfig-paths/register node_modules/typeorm/cli.js migration:show -d src/data-source.ts 2>&1 | tail -15\" 2>/dev/null | python3 -c \"import json,sys; print(json.dumps({'systemMessage': '--- Migraciones (verifica antes de commit) ---\\n' + sys.stdin.read()}))\" 2>/dev/null || true",
+            "timeout": 30,
+            "statusMessage": "Verificando migraciones..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "docker logs stp-api --tail=20 2>&1 | python3 -c \"import json,sys; print(json.dumps({'systemMessage': '--- stp-api | ultimos logs ---\\n' + sys.stdin.read()}))\" 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "Obteniendo logs de stp-api..."
+          }
+        ]
+      }
+    ]
   }
 }

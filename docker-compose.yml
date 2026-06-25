@@ -215,23 +215,11 @@ services:
 
   # Uptime Kuma — monitoreo de servicios
   stp-uptime-kuma:
-    image: louislam/uptime-kuma:latest
+    image: louislam/uptime-kuma:2
     container_name: stp-uptime-kuma
     restart: unless-stopped
     volumes:
       - uptime-kuma-data:/app/data
-    networks:
-      - stp-network
-
-  # Headscale — VPN self-hosted
-  stp-headscale:
-    image: headscale/headscale:latest
-    container_name: stp-headscale
-    restart: unless-stopped
-    command: serve
-    volumes:
-      - ./headscale/config:/etc/headscale
-      - headscale-data:/var/lib/headscale
     networks:
       - stp-network
 
@@ -258,7 +246,7 @@ services:
       - stp-landing
       - stp-api
 
-  # Cloudflare Tunnel — expone servicios sin abrir puertos
+  # Cloudflare Tunnel — solo expone la landing page pública (stpsoluciones.com)
   stp-cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: stp-cloudflared
@@ -277,7 +265,6 @@ volumes:
   redis-data:
   caddy-data:
   caddy-config:
-  headscale-data:
   nextcloud-app:
   uptime-kuma-data:
   vaultwarden-data:
