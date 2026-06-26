@@ -70,7 +70,7 @@ services:
       - .env
     volumes:
       - ./stp-api/src:/app/src
-      - ./uploads:/app/uploads
+      - /storage/erp-uploads:/app/uploads
     networks:
       - stp-network
     depends_on:
@@ -96,6 +96,11 @@ services:
       SMTP_SECURITY: "force_tls"
       SMTP_USERNAME: "resend"
       SMTP_PASSWORD: ${RESEND_API_KEY}
+      SSO_ENABLED: ${VAULT_SSO_ENABLED:-false}
+      SSO_ONLY: "false"
+      SSO_AUTHORITY: "https://accounts.google.com"
+      SSO_CLIENT_ID: ${VAULT_SSO_CLIENT_ID:-}
+      SSO_CLIENT_SECRET: ${VAULT_SSO_CLIENT_SECRET:-}
     volumes:
       - vaultwarden-data:/data
     networks:
