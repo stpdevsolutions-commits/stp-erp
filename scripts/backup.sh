@@ -7,7 +7,7 @@ DATE=$(date +%Y-%m-%d)
 TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
 BACKUP_DIR="/tmp/stp-backup-$TIMESTAMP"
 COMPOSE_DIR="/home/stp/stp"
-RCLONE_REMOTE="gdrive:STP-Backups"
+RCLONE_REMOTE="gdrive:backups diarios"
 LOG_PREFIX="[backup $DATE]"
 
 log() { echo "$LOG_PREFIX $*"; }
