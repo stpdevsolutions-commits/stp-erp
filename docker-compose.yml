@@ -178,6 +178,7 @@ services:
     volumes:
       - ./adguard/work:/opt/adguardhome/work
       - ./adguard/conf:/opt/adguardhome/conf
+      - ./adguard/certs:/opt/adguardhome/certs:ro
     networks:
       - stp-network
 

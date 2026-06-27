@@ -79,8 +79,10 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
 	}
 	handle @adguard {
-		reverse_proxy stp-adguard:3000 {
-			header_up Host stp-adguard:3000
+		reverse_proxy https://stp-adguard:3443 {
+			transport http {
+				tls_insecure_skip_verify
+			}
 		}
 	}
 
