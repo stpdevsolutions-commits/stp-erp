@@ -128,6 +128,7 @@ services:
     volumes:
       - nextcloud-app:/var/www/html
       - /storage/nextcloud:/var/www/html/data
+      - /storage/erp-uploads:/erp-uploads
     networks:
       - stp-network
     depends_on:
