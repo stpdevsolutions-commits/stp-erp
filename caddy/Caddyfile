@@ -17,13 +17,22 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 		dns cloudflare {env.CF_DNS_API_TOKEN}
 	}
 
-	# ERP
+	# ERP Frontend
 	@erp {
 		host erp.stpsoluciones.com
 		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
 	}
 	handle @erp {
 		reverse_proxy stp-landing:3000
+	}
+
+	# ERP API (NestJS — para app móvil y acceso directo)
+	@api {
+		host api.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
+	}
+	handle @api {
+		reverse_proxy stp-api:3001
 	}
 
 	# Vaultwarden
