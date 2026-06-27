@@ -11,7 +11,7 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 	file_server
 }
 
-# ── Apps privadas — HTTPS wildcard, solo VPN (100.64.0.0/10) o LAN (10.0.0.0/8)
+# ── Apps privadas — HTTPS wildcard, solo VPN (100.64.0.0/10) o LAN (10.0.0.0/8 · 192.168.0.0/16)
 *.stpsoluciones.com {
 	tls {
 		dns cloudflare {env.CF_DNS_API_TOKEN}
@@ -20,7 +20,7 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 	# ERP
 	@erp {
 		host erp.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 172.16.0.0/12
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
 	}
 	handle @erp {
 		reverse_proxy stp-landing:3000
@@ -29,7 +29,7 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 	# Vaultwarden
 	@vaultwarden {
 		host vault.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 172.16.0.0/12
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
 	}
 	handle @vaultwarden {
 		reverse_proxy stp-vaultwarden:80
@@ -38,7 +38,7 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 	# Nextcloud
 	@nextcloud {
 		host cloud.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 172.16.0.0/12
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
 	}
 	handle @nextcloud {
 		reverse_proxy stp-nextcloud:80
@@ -47,7 +47,7 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 	# Uptime Kuma
 	@uptime {
 		host status.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 172.16.0.0/12
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
 	}
 	handle @uptime {
 		reverse_proxy stp-uptime-kuma:3001
@@ -56,7 +56,7 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 	# Netdata
 	@netdata {
 		host monitor.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 172.16.0.0/12
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
 	}
 	handle @netdata {
 		reverse_proxy stp-netdata:19999 {
@@ -67,7 +67,7 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 	# AdGuard
 	@adguard {
 		host dns.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 172.16.0.0/12
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
 	}
 	handle @adguard {
 		reverse_proxy stp-adguard:3000 {
@@ -78,7 +78,7 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 	# Outline
 	@outline {
 		host notes.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 172.16.0.0/12
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
 	}
 	handle @outline {
 		reverse_proxy stp-outline:3000 {

@@ -5,42 +5,52 @@ ERP para **Soluciones Técnicas Profesionales (STP)**, empresa dominicana de ele
 
 ## Stack
 - **API**: NestJS 11 + TypeScript (`target: ES2023`, `experimentalDecorators: true`)
+- **Frontend**: Next.js (stp-landing) — conecta a la API en `http://stp-api:3001`
 - **ORM**: TypeORM 1.x con PostgreSQL 15
 - **Auth**: JWT 7 días, `@nestjs/passport`
-- **Infra**: Docker + Docker Compose (postgres, redis, nginx, stp-api)
+- **Infra**: Docker + Docker Compose — Caddy (reverse proxy), PostgreSQL, Redis, stp-api, stp-landing
 - **Runtime**: Node.js 20 LTS
 
 ## Estructura del proyecto
 ```
 ~/stp/
 ├── docker-compose.yml
-├── .env                    ← secretos (NO en git)
-├── .env.example            ← plantilla pública
-├── nginx/nginx.conf
+├── .env                      ← secretos (NO en git)
+├── .env.example              ← plantilla pública
+├── caddy/Caddyfile           ← reverse proxy HTTPS wildcard (DNS-01, Cloudflare)
+├── scripts/backup.sh         ← backup diario a Google Drive (cron 2am)
+├── logs/backup.log           ← log del cron de backup
+├── stp-landing/              ← frontend Next.js
 └── stp-api/
-    ├── Dockerfile.dev      ← imagen de desarrollo (hot reload)
-    ├── Dockerfile          ← imagen de producción (multi-stage build)
+    ├── Dockerfile.dev        ← imagen de desarrollo (hot reload)
+    ├── Dockerfile            ← imagen de producción (multi-stage build)
     ├── package.json
     └── src/
-        ├── main.ts         ← Swagger (/docs), CORS, ValidationPipe
-        ├── app.module.ts   ← ThrottlerModule (100 req/min), todos los módulos
-        ├── data-source.ts  ← DataSource para CLI de TypeORM migrations
-        ├── migrations/     ← migraciones TypeORM
-        ├── auth/           ← register, login, JWT strategy
+        ├── main.ts           ← Swagger (/docs), CORS, ValidationPipe
+        ├── app.module.ts     ← ThrottlerModule (100 req/min), todos los módulos
+        ├── data-source.ts    ← DataSource para CLI de TypeORM migrations
+        ├── migrations/       ← migraciones TypeORM
+        ├── auth/             ← register, login, JWT strategy
         ├── common/
-        │   ├── decorators/ ← @CurrentUser(), @Roles()
-        │   └── guards/     ← RolesGuard (jerarquía ADMIN > MANAGER > USER)
+        │   ├── decorators/   ← @CurrentUser(), @Roles()
+        │   └── guards/       ← RolesGuard (jerarquía ADMIN > MANAGER > USER)
         ├── users/
         ├── clients/
-        ├── projects/       ← código auto PRJ-YYYY-NNN
+        ├── projects/         ← código auto PRJ-YYYY-NNN
         ├── tasks/
-        ├── quotes/         ← código auto COT-YYYY-NNN, items, recálculo ITBIS 18%
+        ├── quotes/           ← código auto COT-YYYY-NNN, items, ITBIS 18%
         ├── expenses/
         ├── payments/
         ├── suppliers/
-        ├── reports/        ← dashboard, resumen proyecto, balance cliente
-        ├── health/         ← GET /health (TypeORM ping)
-        └── files/          ← (próximo módulo — file uploads)
+        ├── reports/          ← dashboard, resumen proyecto, balance cliente
+        ├── health/           ← GET /health (TypeORM ping)
+        ├── files/            ← uploads multer (PDF/JPG/PNG/WEBP, 10MB)
+        ├── collaborators/    ← empleados/técnicos (cédula, tarifa diaria)
+        ├── fichas/           ← fichas técnicas de campo + generación PDF
+        ├── inventory/        ← materiales, equipos, herramientas
+        ├── settings/         ← configuración empresa (logo, nombre, términos)
+        ├── notifications/    ← emails via Resend (cotizaciones, tareas, fichas)
+        └── scheduler/        ← cron jobs (cotizaciones por vencer, tareas vencidas)
 ```
 
 ## Comandos frecuentes
@@ -108,7 +118,7 @@ En este servidor Ubuntu el watch de NestJS detecta cambios en tiempo real. Solo 
 ### 6. Migraciones
 - **Desarrollo**: `synchronize: true` (TypeORM actualiza el schema automáticamente)
 - **Producción**: `synchronize: false`, `migrationsRun: true` (corre migrations al arrancar)
-- La migración inicial está en `src/migrations/1780694236262-InitialSchema.ts`
+- Migraciones en `src/migrations/` — hay pendientes sin correr (el schema se mantiene con synchronize en dev)
 
 ## RBAC
 Roles en `UserRole` enum: `ADMIN`, `MANAGER`, `USER`
@@ -119,57 +129,66 @@ Jerarquía en `RolesGuard`: ADMIN (rango 3) > MANAGER (rango 2) > USER (rango 1)
 | Operación | USER | MANAGER | ADMIN |
 |---|:---:|:---:|:---:|
 | Leer todo | ✅ | ✅ | ✅ |
-| Crear/actualizar tasks y expenses | ✅ | ✅ | ✅ |
-| Crear/actualizar clients, projects, quotes, payments, suppliers | ❌ | ✅ | ✅ |
+| Crear/actualizar tasks, expenses, fichas | ✅ | ✅ | ✅ |
+| Crear/actualizar clients, projects, quotes, payments, suppliers, collaborators, inventory | ❌ | ✅ | ✅ |
+| Subir archivos (files) | ❌ | ✅ | ✅ |
 | Ver reports | ❌ | ✅ | ✅ |
-| Eliminar | ❌ | solo tasks | ✅ |
-| Gestionar usuarios | ❌ | ❌ | ✅ |
+| Eliminar | ❌ | tasks + fichas propias | ✅ |
+| Gestionar usuarios, settings | ❌ | ❌ | ✅ |
 
 ## Módulos completados
-1. Auth (JWT, register/login)
-2. Users (CRUD + roles)
-3. Clients
-4. Projects (código PRJ-YYYY-NNN)
-5. Tasks (completedAt auto al pasar a `done`)
-6. Quotes (COT-YYYY-NNN, items, recálculo subtotal → ITBIS 18% → total, lock al aprobar)
-7. Expenses (categorías, FK a Supplier opcional)
-8. Payments (método, estado, FK a client/project/quote)
-9. Suppliers
-10. Reports (dashboard, getProjectSummary, getClientBalance)
-11. Health check (`GET /health`)
-12. Swagger UI (`GET /docs`)
+1. **Auth** — JWT register/login, refresh tokens
+2. **Users** — CRUD + roles (ADMIN/MANAGER/USER)
+3. **Clients** — clientes con tipo (persona/empresa), RNC
+4. **Projects** — código auto PRJ-YYYY-NNN, tipos (electrical/mechanical/construction/maintenance)
+5. **Tasks** — completedAt automático al pasar a `done`
+6. **Quotes** — COT-YYYY-NNN, items, subtotal → ITBIS 18% → total, lock al aprobar
+7. **Expenses** — categorías, FK a Supplier opcional
+8. **Payments** — método, estado, FK a client/project/quote
+9. **Suppliers** — proveedores
+10. **Reports** — dashboard, getProjectSummary, getClientBalance
+11. **Health** — `GET /health` (TypeORM ping)
+12. **Swagger** — `GET /docs`
+13. **Files** — uploads multer, 8 contextos (perfil cliente, fotos/docs/gastos/cotizaciones/pagos por proyecto), validación magic bytes, descarga segura (path traversal protegido). Almacenado en `/storage/erp-uploads`
+14. **Collaborators** — empleados/técnicos (nombre, cédula, posición, tarifa diaria)
+15. **Fichas** — fichas técnicas de campo (eléctrico, civil, electromecánico, levantamiento, evaluación de daños), datos en JSONB, GPS, fotos, firma digital, generación PDF, integración app móvil
+16. **Inventory** — materiales, equipos, herramientas con categorías y SKU
+17. **Settings** — configuración empresa (logo, nombre, términos y condiciones)
+18. **Notifications** — emails via Resend (cotizaciones enviadas/aprobadas, tareas vencidas)
+19. **Scheduler** — cron diario 8am: alerta cotizaciones a 3 días de vencer, tareas vencidas
 
-## Próximo módulo: Files (file uploads)
-Estructura de carpetas en el servidor:
+## Módulo Fichas — contexto adicional
+Las fichas son el módulo central de la **app móvil** (Expo/React Native). Los técnicos crean fichas en campo, las llenan con datos estructurados (JSONB por tipo), adjuntan fotos y firma, y las envían (`POST /fichas/:id/submit`). El servidor genera un PDF (`GET /fichas/:id/pdf`).
+
+Tipos de ficha: `electrico`, `civil`, `electromecanico`, `levantamiento`, `evaluacion_danos`
+Estados: `borrador` → `en_progreso` → `enviada`
+
+## Almacenamiento de archivos
 ```
-uploads/
+/storage/erp-uploads/          ← montado como /app/uploads en stp-api
 └── clients/
     └── {clientId}/
         ├── profile/
+        ├── quotes/
+        ├── payments/
         └── projects/
             └── {projectId}/
                 ├── photos/
                 ├── documents/
                 ├── expenses/
-                └── quotes/
+                ├── quotes/
+                └── payments/
 ```
-
-Montado como bind mount en docker-compose:
-```yaml
-volumes:
-  - ./uploads:/app/uploads
-```
-
-Usar multer para manejo de archivos. Tipos permitidos: PDF, JPG, JPEG, PNG, WEBP.
-Tamaño máximo: 10MB por archivo.
+Tipos permitidos: PDF, JPG, PNG, WEBP. Tamaño máximo: 10MB. Nombre en disco: UUID + extensión.
 
 ## Facturas
 Las facturas se desarrollan en una **app separada** que se integrará al ERP más adelante. No implementar en este repo por ahora.
 
 ## Infraestructura del servidor
-- **Host**: stp-server (Ubuntu 22.04.5 LTS)
-- **IP local**: 192.168.4.21 | **Tailscale**: 100.76.193.7 (pendiente conectar)
-- **Dominio**: stpsoluciones.com (DNS en Namecheap, pendiente configurar)
-- **Acceso**: `ssh stp@10.0.0.86`
-- **CPU**: i7-7700T | **RAM**: 8GB | **SSD**: 128GB
-- **Email**: Resend API (RESEND_API_KEY en .env.local)
+- **Host**: stp-server (Ubuntu 22.04.5 LTS) — permanentemente en casa de Pedro
+- **IP local**: 192.168.4.41 | **Tailscale VPN**: 100.64.0.6
+- **Acceso SSH**: `ssh stp@100.64.0.6` (VPN) o `ssh stp@192.168.4.41` (LAN)
+- **CPU**: i7-7700T | **RAM**: 8GB
+- **Discos**: SSD 119GB (`/`) · HDD 220GB (`/data`, Docker data root) · HDD 458GB (`/storage`, datos persistentes)
+- **Dominio**: stpsoluciones.com — VPN-only para apps privadas, Cloudflare Tunnel para landing pública
+- **Email**: Resend API (`RESEND_API_KEY` en .env)
