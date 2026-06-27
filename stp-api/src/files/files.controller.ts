@@ -22,6 +22,7 @@ import { FileContext } from './entities/file-upload.entity';
 import { QueryFilesDto } from './dto/query-files.dto';
 import {
   clientProfileOpts,
+  clientDocumentsOpts,
   clientQuotesOpts,
   clientPaymentsOpts,
   projectPhotosOpts,
@@ -69,6 +70,32 @@ export class FilesController {
     @Query() query: QueryFilesDto,
   ) {
     return this.filesService.findByClient(clientId, { ...query, context: FileContext.CLIENT_PROFILE });
+  }
+
+  // ── Documentos del cliente (sin proyecto) ──────────────────────
+
+  @Post('clients/:clientId/documents')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
+  @UseInterceptors(FileInterceptor('file', clientDocumentsOpts))
+  @ApiOperation({ summary: 'Subir documento al cliente' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(FILE_UPLOAD_BODY)
+  uploadClientDocument(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @UploadedFile(new ParseFilePipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    file: Express.Multer.File,
+    @CurrentUser() user: any,
+  ) {
+    return this.filesService.saveRecord(file, FileContext.CLIENT_DOCUMENTS, clientId, null, user.id);
+  }
+
+  @Get('clients/:clientId/documents')
+  @ApiOperation({ summary: 'Listar documentos del cliente' })
+  listClientDocuments(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+  ) {
+    return this.filesService.findByClient(clientId, { context: FileContext.CLIENT_DOCUMENTS });
   }
 
   // ── Cotizaciones del cliente (sin proyecto) ─────────────────────

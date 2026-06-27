@@ -129,6 +129,7 @@ services:
       - nextcloud-app:/var/www/html
       - /storage/nextcloud:/var/www/html/data
       - /storage/erp-uploads:/erp-uploads
+      - /storage/erp-named:/erp-named
     networks:
       - stp-network
     depends_on:

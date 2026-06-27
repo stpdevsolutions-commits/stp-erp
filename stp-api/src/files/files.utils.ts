@@ -38,6 +38,10 @@ export const clientProfileOpts = opts(
   (req) => join(getUploadRoot(), 'clients', req.params.clientId, 'profile'),
 );
 
+export const clientDocumentsOpts = opts(
+  (req) => join(getUploadRoot(), 'clients', req.params.clientId, 'documents'),
+);
+
 export const clientQuotesOpts = opts(
   (req) => join(getUploadRoot(), 'clients', req.params.clientId, 'quotes'),
 );
