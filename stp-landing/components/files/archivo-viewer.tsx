@@ -370,6 +370,7 @@ export function ArchivoViewer({
   if (!projectId) {
     const CLIENT_TABS = [
       { context: 'client-profile' as FileContext, label: 'Perfil', icon: Images, uploadPath: `/files/clients/${clientId}/profile`, accept: 'image/jpeg,image/png,image/webp' },
+      { context: 'client-documents' as FileContext, label: 'Documentos', icon: BookText, uploadPath: `/files/clients/${clientId}/documents`, accept: 'application/pdf,image/jpeg,image/png,image/webp' },
       { context: 'client-quotes' as FileContext, label: 'Cotizaciones', icon: Quote, uploadPath: `/files/clients/${clientId}/quotes`, accept: 'application/pdf' },
       { context: 'client-payments' as FileContext, label: 'Pagos', icon: CreditCard, uploadPath: `/files/clients/${clientId}/payments`, accept: 'application/pdf' },
     ]
