@@ -32,6 +32,13 @@ export class AuthController {
     return this.authService.login(dto.email, dto.password);
   }
 
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  loginWithGoogle(@Body('accessToken') accessToken: string) {
+    return this.authService.loginWithGoogle(accessToken);
+  }
+
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 20, ttl: 60000 } })

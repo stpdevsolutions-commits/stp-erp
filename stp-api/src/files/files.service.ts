@@ -56,6 +56,16 @@ export class FilesService {
     return this.repo.save(record);
   }
 
+  async saveProjectPhotoForFicha(
+    file: Express.Multer.File,
+    projectId: string,
+    uploadedById: string,
+  ): Promise<{ id: string; url: string }> {
+    const project = await this.projectsService.findOne(projectId);
+    const saved = await this.saveRecord(file, FileContext.PROJECT_PHOTOS, project.clientId, projectId, uploadedById);
+    return { id: saved.id, url: `/files/${saved.id}/download` };
+  }
+
   findByClient(clientId: string, query: QueryFilesDto): Promise<FileUpload[]> {
     const where: any = { clientId };
     if (query.context) where.context = query.context;

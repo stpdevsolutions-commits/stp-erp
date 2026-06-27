@@ -51,6 +51,11 @@ export const projectPhotosOpts = opts(
     join(getUploadRoot(), 'clients', req.params.clientId, 'projects', req.params.projectId, 'photos'),
 );
 
+export const fichaPhotosOpts = opts(
+  (req) =>
+    join(getUploadRoot(), 'fichas', (req.query.projectId as string) || 'misc', 'photos'),
+);
+
 export const projectDocumentsOpts = opts(
   (req) =>
     join(getUploadRoot(), 'clients', req.params.clientId, 'projects', req.params.projectId, 'documents'),

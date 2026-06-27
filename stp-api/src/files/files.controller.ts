@@ -13,6 +13,7 @@ import {
   Res,
   UploadedFile,
   ParseFilePipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody, ApiOperation } from '@nestjs/swagger';
@@ -30,6 +31,7 @@ import {
   projectExpensesOpts,
   projectQuotesOpts,
   projectPaymentsOpts,
+  fichaPhotosOpts,
   FILE_UPLOAD_BODY,
 } from './files.utils';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -44,6 +46,23 @@ import { UserRole } from '../users/entities/user.entity';
 @UseGuards(JwtAuthGuard)
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
+
+  // ── Fotos de fichas técnicas (acceso: cualquier técnico autenticado) ─────────
+
+  @Post('fichas-photo')
+  @UseInterceptors(FileInterceptor('file', fichaPhotosOpts))
+  @ApiOperation({ summary: 'Subir foto para ficha técnica' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(FILE_UPLOAD_BODY)
+  async uploadFichaPhoto(
+    @Query('projectId') projectId: string,
+    @UploadedFile(new ParseFilePipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    file: Express.Multer.File,
+    @CurrentUser() user: any,
+  ) {
+    if (!projectId) throw new BadRequestException('projectId es requerido');
+    return this.filesService.saveProjectPhotoForFicha(file, projectId, user.id);
+  }
 
   // ── Perfil del cliente ──────────────────────────────────────────
 

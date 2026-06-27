@@ -37,6 +37,25 @@ export class AuthService {
     return this.buildResponse(user);
   }
 
+  async loginWithGoogle(accessToken: string) {
+    const res = await fetch(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${accessToken}`);
+    if (!res.ok) throw new UnauthorizedException('Token de Google inválido');
+    const info = await res.json() as { email?: string; given_name?: string; family_name?: string };
+    if (!info.email) throw new UnauthorizedException('No se pudo obtener el correo desde Google');
+
+    let user = await this.usersService.findByEmail(info.email);
+    if (!user) {
+      user = await this.usersService.create(
+        info.email,
+        randomBytes(20).toString('hex'),
+        info.given_name ?? info.email.split('@')[0],
+        info.family_name ?? '',
+      );
+    }
+    if (!user.isActive) throw new UnauthorizedException('Account disabled');
+    return this.buildResponse(user);
+  }
+
   async refresh(rawToken: string) {
     const hash = this.hashToken(rawToken);
     const rt = await this.refreshTokenRepo.findOne({
