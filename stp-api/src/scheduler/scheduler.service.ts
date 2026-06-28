@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Quote, QuoteStatus } from '../quotes/entities/quote.entity';
 import { Task, TaskStatus } from '../tasks/entities/task.entity';
+import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
@@ -15,10 +16,12 @@ export class SchedulerService {
     private readonly quotesRepo: Repository<Quote>,
     @InjectRepository(Task)
     private readonly tasksRepo: Repository<Task>,
+    @InjectRepository(Payment)
+    private readonly paymentsRepo: Repository<Payment>,
     private readonly notifications: NotificationsService,
   ) {}
 
-  // Todos los días a las 8am
+  // Todos los días a las 8am — cotizaciones por vencer en 3 días
   @Cron('0 8 * * *')
   async checkExpiringQuotes() {
     const in3Days = new Date();
@@ -47,7 +50,7 @@ export class SchedulerService {
     }
   }
 
-  // Todos los días a las 8am
+  // Todos los días a las 8am — tareas vencidas
   @Cron('0 8 * * *')
   async checkOverdueTasks() {
     const today = new Date().toISOString().slice(0, 10);
@@ -74,5 +77,32 @@ export class SchedulerService {
     });
 
     this.logger.log(`Sent overdue tasks summary: ${overdue.length} task(s)`);
+  }
+
+  // Todos los lunes a las 9am — resumen de pagos pendientes
+  @Cron('0 9 * * 1')
+  async checkPendingPayments() {
+    const pending = await this.paymentsRepo
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.client', 'client')
+      .where('p.status = :status', { status: PaymentStatus.PENDING })
+      .orderBy('p.date', 'ASC')
+      .getMany();
+
+    if (!pending.length) return;
+
+    const totalAmount = pending.reduce((sum, p) => sum + (p.amount ?? 0), 0);
+
+    this.notifications.sendPendingPaymentsSummary({
+      totalAmount,
+      payments: pending.map((p) => ({
+        clientName: p.client?.name ?? '—',
+        amount: p.amount,
+        description: p.description ?? '—',
+        date: p.date,
+      })),
+    });
+
+    this.logger.log(`Sent pending payments summary: ${pending.length} payment(s), total RD$ ${totalAmount}`);
   }
 }

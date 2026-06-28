@@ -337,6 +337,52 @@ export class NotificationsService {
     });
   }
 
+  // ── Payments: pending summary (weekly) ───────────────────────────────────
+
+  sendPendingPaymentsSummary(params: {
+    payments: { clientName: string; amount: number; description: string; date: string }[];
+    totalAmount: number;
+  }): void {
+    const { payments, totalAmount } = params;
+    const rows = payments
+      .map(
+        (p) => `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#374151">${p.clientName}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280">${p.description}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#374151">${p.date}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600;color:#d97706;text-align:right">RD$ ${p.amount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
+      </tr>`,
+      )
+      .join('');
+    void this.send({
+      to: this.adminEmail,
+      subject: `⏳ ${payments.length} pago(s) pendiente(s) — RD$ ${totalAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })} — STP ERP`,
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
+          <div style="max-width:700px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden">
+            <div style="background:#92400e;padding:28px 32px">
+              <h1 style="color:#fff;margin:0;font-size:20px">⏳ Pagos Pendientes — Resumen semanal</h1>
+            </div>
+            <div style="padding:32px">
+              <div style="background:#fffbeb;border-left:4px solid #d97706;border-radius:4px;padding:16px 20px;margin-bottom:24px">
+                <p style="margin:0;color:#92400e;font-size:15px">Total pendiente: <strong>RD$ ${totalAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</strong> en ${payments.length} pago(s)</p>
+              </div>
+              <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb">
+                <thead><tr style="background:#f9fafb">
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Cliente</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Descripción</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Fecha</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:12px;color:#6b7280">Monto</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>`,
+    });
+  }
+
   // ── Internal sender ────────────────────────────────────────────────────────
 
   private async send(options: {

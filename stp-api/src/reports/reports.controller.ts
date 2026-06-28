@@ -1,9 +1,22 @@
-import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query, BadRequestException, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
+
+function parseDateRange(from?: string, to?: string): { from: string; to: string } {
+  const today = new Date().toISOString().split('T')[0];
+  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+    .toISOString()
+    .split('T')[0];
+  const f = from ?? firstOfMonth;
+  const t = to ?? today;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !/^\d{4}-\d{2}-\d{2}$/.test(t))
+    throw new BadRequestException('Las fechas deben tener formato YYYY-MM-DD');
+  if (f > t) throw new BadRequestException('La fecha "from" no puede ser posterior a "to"');
+  return { from: f, to: t };
+}
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -14,6 +27,24 @@ export class ReportsController {
   @Get('dashboard')
   getDashboard() {
     return this.reportsService.getDashboard();
+  }
+
+  @Get('income')
+  getIncomeReport(@Query('from') from?: string, @Query('to') to?: string) {
+    const range = parseDateRange(from, to);
+    return this.reportsService.getIncomeReport(range.from, range.to);
+  }
+
+  @Get('expenses')
+  getExpensesReport(@Query('from') from?: string, @Query('to') to?: string) {
+    const range = parseDateRange(from, to);
+    return this.reportsService.getExpensesReport(range.from, range.to);
+  }
+
+  @Get('fichas')
+  getFichasReport(@Query('from') from?: string, @Query('to') to?: string) {
+    const range = parseDateRange(from, to);
+    return this.reportsService.getFichasReport(range.from, range.to);
   }
 
   @Get('projects/:id')
