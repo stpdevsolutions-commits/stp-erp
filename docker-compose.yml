@@ -87,7 +87,7 @@ services:
     restart: unless-stopped
     environment:
       DOMAIN: "https://vault.stpsoluciones.com"
-      ADMIN_TOKEN: "${VAULTWARDEN_ADMIN_TOKEN}"
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}
       SIGNUPS_ALLOWED: "false"
       INVITATIONS_ALLOWED: "true"
       SMTP_HOST: "smtp.resend.com"
