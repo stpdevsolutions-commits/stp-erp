@@ -48,6 +48,7 @@ export function ReporteNav({
   activeView,
   activeFrom,
   activeTo,
+  activeTab,
 }: {
   projects: Project[]
   clients: Client[]
