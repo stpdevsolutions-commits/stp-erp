@@ -286,3 +286,31 @@ export interface Ficha {
   createdAt: string
   updatedAt: string
 }
+
+export interface IncomeReport {
+  period: { from: string; to: string }
+  summary: {
+    total: number
+    count: number
+    quotesApproved: { total: number; count: number }
+    pendingPayments: { total: number; count: number }
+  }
+  byMethod: { method: PaymentMethod; count: number; total: number }[]
+  payments: { id: string; amount: number; date: string; method: PaymentMethod; project?: string; client?: string }[]
+}
+
+export interface ExpensesReport {
+  period: { from: string; to: string }
+  summary: { total: number; count: number }
+  byCategory: { category: ExpenseCategory; count: number; total: number }[]
+  byProject: { projectId?: string; project: string; count: number; total: number }[]
+  topSuppliers: { supplier: string; count: number; total: number }[]
+}
+
+export interface FichasReport {
+  period: { from: string; to: string }
+  summary: { total: number; enviadas: number; tasaEnvio: number }
+  byType: { type: FichaType; count: number }[]
+  byStatus: { status: FichaStatus; count: number }[]
+  byTechnician: { userId: string; name: string; total: number; enviadas: number }[]
+}
