@@ -62,17 +62,6 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 		reverse_proxy stp-uptime-kuma:3001
 	}
 
-	# Netdata
-	@netdata {
-		host monitor.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
-	}
-	handle @netdata {
-		reverse_proxy stp-netdata:19999 {
-			header_up Host stp-netdata:19999
-		}
-	}
-
 	# AdGuard
 	@adguard {
 		host dns.stpsoluciones.com
@@ -83,18 +72,6 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 			transport http {
 				tls_insecure_skip_verify
 			}
-		}
-	}
-
-	# Outline
-	@outline {
-		host notes.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
-	}
-	handle @outline {
-		reverse_proxy stp-outline:3000 {
-			header_up X-Forwarded-Proto "https"
-			header_up X-Forwarded-Ssl "on"
 		}
 	}
 

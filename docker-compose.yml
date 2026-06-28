@@ -138,35 +138,6 @@ services:
       stp-redis:
         condition: service_healthy
 
-  # Netdata — monitoreo del servidor
-  stp-netdata:
-    image: netdata/netdata:latest
-    container_name: stp-netdata
-    restart: unless-stopped
-    cap_add:
-      - SYS_PTRACE
-      - SYS_ADMIN
-    security_opt:
-      - apparmor:unconfined
-    volumes:
-      - netdata-config:/etc/netdata
-      - netdata-lib:/var/lib/netdata
-      - netdata-cache:/var/cache/netdata
-      - /etc/passwd:/host/etc/passwd:ro
-      - /etc/group:/host/etc/group:ro
-      - /etc/localtime:/etc/localtime:ro
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /etc/os-release:/host/etc/os-release:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      - NETDATA_CLAIM_TOKEN=TCHji85a5ILynpCjdC1H2JAxl3YWjj3hTwVbQcjeTwkxAt0DshjPDOGKaX5ID1dCFT0V53Hv6V4NxD1Qp6ilo45tKxj3_1HxkkFIdqoWpdsqxH4XzE6CcCLwjzfNHd0FWi_5eT8
-      - NETDATA_CLAIM_ROOMS=ed6e193c-18ba-4f95-ba1f-8e054e6c20cf
-      - NETDATA_CLAIM_URL=https://app.netdata.cloud
-      - DOCKER_HOST=unix:///var/run/docker.sock
-    networks:
-      - stp-network
-
   # AdGuard Home — DNS con bloqueo de anuncios
   stp-adguard:
     image: adguard/adguardhome:latest
@@ -181,45 +152,6 @@ services:
       - ./adguard/certs:/opt/adguardhome/certs:ro
     networks:
       - stp-network
-
-  # Outline — wiki / base de conocimiento
-  stp-outline:
-    image: outlinewiki/outline:latest
-    container_name: stp-outline
-    restart: unless-stopped
-    environment:
-      SECRET_KEY: ${OUTLINE_SECRET_KEY}
-      UTILS_SECRET: ${OUTLINE_UTILS_SECRET}
-      DATABASE_URL: postgres://outline_user:${OUTLINE_DB_PASS}@stp-postgres:5432/outline_db?sslmode=disable
-      PGSSLMODE: disable
-      REDIS_URL: redis://:${REDIS_PASSWORD}@stp-redis:6379
-      URL: https://notes.stpsoluciones.com
-      PORT: "3000"
-      FILE_STORAGE: local
-      FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
-      FILE_STORAGE_UPLOAD_MAX_SIZE: "26214400"
-      GOOGLE_CLIENT_ID: ${OUTLINE_GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${OUTLINE_GOOGLE_CLIENT_SECRET}
-      SMTP_HOST: smtp.resend.com
-      SMTP_PORT: "465"
-      SMTP_SECURE: "true"
-      SMTP_USERNAME: resend
-      SMTP_PASSWORD: ${RESEND_API_KEY}
-      SMTP_FROM_EMAIL: noreply@stpsoluciones.com
-      SMTP_REPLY_EMAIL: pedroangss@gmail.com
-      DEFAULT_LANGUAGE: es_ES
-      FORCE_HTTPS: "false"
-      ENABLE_UPDATES: "false"
-      LOG_LEVEL: warn
-    volumes:
-      - /storage/outline:/var/lib/outline/data
-    networks:
-      - stp-network
-    depends_on:
-      stp-postgres:
-        condition: service_healthy
-      stp-redis:
-        condition: service_healthy
 
   # Uptime Kuma — monitoreo de servicios
   stp-uptime-kuma:
@@ -266,9 +198,6 @@ services:
       - stp-caddy
 
 volumes:
-  netdata-config:
-  netdata-lib:
-  netdata-cache:
   postgres-data:
   redis-data:
   caddy-data:
