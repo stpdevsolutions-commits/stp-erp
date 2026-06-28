@@ -676,9 +676,9 @@ function FichasReportView({ report }: { report: FichasReport }) {
 export default async function ReportesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ proyecto?: string; cliente?: string; view?: string; from?: string; to?: string }>
+  searchParams: Promise<{ proyecto?: string; cliente?: string; view?: string; from?: string; to?: string; tab?: string }>
 }) {
-  const { proyecto, cliente, view, from, to } = await searchParams
+  const { proyecto, cliente, view, from, to, tab } = await searchParams
 
   const [projectsResult, clientsResult] = await Promise.allSettled([
     api.get<PaginatedResponse<Project>>('/projects?limit=200'),
@@ -731,6 +731,7 @@ export default async function ReportesPage({
         activeView={view}
         activeFrom={from}
         activeTo={to}
+        activeTab={tab}
       />
 
       <Separator />

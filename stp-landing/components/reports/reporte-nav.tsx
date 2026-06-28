@@ -56,6 +56,7 @@ export function ReporteNav({
   activeView?: string
   activeFrom?: string
   activeTo?: string
+  activeTab?: string
 }) {
   const router = useRouter()
 
@@ -63,7 +64,7 @@ export function ReporteNav({
     ? 'proyecto'
     : activeCliente
     ? 'cliente'
-    : (activeView as TabKey) ?? 'proyecto'
+    : (activeView as TabKey) ?? (activeTab as TabKey) ?? 'proyecto'
 
   const [from, setFrom] = useState(activeFrom ?? firstOfMonthStr())
   const [to, setTo] = useState(activeTo ?? todayStr())
@@ -72,7 +73,7 @@ export function ReporteNav({
     if (tab === 'proyecto') {
       router.push('/dashboard/reportes')
     } else if (tab === 'cliente') {
-      router.push('/dashboard/reportes')
+      router.push('/dashboard/reportes?tab=cliente')
     } else {
       router.push(`/dashboard/reportes?view=${tab}&from=${from}&to=${to}`)
     }
