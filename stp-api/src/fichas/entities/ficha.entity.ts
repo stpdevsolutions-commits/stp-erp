@@ -56,10 +56,10 @@ export class Ficha {
   @Column({ type: 'jsonb', default: {} })
   data: FichaElectricaData | Record<string, unknown>;
 
-  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true, transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : null) } })
   latitude: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true, transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : null) } })
   longitude: number;
 
   @Column({ type: 'simple-array', nullable: true, default: null })
