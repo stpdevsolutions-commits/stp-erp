@@ -400,7 +400,7 @@ export class ReportsService {
 
       this.fichasRepo
         .createQueryBuilder('f')
-        .leftJoin('f.createdBy', 'user')
+        .leftJoin('f.technician', 'user')
         .select('user.id', 'userId')
         .addSelect("CONCAT(user.firstName, ' ', user.lastName)", 'userName')
         .addSelect('COUNT(*)', 'count')
