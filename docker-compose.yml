@@ -197,6 +197,51 @@ services:
     depends_on:
       - stp-caddy
 
+  # Vigía — backend de monitoreo
+  vigia-backend:
+    build:
+      context: ./stp-monitor/backend
+      dockerfile: Dockerfile
+    container_name: vigia-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: 3002
+      DB_HOST: stp-postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASS: ${POSTGRES_PASSWORD}
+      DB_NAME: vigia_db
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      ALERT_TO_EMAIL: ${ALERT_TO_EMAIL:-pedroangss@gmail.com}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /data:/data:ro
+      - /storage:/storage:ro
+    networks:
+      - stp-network
+      - estructuralrd_net
+    depends_on:
+      stp-postgres:
+        condition: service_healthy
+
+  # Vigía — dashboard frontend
+  vigia-frontend:
+    build:
+      context: ./stp-monitor/frontend
+      dockerfile: Dockerfile
+    container_name: vigia-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_MONITOR_WS_URL: /ws
+    networks:
+      - stp-network
+    depends_on:
+      - vigia-backend
+
 volumes:
   postgres-data:
   redis-data:
@@ -209,3 +254,6 @@ volumes:
 networks:
   stp-network:
     driver: bridge
+  estructuralrd_net:
+    external: true
+    name: estructuralrd_estructural_net

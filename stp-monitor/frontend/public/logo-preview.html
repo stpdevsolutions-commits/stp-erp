@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Vigía — Logo Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0f1e; font-family: Inter, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 48px; padding: 40px; }
+
+  .label { color: #6b7280; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+
+  /* --- Full horizontal lockup --- */
+  .card { background: #111827; border: 1px solid #1f2937; border-radius: 16px; padding: 40px 56px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+  .logo-full { width: 280px; }
+
+  /* --- Icon only --- */
+  .icon-row { display: flex; align-items: center; gap: 32px; }
+  .icon-sm { width: 32px; }
+  .icon-md { width: 48px; }
+  .icon-lg { width: 80px; }
+
+  /* --- Dark/light variants --- */
+  .variant-row { display: flex; gap: 24px; align-items: stretch; }
+  .variant-dark { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 28px 40px; }
+  .variant-light { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 28px 40px; }
+  .variant-blue { background: #3b82f6; border-radius: 12px; padding: 28px 40px; }
+
+  /* Light variant needs different text color — handled by filter */
+  .on-light svg text { fill: #111827 !important; }
+
+  hr { border: none; border-top: 1px solid #1f2937; width: 100%; }
+  h3 { color: #f9fafb; font-size: 13px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+  <p class="label">Vigía — Brand Identity Preview</p>
+
+  <!-- Full lockup -->
+  <div class="card">
+    <p class="label" style="margin-bottom:8px">Horizontal lockup</p>
+    <img src="logo.svg" class="logo-full" alt="Vigía logo">
+  </div>
+
+  <!-- Icon sizes -->
+  <div class="card">
+    <p class="label">Icon mark — tamaños</p>
+    <div class="icon-row">
+      <img src="logo-icon.svg" class="icon-sm" alt="">
+      <img src="logo-icon.svg" class="icon-md" alt="">
+      <img src="logo-icon.svg" class="icon-lg" alt="">
+    </div>
+  </div>
+
+  <!-- Variants -->
+  <div class="card" style="gap:16px">
+    <p class="label">Variantes de fondo</p>
+    <div class="variant-row">
+      <div class="variant-dark">
+        <img src="logo.svg" style="width:200px" alt="">
+      </div>
+      <div class="variant-blue">
+        <img src="logo-white.svg" style="width:200px" alt="">
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

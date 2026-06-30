@@ -75,6 +75,32 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 		}
 	}
 
+	# EstrucCalc RD Pro
+	@estructural {
+		host estructural.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
+	}
+	handle @estructural {
+		reverse_proxy estructural_nginx:80
+	}
+
+	# Vigía — dashboard de monitoreo
+	@vigia {
+		host monitor.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
+	}
+	handle @vigia {
+		# Socket.io y API van al backend
+		handle /socket.io/* {
+			reverse_proxy vigia-backend:3002
+		}
+		handle /api/* {
+			reverse_proxy vigia-backend:3002
+		}
+		# Todo lo demás al frontend Next.js
+		reverse_proxy vigia-frontend:3000
+	}
+
 	# Catch-all: cualquier subdominio sin IP válida → 403
 	handle {
 		respond "Acceso restringido. Conéctate a la VPN." 403
