@@ -2,9 +2,6 @@
 postgres-data/
 redis-data/
 
-# Certificados SSL y datos de certbot (contienen claves privadas)
-nginx/certbot/
-
 # Archivos subidos por usuarios
 uploads/
 
@@ -25,11 +22,9 @@ stp-landing/dist/
 # Mobile — repo independiente
 stp-mobile/
 
-# AdGuard — datos de runtime
+# AdGuard — datos de runtime + config viva (contiene hash de password de admin)
 adguard/work/
-
-# Headscale — config contiene client_secret de OIDC (ver config.yaml.example)
-headscale/config/config.yaml
+adguard/conf/AdGuardHome.yaml
 
 # Logs
 *.log
