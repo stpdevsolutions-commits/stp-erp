@@ -22,7 +22,6 @@ stp/
 ├── docker-compose.yml
 ├── .env                    ← secretos (NO en git)
 ├── .env.example            ← plantilla pública
-├── nginx/nginx.conf
 ├── stp-api/                ← NestJS API
 └── stp-landing/            ← Next.js frontend
 ```
