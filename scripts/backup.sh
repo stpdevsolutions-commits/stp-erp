@@ -17,9 +17,8 @@ mkdir -p "$BACKUP_DIR"
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 log "Dumping PostgreSQL..."
-docker exec stp-postgres pg_dump -U stp_user     stp_db       | gzip > "$BACKUP_DIR/stp_db.sql.gz"
-docker exec stp-postgres pg_dump -U nextcloud_user nextcloud_db | gzip > "$BACKUP_DIR/nextcloud_db.sql.gz"
-docker exec stp-postgres pg_dump -U outline_user outline_db   | gzip > "$BACKUP_DIR/outline_db.sql.gz"
+docker exec stp-postgres pg_dump -U stp_user      stp_db        | gzip > "$BACKUP_DIR/stp_db.sql.gz"
+docker exec stp-postgres pg_dump -U nextcloud_user nextcloud_db  | gzip > "$BACKUP_DIR/nextcloud_db.sql.gz"
 
 # ── Volúmenes Docker ──────────────────────────────────────────────────────────
 log "Backup de volúmenes Docker..."
@@ -49,7 +48,6 @@ rclone copy "$BACKUP_DIR" "$RCLONE_REMOTE/snapshots/$DATE/" \
 # ── Sync incremental de archivos grandes ─────────────────────────────────────
 log "Sync incremental de archivos..."
 rclone sync /storage/nextcloud   "$RCLONE_REMOTE/nextcloud/"   --log-level INFO 2>&1 | grep -v "^$"
-rclone sync /storage/outline     "$RCLONE_REMOTE/outline/"     --log-level INFO 2>&1 | grep -v "^$"
 rclone sync /storage/erp-uploads "$RCLONE_REMOTE/erp-uploads/" --log-level INFO 2>&1 | grep -v "^$"
 
 # ── Limpiar temp ─────────────────────────────────────────────────────────────
