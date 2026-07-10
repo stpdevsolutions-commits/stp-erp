@@ -30,6 +30,12 @@ adguard/conf/AdGuardHome.yaml
 *.log
 npm-debug.log*
 
+# Estado runtime del bot de aprobación de cuentas Nextcloud (no versionar)
+scripts/.nextcloud-gate-pending
+scripts/.nextcloud-gate-notified
+scripts/.telegram-poller-offset
+scripts/.telegram-poller.lock
+
 # OS
 .DS_Store
 Thumbs.db
