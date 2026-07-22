@@ -1,4 +1,4 @@
-﻿import { api } from '@/lib/api'
+﻿import { api, pageError } from '@/lib/api'
 import type { Collaborator, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -38,7 +38,7 @@ export default async function ColaboradoresPage({
   try {
     res = await api.get<PaginatedResponse<Collaborator>>(`/collaborators?${query}`)
   } catch (e) {
-    error = e instanceof Error ? e.message : 'Error al cargar colaboradores'
+    error = pageError(e, 'Error al cargar colaboradores')
   }
 
   const totalPages = Math.max(1, Math.ceil(res.total / LIMIT))

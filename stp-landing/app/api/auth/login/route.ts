@@ -24,7 +24,12 @@ export async function POST(request: Request) {
   const data = await res.json()
   const cookieStore = await cookies()
 
-  const base = { secure: SECURE_COOKIES, sameSite: 'lax' as const, path: '/' }
+  const base = {
+    secure: SECURE_COOKIES,
+    sameSite: 'lax' as const,
+    path: '/',
+    domain: process.env.COOKIE_DOMAIN || undefined,
+  }
 
   cookieStore.set('stp-token', data.access_token, {
     ...base,

@@ -1,5 +1,5 @@
 ﻿﻿import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, pageError } from '@/lib/api'
 import type { Client, Project, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -59,7 +59,7 @@ export default async function ProyectosPage({
     proyectosRes = proyRes
     clients = clientRes.data
   } catch (e) {
-    error = e instanceof Error ? e.message : 'Error al cargar datos'
+    error = pageError(e, 'Error al cargar datos')
   }
 
   const proyectos = proyectosRes.data

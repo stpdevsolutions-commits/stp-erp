@@ -1,4 +1,4 @@
-﻿﻿import { api } from '@/lib/api'
+﻿﻿import { api, pageError } from '@/lib/api'
 import type { Expense, Project, Supplier, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -56,7 +56,7 @@ export default async function GastosPage({
     projects = proyRes.data
     suppliers = provRes.data
   } catch (e) {
-    error = e instanceof Error ? e.message : 'Error al cargar gastos'
+    error = pageError(e, 'Error al cargar gastos')
   }
 
   const gastos = gastosRes.data

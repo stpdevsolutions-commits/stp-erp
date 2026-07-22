@@ -2,8 +2,7 @@
 
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+import { API_URL } from './config'
 
 export async function authFetch(path: string, init?: RequestInit): Promise<Response> {
   const store = await cookies()
@@ -23,10 +22,19 @@ export async function authFetch(path: string, init?: RequestInit): Promise<Respo
   const res = await fetch(`${API_URL}${path}`, { ...init, headers: fetchHeaders })
 
   if (res.status === 401) {
-    store.delete('stp-token')
-    store.delete('stp-refresh-token')
-    store.delete('stp-user')
-    store.delete('stp-last-activity')
+    const domain = process.env.COOKIE_DOMAIN
+    for (const name of ['stp-token', 'stp-refresh-token', 'stp-user', 'stp-last-activity']) {
+      store.delete(name)
+      if (domain) {
+        store.set(name, '', {
+          maxAge: 0,
+          path: '/',
+          domain,
+          secure: true,
+          sameSite: 'lax',
+        })
+      }
+    }
     redirect('/login')
   }
 

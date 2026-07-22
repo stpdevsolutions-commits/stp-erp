@@ -1,4 +1,4 @@
-﻿﻿import { api } from '@/lib/api'
+﻿﻿import { api, pageError } from '@/lib/api'
 import type { Supplier, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -45,7 +45,7 @@ export default async function ProveedoresPage({
   try {
     res = await api.get<PaginatedResponse<Supplier>>(`/suppliers?${query}`)
   } catch (e) {
-    error = e instanceof Error ? e.message : 'Error al cargar proveedores'
+    error = pageError(e, 'Error al cargar proveedores')
   }
 
   const proveedores = res.data

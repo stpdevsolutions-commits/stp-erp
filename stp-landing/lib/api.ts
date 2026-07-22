@@ -1,4 +1,5 @@
 import { cookies, headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -7,6 +8,24 @@ export class UnauthorizedError extends Error {
     super('Sesión expirada')
     this.name = 'UnauthorizedError'
   }
+}
+
+/**
+ * Helper para los catch de las páginas de listado del dashboard.
+ * Si el error es un 401 (UnauthorizedError) redirige a /api/auth/logout
+ * (que limpia cookies y manda a /login) en vez de mostrar "Sesión expirada"
+ * como texto y dejar al usuario atascado. Para cualquier otro error devuelve
+ * su mensaje para pintarlo en pantalla.
+ *
+ * Nota: redirect() lanza internamente un error NEXT_REDIRECT que DEBE propagarse.
+ * Si se llama dentro de un try/catch, ese catch debe re-lanzar el redirect
+ * (ver isRedirectError).
+ */
+export function pageError(e: unknown, fallback: string): string {
+  if (e instanceof UnauthorizedError) {
+    redirect('/api/auth/logout')
+  }
+  return e instanceof Error ? e.message : fallback
 }
 
 async function getToken(): Promise<string | undefined> {

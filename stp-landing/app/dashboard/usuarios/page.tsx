@@ -1,4 +1,4 @@
-﻿﻿import { api } from '@/lib/api'
+﻿﻿import { api, pageError } from '@/lib/api'
 import type { User, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -32,7 +32,7 @@ export default async function UsuariosPage() {
     const res = await api.get<PaginatedResponse<User>>('/users?limit=100')
     usuarios = res.data
   } catch (e) {
-    error = e instanceof Error ? e.message : 'Error al cargar usuarios'
+    error = pageError(e, 'Error al cargar usuarios')
   }
 
   return (

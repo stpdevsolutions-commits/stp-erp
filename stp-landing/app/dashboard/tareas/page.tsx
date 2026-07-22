@@ -1,4 +1,4 @@
-﻿﻿import { api } from '@/lib/api'
+﻿﻿import { api, pageError } from '@/lib/api'
 import type { Project, Task, User, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -67,7 +67,7 @@ export default async function TareasPage({
     projects = proyRes.data
     users = usersRes.data
   } catch (e) {
-    error = e instanceof Error ? e.message : 'Error al cargar tareas'
+    error = pageError(e, 'Error al cargar tareas')
   }
 
   const tareas = tareasRes.data

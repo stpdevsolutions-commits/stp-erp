@@ -1,4 +1,4 @@
-﻿﻿import { api } from '@/lib/api'
+﻿﻿import { api, pageError } from '@/lib/api'
 import type { Client, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -40,7 +40,7 @@ export default async function ClientesPage({
   try {
     res = await api.get<PaginatedResponse<Client>>(`/clients?${query}`)
   } catch (e) {
-    error = e instanceof Error ? e.message : 'Error al cargar clientes'
+    error = pageError(e, 'Error al cargar clientes')
   }
 
   const clientes = res.data

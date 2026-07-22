@@ -15,10 +15,24 @@ async function clearSession() {
     }).catch(() => {})
   }
 
-  cookieStore.delete('stp-token')
-  cookieStore.delete('stp-refresh-token')
-  cookieStore.delete('stp-user')
-  cookieStore.delete('stp-last-activity')
+  const names = ['stp-token', 'stp-refresh-token', 'stp-user', 'stp-last-activity']
+  const domain = process.env.COOKIE_DOMAIN
+
+  for (const name of names) {
+    // Borra la cookie host-only
+    cookieStore.delete(name)
+    // Y también la cookie con dominio (p.ej. la que setea el login con Google
+    // con Domain=.stpsoluciones.com), que de otro modo sobrevive al logout.
+    if (domain) {
+      cookieStore.set(name, '', {
+        maxAge: 0,
+        path: '/',
+        domain,
+        secure: true,
+        sameSite: 'lax',
+      })
+    }
+  }
 }
 
 export async function GET(request: Request) {

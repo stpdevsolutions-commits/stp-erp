@@ -1,5 +1,6 @@
 ﻿import Link from 'next/link'
-import { api } from '@/lib/api'
+import { isRedirectError } from 'next/dist/client/components/redirect-error'
+import { api, pageError } from '@/lib/api'
 import type { Client, Project, Quote, PaginatedResponse, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -63,13 +64,16 @@ export default async function CotizacionesPage({
       api.get<{ terms: string | null }>('/settings/terms'),
     ])
     if (quotesRes.status === 'fulfilled') cotizacionesRes = quotesRes.value
-    else error = quotesRes.reason instanceof Error ? quotesRes.reason.message : 'Error al cargar cotizaciones'
+    else error = pageError(quotesRes.reason, 'Error al cargar cotizaciones')
     if (proyRes.status === 'fulfilled') projects = proyRes.value.data
     if (clientsRes.status === 'fulfilled') clients = clientsRes.value.data
     if (meRes.status === 'fulfilled') userRole = meRes.value.role
     if (termsRes.status === 'fulfilled') defaultTerms = termsRes.value.terms ?? ''
   } catch (e) {
-    error = e instanceof Error ? e.message : 'Error al cargar cotizaciones'
+    // pageError() puede haber lanzado el redirect a /api/auth/logout (401);
+    // ese error NEXT_REDIRECT debe propagarse, no tratarse como error de datos.
+    if (isRedirectError(e)) throw e
+    error = pageError(e, 'Error al cargar cotizaciones')
   }
 
   const cotizaciones = cotizacionesRes.data

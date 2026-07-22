@@ -72,7 +72,13 @@ export async function proxy(request: NextRequest) {
       reqHeaders.set('x-stp-token', data.access_token)
 
       const response = NextResponse.next({ request: { headers: reqHeaders } })
-      const base = { httpOnly: true, secure: SECURE, sameSite: 'lax' as const, path: '/' }
+      const base = {
+        httpOnly: true,
+        secure: SECURE,
+        sameSite: 'lax' as const,
+        path: '/',
+        domain: process.env.COOKIE_DOMAIN || undefined,
+      }
 
       response.cookies.set('stp-token', data.access_token, { ...base, maxAge: 60 * 60 * 24 * 7 })
       response.cookies.set('stp-refresh-token', data.refresh_token, { ...base, maxAge: 60 * 60 * 24 * 30 })
@@ -91,6 +97,7 @@ export async function proxy(request: NextRequest) {
     secure: SECURE,
     sameSite: 'lax',
     path: '/',
+    domain: process.env.COOKIE_DOMAIN || undefined,
     maxAge: 60 * 60 * 24 * 30,
   })
   return response
