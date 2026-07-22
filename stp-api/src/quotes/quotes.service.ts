@@ -58,6 +58,19 @@ export class QuotesService implements OnModuleInit {
     );
   }
 
+  /**
+   * Ejecuta una notificación fire-and-forget de forma segura: un throw síncrono
+   * (I/O de PDF, toLocaleString sobre valor nulo, etc.) NUNCA debe romper la
+   * operación principal (create/update de la cotización).
+   */
+  private notifySafe(action: string, fn: () => void): void {
+    try {
+      fn();
+    } catch (err) {
+      this.logger.error(`Notification (${action}) failed: ${(err as Error).message}`);
+    }
+  }
+
   private async expireOverdueQuotes(): Promise<void> {
     const today = new Date().toISOString().slice(0, 10);
 
@@ -80,13 +93,15 @@ export class QuotesService implements OnModuleInit {
 
     for (const quote of toExpire) {
       if (quote.client?.email) {
-        this.notifications.sendQuoteExpired({
-          clientEmail: quote.client.email,
-          clientName: quote.client.name,
-          quoteNumber: quote.number,
-          quoteTitle: quote.title,
-          validUntil: quote.validUntil,
-        });
+        this.notifySafe('quote-expired', () =>
+          this.notifications.sendQuoteExpired({
+            clientEmail: quote.client.email,
+            clientName: quote.client.name,
+            quoteNumber: quote.number,
+            quoteTitle: quote.title,
+            validUntil: quote.validUntil,
+          }),
+        );
       }
     }
   }
@@ -123,15 +138,17 @@ export class QuotesService implements OnModuleInit {
     if (dto.status === QuoteStatus.SENT && result.client?.email) {
       const pdfFile = await this.findPdfFile(result.id);
       const pdfPath = pdfFile ? join(getUploadRoot(), pdfFile.path) : undefined;
-      this.notifications.sendQuoteSent({
-        clientEmail: result.client.email,
-        clientName: result.client.name,
-        quoteNumber: result.number,
-        quoteTitle: result.title,
-        total: result.total,
-        validUntil: result.validUntil,
-        pdfPath,
-      });
+      this.notifySafe('quote-sent', () =>
+        this.notifications.sendQuoteSent({
+          clientEmail: result.client.email,
+          clientName: result.client.name,
+          quoteNumber: result.number,
+          quoteTitle: result.title,
+          total: result.total,
+          validUntil: result.validUntil,
+          pdfPath,
+        }),
+      );
     }
 
     return result;
@@ -219,30 +236,36 @@ export class QuotesService implements OnModuleInit {
       if (dto.status === QuoteStatus.SENT && updated.client?.email) {
         const pdfFile = await this.findPdfFile(id);
         const pdfPath = pdfFile ? join(getUploadRoot(), pdfFile.path) : undefined;
-        this.notifications.sendQuoteSent({
-          clientEmail: updated.client.email,
-          clientName: updated.client.name,
-          quoteNumber: updated.number,
-          quoteTitle: updated.title,
-          total: updated.total,
-          validUntil: updated.validUntil,
-          pdfPath,
-        });
+        this.notifySafe('quote-sent', () =>
+          this.notifications.sendQuoteSent({
+            clientEmail: updated.client.email,
+            clientName: updated.client.name,
+            quoteNumber: updated.number,
+            quoteTitle: updated.title,
+            total: updated.total,
+            validUntil: updated.validUntil,
+            pdfPath,
+          }),
+        );
       }
       if (dto.status === QuoteStatus.APPROVED) {
-        this.notifications.sendQuoteApproved({
-          quoteNumber: updated.number,
-          quoteTitle: updated.title,
-          clientName: updated.client?.name ?? 'Cliente',
-          total: updated.total,
-        });
+        this.notifySafe('quote-approved', () =>
+          this.notifications.sendQuoteApproved({
+            quoteNumber: updated.number,
+            quoteTitle: updated.title,
+            clientName: updated.client?.name ?? 'Cliente',
+            total: updated.total,
+          }),
+        );
       }
       if (dto.status === QuoteStatus.REJECTED) {
-        this.notifications.sendQuoteRejected({
-          clientName: updated.client?.name ?? 'Cliente',
-          quoteNumber: updated.number,
-          quoteTitle: updated.title,
-        });
+        this.notifySafe('quote-rejected', () =>
+          this.notifications.sendQuoteRejected({
+            clientName: updated.client?.name ?? 'Cliente',
+            quoteNumber: updated.number,
+            quoteTitle: updated.title,
+          }),
+        );
       }
     }
 
@@ -263,15 +286,17 @@ export class QuotesService implements OnModuleInit {
     const pdfFile = await this.findPdfFile(id);
     const pdfPath = pdfFile ? join(getUploadRoot(), pdfFile.path) : undefined;
 
-    this.notifications.sendQuoteSent({
-      clientEmail: quote.client.email,
-      clientName: quote.client.name,
-      quoteNumber: quote.number,
-      quoteTitle: quote.title,
-      total: quote.total,
-      validUntil: quote.validUntil,
-      pdfPath,
-    });
+    this.notifySafe('quote-sent', () =>
+      this.notifications.sendQuoteSent({
+        clientEmail: quote.client.email,
+        clientName: quote.client.name,
+        quoteNumber: quote.number,
+        quoteTitle: quote.title,
+        total: quote.total,
+        validUntil: quote.validUntil,
+        pdfPath,
+      }),
+    );
   }
 
   async remove(id: string): Promise<void> {

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +14,8 @@ const REFRESH_TOKEN_DAYS = 30;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -161,11 +163,15 @@ export class AuthService {
       { expiresIn: '1h' },
     );
     const appUrl = this.config.get<string>('APP_URL') ?? 'https://erp.stpsoluciones.com';
-    this.notifications.sendPasswordReset({
-      email: user.email,
-      firstName: user.firstName,
-      resetUrl: `${appUrl}/reset-password?token=${token}`,
-    });
+    try {
+      this.notifications.sendPasswordReset({
+        email: user.email,
+        firstName: user.firstName,
+        resetUrl: `${appUrl}/reset-password?token=${token}`,
+      });
+    } catch (err) {
+      this.logger.error(`Password-reset notification failed: ${(err as Error).message}`);
+    }
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {

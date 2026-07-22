@@ -51,14 +51,18 @@ export class PaymentsService {
     const loaded = await this.findOne(saved.id);
 
     if (loaded.status === PaymentStatus.COMPLETED) {
-      this.notifications.sendPaymentReceived({
-        clientName: loaded.client?.name ?? 'Cliente',
-        amount: loaded.amount,
-        description: loaded.description,
-        method: loaded.method,
-        reference: loaded.reference,
-        date: loaded.date,
-      });
+      try {
+        this.notifications.sendPaymentReceived({
+          clientName: loaded.client?.name ?? 'Cliente',
+          amount: loaded.amount,
+          description: loaded.description,
+          method: loaded.method,
+          reference: loaded.reference,
+          date: loaded.date,
+        });
+      } catch (err) {
+        this.logger.error(`Payment notification failed for ${loaded.id}: ${(err as Error).message}`);
+      }
     }
 
     await this.savePdfForPayment(loaded).catch((err: Error) =>
