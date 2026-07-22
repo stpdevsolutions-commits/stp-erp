@@ -7,6 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { join, relative } from 'path';
 import { mkdirSync, statSync, existsSync, unlink } from 'fs';
@@ -26,6 +28,12 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { UserRole } from '../users/entities/user.entity';
 import { SettingsService } from '../settings/settings.service';
 
+export type QuoteDecisionResult =
+  | { kind: 'success'; status: QuoteStatus.APPROVED | QuoteStatus.REJECTED; quoteNumber: string }
+  | { kind: 'already'; status: QuoteStatus.APPROVED | QuoteStatus.REJECTED; quoteNumber: string }
+  | { kind: 'not-sent'; quoteNumber: string }
+  | { kind: 'invalid' };
+
 @Injectable()
 export class QuotesService implements OnModuleInit {
   private readonly logger = new Logger(QuotesService.name);
@@ -43,6 +51,8 @@ export class QuotesService implements OnModuleInit {
     private readonly fileRepo: Repository<FileUpload>,
     private readonly notifications: NotificationsService,
     private readonly settingsService: SettingsService,
+    private readonly jwtService: JwtService,
+    private readonly config: ConfigService,
   ) {}
 
   onModuleInit() {
@@ -69,6 +79,98 @@ export class QuotesService implements OnModuleInit {
     } catch (err) {
       this.logger.error(`Notification (${action}) failed: ${(err as Error).message}`);
     }
+  }
+
+  /**
+   * Genera un JWT firmado de decisión (aprobar/rechazar) para el cliente y
+   * construye las URLs públicas de los botones del correo.
+   * - Expiración: hasta el `validUntil` de la cotización (fin de ese día) si
+   *   existe y es futuro; en caso contrario, 30 días.
+   */
+  private buildDecisionUrls(quote: Quote): { approveUrl: string; rejectUrl: string } {
+    const THIRTY_DAYS = 30 * 24 * 60 * 60;
+    let expiresIn = THIRTY_DAYS;
+    if (quote.validUntil) {
+      // validUntil es una fecha (YYYY-MM-DD); damos margen hasta el fin de ese día.
+      const endOfDay = new Date(quote.validUntil).getTime() + 24 * 60 * 60 * 1000;
+      const seconds = Math.floor((endOfDay - Date.now()) / 1000);
+      expiresIn = seconds > 0 ? seconds : THIRTY_DAYS;
+    }
+
+    const token = this.jwtService.sign(
+      { sub: quote.id, type: 'quote-decision' },
+      { expiresIn },
+    );
+
+    const base =
+      this.config.get<string>('QUOTE_DECISION_BASE_URL') ?? 'https://stpsoluciones.com/erp-api';
+    const enc = encodeURIComponent(token);
+    return {
+      approveUrl: `${base}/quotes/decision?token=${enc}&action=approve`,
+      rejectUrl: `${base}/quotes/decision?token=${enc}&action=reject`,
+    };
+  }
+
+  /**
+   * Procesa la decisión del cliente (aprobar/rechazar) desde el enlace del correo.
+   * Público e idempotente. Devuelve un resultado tipado que el controlador
+   * traduce a HTML con branding STP.
+   */
+  async decide(token: string, action: string): Promise<QuoteDecisionResult> {
+    if (action !== 'approve' && action !== 'reject') {
+      return { kind: 'invalid' };
+    }
+
+    let payload: { sub?: string; type?: string };
+    try {
+      payload = this.jwtService.verify<{ sub?: string; type?: string }>(token);
+    } catch {
+      return { kind: 'invalid' };
+    }
+    if (payload.type !== 'quote-decision' || !payload.sub) {
+      return { kind: 'invalid' };
+    }
+
+    const quote = await this.quotesRepository.findOne({
+      where: { id: payload.sub },
+      relations: { client: true },
+    });
+    if (!quote) return { kind: 'invalid' };
+
+    // Ya decidida previamente → idempotente, no cambia nada.
+    if (quote.status === QuoteStatus.APPROVED || quote.status === QuoteStatus.REJECTED) {
+      return { kind: 'already', status: quote.status, quoteNumber: quote.number };
+    }
+
+    // Solo se puede decidir sobre cotizaciones enviadas.
+    if (quote.status !== QuoteStatus.SENT) {
+      return { kind: 'not-sent', quoteNumber: quote.number };
+    }
+
+    const newStatus = action === 'approve' ? QuoteStatus.APPROVED : QuoteStatus.REJECTED;
+    quote.status = newStatus;
+    await this.quotesRepository.save(quote);
+
+    if (newStatus === QuoteStatus.APPROVED) {
+      this.notifySafe('quote-approved', () =>
+        this.notifications.sendQuoteApproved({
+          quoteNumber: quote.number,
+          quoteTitle: quote.title,
+          clientName: quote.client?.name ?? 'Cliente',
+          total: quote.total,
+        }),
+      );
+    } else {
+      this.notifySafe('quote-rejected', () =>
+        this.notifications.sendQuoteRejected({
+          clientName: quote.client?.name ?? 'Cliente',
+          quoteNumber: quote.number,
+          quoteTitle: quote.title,
+        }),
+      );
+    }
+
+    return { kind: 'success', status: newStatus, quoteNumber: quote.number };
   }
 
   private async expireOverdueQuotes(): Promise<void> {
@@ -140,6 +242,7 @@ export class QuotesService implements OnModuleInit {
     if (dto.status === QuoteStatus.SENT && result.client?.email) {
       const pdfFile = await this.findPdfFile(result.id);
       const pdfPath = pdfFile ? join(getUploadRoot(), pdfFile.path) : undefined;
+      const { approveUrl, rejectUrl } = this.buildDecisionUrls(result);
       this.notifySafe('quote-sent', () =>
         this.notifications.sendQuoteSent({
           clientEmail: result.client.email,
@@ -149,6 +252,8 @@ export class QuotesService implements OnModuleInit {
           total: result.total,
           validUntil: result.validUntil,
           pdfPath,
+          approveUrl,
+          rejectUrl,
         }),
       );
     }
@@ -242,6 +347,7 @@ export class QuotesService implements OnModuleInit {
       if (dto.status === QuoteStatus.SENT && updated.client?.email) {
         const pdfFile = await this.findPdfFile(id);
         const pdfPath = pdfFile ? join(getUploadRoot(), pdfFile.path) : undefined;
+        const { approveUrl, rejectUrl } = this.buildDecisionUrls(updated);
         this.notifySafe('quote-sent', () =>
           this.notifications.sendQuoteSent({
             clientEmail: updated.client.email,
@@ -251,6 +357,8 @@ export class QuotesService implements OnModuleInit {
             total: updated.total,
             validUntil: updated.validUntil,
             pdfPath,
+            approveUrl,
+            rejectUrl,
           }),
         );
       }
@@ -291,6 +399,7 @@ export class QuotesService implements OnModuleInit {
 
     const pdfFile = await this.findPdfFile(id);
     const pdfPath = pdfFile ? join(getUploadRoot(), pdfFile.path) : undefined;
+    const { approveUrl, rejectUrl } = this.buildDecisionUrls(quote);
 
     this.notifySafe('quote-sent', () =>
       this.notifications.sendQuoteSent({
@@ -301,6 +410,8 @@ export class QuotesService implements OnModuleInit {
         total: quote.total,
         validUntil: quote.validUntil,
         pdfPath,
+        approveUrl,
+        rejectUrl,
       }),
     );
   }

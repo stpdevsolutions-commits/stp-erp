@@ -31,12 +31,28 @@ export class NotificationsService {
     total: number;
     validUntil?: string;
     pdfPath?: string;
+    approveUrl?: string;
+    rejectUrl?: string;
   }): void {
-    const { clientEmail, clientName, quoteNumber, quoteTitle, total, validUntil, pdfPath } = params;
+    const { clientEmail, clientName, quoteNumber, quoteTitle, total, validUntil, pdfPath, approveUrl, rejectUrl } = params;
     const attachments: { filename: string; content: Buffer }[] = [];
     if (pdfPath && existsSync(pdfPath)) {
       attachments.push({ filename: `${quoteNumber}.pdf`, content: readFileSync(pdfPath) });
     }
+
+    const decisionBlock = approveUrl && rejectUrl ? `
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 8px">
+                <tr>
+                  <td style="padding:0 8px">
+                    <a href="${approveUrl}" style="background:#157B52;color:#fff;text-decoration:none;padding:14px 28px;border-radius:6px;font-size:15px;font-weight:700;display:inline-block">Aprobar cotización</a>
+                  </td>
+                  <td style="padding:0 8px">
+                    <a href="${rejectUrl}" style="background:#b91c1c;color:#fff;text-decoration:none;padding:14px 28px;border-radius:6px;font-size:15px;font-weight:700;display:inline-block">Rechazar</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="color:#9ca3af;font-size:12px;text-align:center;word-break:break-all">O copia este enlace para aprobar:<br>${approveUrl}</p>
+    ` : '';
     void this.send({
       to: clientEmail,
       subject: `Cotización ${quoteNumber} — ${quoteTitle}`,
@@ -66,7 +82,8 @@ export class NotificationsService {
                 ${validUntil ? `<tr><td style="padding:12px 0;color:#6b7280;font-size:14px">Válida hasta</td><td style="padding:12px 0;text-align:right;color:#374151;font-size:14px">${validUntil}</td></tr>` : ''}
               </table>
 
-              <p style="color:#374151;font-size:14px">Para aprobar esta cotización o solicitar ajustes, contáctenos respondiendo este correo o al número de teléfono de su ejecutivo de cuenta.</p>
+              <p style="color:#374151;font-size:14px">Puede aprobar o rechazar esta cotización con los siguientes botones. Si prefiere solicitar ajustes, contáctenos respondiendo este correo o al número de teléfono de su ejecutivo de cuenta.</p>
+              ${decisionBlock}
             </div>
             <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
               <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">Soluciones Técnicas Profesionales · República Dominicana</p>

@@ -7,6 +7,13 @@
 
 # ── Landing page — pública (Cloudflare maneja HTTPS, Caddy sirve HTTP) ────────
 http://stpsoluciones.com, http://www.stpsoluciones.com {
+	# Aprobar/Rechazar cotización desde el correo del cliente (público).
+	# SOLO esta ruta exacta llega a la API; el resto del ERP sigue VPN-only.
+	handle /erp-api/quotes/decision {
+		uri strip_prefix /erp-api
+		reverse_proxy stp-api:3001
+	}
+
 	root * /srv/www
 	file_server
 }

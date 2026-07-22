@@ -77,6 +77,7 @@ export interface Quote {
   validUntil?: string
   taxRate: number
   subtotal: number
+  discount?: number
   taxAmount: number
   total: number
   notes?: string

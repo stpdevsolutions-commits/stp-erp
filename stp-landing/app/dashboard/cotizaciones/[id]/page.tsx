@@ -250,6 +250,12 @@ export default async function CotizacionDetallePage({
             <span>{hasIndirect ? 'Subtotal costos directos' : 'Subtotal'}</span>
             <span className="tabular-nums">{DOP.format(quote.subtotal)}</span>
           </div>
+          {(quote.discount ?? 0) > 0 && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>Descuento</span>
+              <span className="tabular-nums">- {DOP.format(quote.discount ?? 0)}</span>
+            </div>
+          )}
           {hasIndirect ? (
             <>
               <div className="pt-1 text-xs font-semibold uppercase text-muted-foreground">
