@@ -40,20 +40,90 @@ export class AuthService {
   async loginWithGoogle(accessToken: string) {
     const res = await fetch(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${accessToken}`);
     if (!res.ok) throw new UnauthorizedException('Token de Google inválido');
-    const info = await res.json() as { email?: string; given_name?: string; family_name?: string };
-    if (!info.email) throw new UnauthorizedException('No se pudo obtener el correo desde Google');
+    const info = (await res.json()) as {
+      email?: string;
+      verified_email?: boolean;
+      given_name?: string;
+      family_name?: string;
+    };
+    // Aplica la MISMA política que el flujo OAuth por redirección: no
+    // auto-crea cuentas arbitrarias; solo emails ya registrados o de un
+    // dominio permitido (ver validateGoogleUser).
+    return this.validateGoogleUser({
+      email: info.email,
+      emailVerified: info.verified_email === true,
+      firstName: info.given_name,
+      lastName: info.family_name,
+    });
+  }
 
-    let user = await this.usersService.findByEmail(info.email);
+  /**
+   * Punto único de decisión para el acceso vía Google (tanto el flujo OAuth
+   * por redirección `GET /auth/google/callback` como el flujo por accessToken
+   * `POST /auth/google`).
+   *
+   * Política (ERP interno — ver README de la tarea):
+   *  1. El email debe venir verificado por Google.
+   *  2. Si el usuario ya existe y está activo → inicia sesión.
+   *  3. Si NO existe:
+   *       - Se auto-crea (rol USER) SOLO si su dominio está en
+   *         GOOGLE_ALLOWED_DOMAINS **y** GOOGLE_AUTO_PROVISION=true.
+   *       - En cualquier otro caso se rechaza (no se crean cuentas arbitrarias).
+   *  4. Si existe pero está deshabilitado → se rechaza.
+   *
+   * Emite el MISMO JWT (7 días) y refresh token que el login normal.
+   */
+  async validateGoogleUser(profile: {
+    email?: string;
+    emailVerified?: boolean;
+    firstName?: string;
+    lastName?: string;
+  }) {
+    const email = profile.email?.toLowerCase().trim();
+    if (!email) {
+      throw new UnauthorizedException('No se pudo obtener el correo desde Google');
+    }
+    if (profile.emailVerified === false) {
+      throw new UnauthorizedException('El correo de Google no está verificado');
+    }
+
+    let user = await this.usersService.findByEmail(email);
+
     if (!user) {
+      if (!this.isDomainAllowed(email) || !this.autoProvisionEnabled()) {
+        throw new UnauthorizedException(
+          'Tu cuenta de Google no está autorizada para acceder al sistema. Contacta al administrador.',
+        );
+      }
+      // Auto-aprovisionamiento controlado: rol USER (mínimo privilegio, RBAC).
       user = await this.usersService.create(
-        info.email,
-        randomBytes(20).toString('hex'),
-        info.given_name ?? info.email.split('@')[0],
-        info.family_name ?? '',
+        email,
+        randomBytes(32).toString('hex'), // password aleatorio inutilizable (login solo por Google)
+        profile.firstName || email.split('@')[0],
+        profile.lastName || '',
       );
     }
+
     if (!user.isActive) throw new UnauthorizedException('Account disabled');
     return this.buildResponse(user);
+  }
+
+  private isDomainAllowed(email: string): boolean {
+    const raw = this.config.get<string>('GOOGLE_ALLOWED_DOMAINS');
+    if (!raw) return false; // vacío = ningún dominio (seguro por defecto)
+    const allowed = raw
+      .split(',')
+      .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
+      .filter(Boolean);
+    // Comodín explícito: '*' permite cualquier dominio (el gate real es la VPN).
+    if (allowed.includes('*')) return true;
+    const domain = email.split('@')[1]?.toLowerCase();
+    if (!domain) return false;
+    return allowed.includes(domain);
+  }
+
+  private autoProvisionEnabled(): boolean {
+    return this.config.get<string>('GOOGLE_AUTO_PROVISION') === 'true';
   }
 
   async refresh(rawToken: string) {
@@ -88,9 +158,9 @@ export class AuthService {
 
     const token = this.jwtService.sign(
       { sub: user.id, type: 'password-reset' },
-      { expiresIn: '15m' },
+      { expiresIn: '1h' },
     );
-    const appUrl = this.config.get<string>('APP_URL') ?? 'https://stpsoluciones.com';
+    const appUrl = this.config.get<string>('APP_URL') ?? 'https://erp.stpsoluciones.com';
     this.notifications.sendPasswordReset({
       email: user.email,
       firstName: user.firstName,
