@@ -153,7 +153,7 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
                 value={clientId ?? ''}
                 onValueChange={(v) => v && setValue('clientId', v)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar cliente">
                     {selectedClientName}
                   </SelectValue>
@@ -177,7 +177,7 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
                 value={watch('status')}
                 onValueChange={(v) => v && setValue('status', v as FormValues['status'])}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

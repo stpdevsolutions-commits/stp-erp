@@ -26,13 +26,13 @@ const CATEGORY_LABELS: Record<InventoryItem['category'], string> = {
 }
 
 const CATEGORY_COLORS: Record<InventoryItem['category'], string> = {
-  materials: 'bg-amber-100 text-amber-800',
-  equipment: 'bg-blue-100 text-blue-800',
-  tools: 'bg-purple-100 text-purple-800',
-  electrical: 'bg-yellow-100 text-yellow-800',
-  mechanical: 'bg-orange-100 text-orange-800',
-  consumables: 'bg-green-100 text-green-800',
-  other: 'bg-gray-100 text-gray-700',
+  materials: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300',
+  equipment: 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300',
+  tools: 'bg-purple-100 text-purple-800 dark:bg-purple-950/50 dark:text-purple-300',
+  electrical: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-300',
+  mechanical: 'bg-orange-100 text-orange-800 dark:bg-orange-950/50 dark:text-orange-300',
+  consumables: 'bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300',
+  other: 'bg-muted text-muted-foreground',
 }
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
@@ -126,7 +126,14 @@ export default async function InventarioPage({
                         </span>
                       </TableCell>
                       <TableCell className={`text-right font-mono text-sm ${lowStock ? 'text-destructive font-semibold' : ''}`}>
-                        {item.quantity}
+                        <span className="inline-flex items-center gap-1.5">
+                          {lowStock && (
+                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                              Bajo
+                            </span>
+                          )}
+                          {item.quantity}
+                        </span>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{item.unit ?? '—'}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{DOP.format(item.cost)}</TableCell>

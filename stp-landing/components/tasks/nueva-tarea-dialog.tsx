@@ -142,7 +142,7 @@ export function NuevaTareaDialog({
               value={watch('projectId') ?? ''}
               onValueChange={(v) => v && setValue('projectId', v)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Seleccionar proyecto">
                   {selectedProjectName}
                 </SelectValue>
@@ -167,7 +167,7 @@ export function NuevaTareaDialog({
                 value={watch('status')}
                 onValueChange={(v) => v && setValue('status', v as FormValues['status'])}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -186,7 +186,7 @@ export function NuevaTareaDialog({
                 value={watch('priority')}
                 onValueChange={(v) => v && setValue('priority', v as FormValues['priority'])}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -212,7 +212,7 @@ export function NuevaTareaDialog({
                 value={watch('assignedToId') ?? ''}
                 onValueChange={(v) => setValue('assignedToId', v ?? '')}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Sin asignar">
                   {selectedUserName}
                 </SelectValue>

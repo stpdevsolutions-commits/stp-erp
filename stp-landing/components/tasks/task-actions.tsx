@@ -154,7 +154,7 @@ function EditDialog({
               value={watch('projectId')}
               onValueChange={(v) => v && setValue('projectId', v)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Seleccionar proyecto">
                   {selectedProjectName}
                 </SelectValue>
@@ -179,7 +179,7 @@ function EditDialog({
                 value={watch('status')}
                 onValueChange={(v) => v && setValue('status', v as EditFormValues['status'])}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -198,7 +198,7 @@ function EditDialog({
                 value={watch('priority')}
                 onValueChange={(v) => v && setValue('priority', v as EditFormValues['priority'])}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -224,7 +224,7 @@ function EditDialog({
                 value={watch('assignedToId') ?? ''}
                 onValueChange={(v) => setValue('assignedToId', v ?? '')}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Sin asignar">
                     {selectedUserName}
                   </SelectValue>

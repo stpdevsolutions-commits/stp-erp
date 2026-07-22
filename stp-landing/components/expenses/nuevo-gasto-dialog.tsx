@@ -124,7 +124,7 @@ export function NuevoGastoDialog({
                 value={watch('projectId') ?? ''}
                 onValueChange={(v) => v && setValue('projectId', v)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar proyecto">
                     {selectedProjectName}
                   </SelectValue>
@@ -150,7 +150,7 @@ export function NuevoGastoDialog({
                 value={watch('category')}
                 onValueChange={(v) => v && setValue('category', v as FormValues['category'])}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
                     <SelectItem key={value} value={value}>{label}</SelectItem>
@@ -177,7 +177,7 @@ export function NuevoGastoDialog({
                 value={watch('supplierId') ?? ''}
                 onValueChange={(v) => setValue('supplierId', v ?? '')}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="— Ninguno —">
                     {supplierId ? selectedSupplierName : undefined}
                   </SelectValue>

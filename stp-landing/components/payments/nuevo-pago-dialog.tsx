@@ -142,7 +142,7 @@ export function NuevoPagoDialog({
                   setValue('projectId', '')
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar cliente">
                     {selectedClientName}
                   </SelectValue>
@@ -162,7 +162,7 @@ export function NuevoPagoDialog({
                 value={watch('projectId') ?? ''}
                 onValueChange={(v) => setValue('projectId', v ?? '')}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="— Ninguno —">
                     {projectId ? selectedProjectName : undefined}
                   </SelectValue>
@@ -200,7 +200,7 @@ export function NuevoPagoDialog({
                 value={watch('method')}
                 onValueChange={(v) => v && setValue('method', v as FormValues['method'])}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(METHOD_LABELS).map(([value, label]) => (
                     <SelectItem key={value} value={value}>{label}</SelectItem>
@@ -215,7 +215,7 @@ export function NuevoPagoDialog({
                 value={watch('status')}
                 onValueChange={(v) => v && setValue('status', v as FormValues['status'])}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(STATUS_LABELS).map(([value, label]) => (
                     <SelectItem key={value} value={value}>{label}</SelectItem>

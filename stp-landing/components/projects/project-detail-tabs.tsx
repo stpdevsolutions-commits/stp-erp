@@ -25,12 +25,13 @@ const TASK_STATUS: Record<Task['status'], string> = {
   done: 'Completada',
   cancelled: 'Cancelada',
 }
-const TASK_STATUS_VARIANT: Record<Task['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  pending: 'secondary',
-  in_progress: 'default',
-  review: 'outline',
-  done: 'outline',
-  cancelled: 'destructive',
+// Colores semánticos de estado (tinte suave, coherente con la identidad STP)
+const TASK_STATUS_BADGE: Record<Task['status'], string> = {
+  pending: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  in_progress: 'bg-primary/10 text-primary',
+  review: 'bg-primary/10 text-primary',
+  done: 'bg-green-600/10 text-green-700 dark:text-green-400',
+  cancelled: 'bg-destructive/10 text-destructive',
 }
 const TASK_PRIORITY: Record<Task['priority'], string> = {
   low: 'Baja',
@@ -61,11 +62,11 @@ const PAYMENT_STATUS: Record<string, string> = {
   failed: 'Fallido',
   refunded: 'Reembolsado',
 }
-const PAYMENT_STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  pending: 'secondary',
-  completed: 'default',
-  failed: 'destructive',
-  refunded: 'outline',
+const PAYMENT_STATUS_BADGE: Record<string, string> = {
+  pending: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  completed: 'bg-green-600/10 text-green-700 dark:text-green-400',
+  failed: 'bg-destructive/10 text-destructive',
+  refunded: 'bg-muted text-muted-foreground',
 }
 
 const FICHA_TYPE_LABEL: Record<string, string> = {
@@ -82,10 +83,10 @@ const FICHA_STATUS_LABEL: Record<string, string> = {
   enviada: 'Enviada',
 }
 
-const FICHA_STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  borrador: 'secondary',
-  en_progreso: 'outline',
-  enviada: 'default',
+const FICHA_STATUS_BADGE: Record<string, string> = {
+  borrador: 'bg-muted text-muted-foreground',
+  en_progreso: 'bg-primary/10 text-primary',
+  enviada: 'bg-green-600/10 text-green-700 dark:text-green-400',
 }
 
 export function ProjectDetailTabs({
@@ -157,7 +158,7 @@ export function ProjectDetailTabs({
                   <TableRow key={t.id}>
                     <TableCell className="font-medium">{t.title}</TableCell>
                     <TableCell>
-                      <Badge variant={TASK_STATUS_VARIANT[t.status]}>{TASK_STATUS[t.status]}</Badge>
+                      <Badge className={TASK_STATUS_BADGE[t.status]}>{TASK_STATUS[t.status]}</Badge>
                     </TableCell>
                     <TableCell>{TASK_PRIORITY[t.priority]}</TableCell>
                     <TableCell>
@@ -210,7 +211,7 @@ export function ProjectDetailTabs({
                     </TableCell>
                     <TableCell>{FICHA_TYPE_LABEL[f.type] ?? f.type}</TableCell>
                     <TableCell>
-                      <Badge variant={FICHA_STATUS_VARIANT[f.status]}>
+                      <Badge className={FICHA_STATUS_BADGE[f.status]}>
                         {FICHA_STATUS_LABEL[f.status]}
                       </Badge>
                     </TableCell>
@@ -313,7 +314,7 @@ export function ProjectDetailTabs({
                       <TableCell className="font-medium">{p.description}</TableCell>
                       <TableCell>{PAYMENT_METHOD[p.method] ?? p.method}</TableCell>
                       <TableCell>
-                        <Badge variant={PAYMENT_STATUS_VARIANT[p.status]}>
+                        <Badge className={PAYMENT_STATUS_BADGE[p.status]}>
                           {PAYMENT_STATUS[p.status]}
                         </Badge>
                       </TableCell>

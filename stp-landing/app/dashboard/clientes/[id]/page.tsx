@@ -26,12 +26,13 @@ const PROJECT_STATUS_LABELS: Record<Project['status'], string> = {
   completed: 'Completado',
   cancelled: 'Cancelado',
 }
-const PROJECT_STATUS_VARIANTS: Record<Project['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  draft: 'secondary',
-  active: 'default',
-  on_hold: 'outline',
-  completed: 'outline',
-  cancelled: 'destructive',
+// Colores semánticos de estado (tinte suave, coherente con la identidad STP)
+const PROJECT_STATUS_BADGE: Record<Project['status'], string> = {
+  draft: 'bg-muted text-muted-foreground',
+  active: 'bg-primary/10 text-primary',
+  on_hold: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  completed: 'bg-green-600/10 text-green-700 dark:text-green-400',
+  cancelled: 'bg-destructive/10 text-destructive',
 }
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
@@ -199,7 +200,7 @@ export default async function ClienteDetallePage({
                     </TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell>
-                      <Badge variant={PROJECT_STATUS_VARIANTS[p.status]}>
+                      <Badge className={PROJECT_STATUS_BADGE[p.status]}>
                         {PROJECT_STATUS_LABELS[p.status]}
                       </Badge>
                     </TableCell>

@@ -130,7 +130,7 @@ function EditDialog({
                 value={watch('type')}
                 onValueChange={(v) => setValue('type', v as 'company' | 'individual')}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

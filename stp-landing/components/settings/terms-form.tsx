@@ -40,7 +40,7 @@ export function TermsForm({ defaultTerms }: { defaultTerms: string }) {
         <p className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">{error}</p>
       )}
       {success && (
-        <p className="text-sm text-green-700 bg-green-50 rounded-md px-3 py-2">Términos guardados correctamente.</p>
+        <p className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40 rounded-md px-3 py-2">Términos guardados correctamente.</p>
       )}
 
       <Button size="sm" disabled={saving} onClick={handleSave}>

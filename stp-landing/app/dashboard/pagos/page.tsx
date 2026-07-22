@@ -24,11 +24,12 @@ const METHOD_LABELS: Record<Payment['method'], string> = {
   other: 'Otro',
 }
 
-const STATUS_VARIANTS: Record<Payment['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  completed: 'default',
-  pending: 'outline',
-  failed: 'destructive',
-  refunded: 'secondary',
+// Colores semánticos de estado (tinte suave, coherente con la identidad STP)
+const STATUS_BADGE: Record<Payment['status'], string> = {
+  completed: 'bg-green-600/10 text-green-700 dark:text-green-400',
+  pending: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  failed: 'bg-destructive/10 text-destructive',
+  refunded: 'bg-muted text-muted-foreground',
 }
 
 const STATUS_LABELS: Record<Payment['status'], string> = {
@@ -171,7 +172,7 @@ export default async function PagosPage({
                       </TableCell>
                       <TableCell>{METHOD_LABELS[p.method]}</TableCell>
                       <TableCell>
-                        <Badge variant={STATUS_VARIANTS[p.status]}>{STATUS_LABELS[p.status]}</Badge>
+                        <Badge className={STATUS_BADGE[p.status]}>{STATUS_LABELS[p.status]}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
                         {DOP.format(p.amount)}

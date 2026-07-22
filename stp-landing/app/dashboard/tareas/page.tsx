@@ -23,6 +23,15 @@ const STATUS_LABELS: Record<Task['status'], string> = {
   cancelled: 'Cancelada',
 }
 
+// Colores semánticos de estado (tinte suave, coherente con la identidad STP)
+const STATUS_BADGE: Record<Task['status'], string> = {
+  pending: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  in_progress: 'bg-primary/10 text-primary',
+  review: 'bg-primary/10 text-primary',
+  done: 'bg-green-600/10 text-green-700 dark:text-green-400',
+  cancelled: 'bg-destructive/10 text-destructive',
+}
+
 const PRIORITY_LABELS: Record<Task['priority'], string> = {
   low: 'Baja',
   medium: 'Media',
@@ -156,7 +165,9 @@ export default async function TareasPage({
                       <TableCell>
                         <Badge variant={PRIORITY_VARIANTS[t.priority]}>{PRIORITY_LABELS[t.priority]}</Badge>
                       </TableCell>
-                      <TableCell>{STATUS_LABELS[t.status]}</TableCell>
+                      <TableCell>
+                        <Badge className={STATUS_BADGE[t.status]}>{STATUS_LABELS[t.status]}</Badge>
+                      </TableCell>
                       <TableCell>
                         {t.dueDate ? new Date(t.dueDate).toLocaleDateString('es-DO') : '—'}
                       </TableCell>

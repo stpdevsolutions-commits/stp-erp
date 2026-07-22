@@ -59,12 +59,13 @@ const QUOTE_STATUS_LABELS: Record<Quote['status'], string> = {
   expired: 'Expirada',
 }
 
-const QUOTE_STATUS_VARIANTS: Record<Quote['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  draft: 'outline',
-  sent: 'secondary',
-  approved: 'default',
-  rejected: 'destructive',
-  expired: 'secondary',
+// Colores semánticos de estado (tinte suave, coherente con la identidad STP)
+const QUOTE_STATUS_BADGE: Record<Quote['status'], string> = {
+  draft: 'bg-muted text-muted-foreground',
+  sent: 'bg-primary/10 text-primary',
+  approved: 'bg-green-600/10 text-green-700 dark:text-green-400',
+  rejected: 'bg-destructive/10 text-destructive',
+  expired: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
 }
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
@@ -360,7 +361,7 @@ export default async function DashboardPage() {
                       {q.client?.name ?? '—'}
                     </TableCell>
                     <TableCell className="py-2">
-                      <Badge variant={QUOTE_STATUS_VARIANTS[q.status]}>
+                      <Badge className={QUOTE_STATUS_BADGE[q.status]}>
                         {QUOTE_STATUS_LABELS[q.status]}
                       </Badge>
                     </TableCell>

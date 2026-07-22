@@ -107,7 +107,7 @@ export function LogoUpload() {
         <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{error}</p>
       )}
       {success && (
-        <p className="text-sm text-green-700 rounded-md bg-green-50 px-3 py-2">
+        <p className="text-sm text-green-700 dark:text-green-400 rounded-md bg-green-50 dark:bg-green-950/40 px-3 py-2">
           Logo actualizado correctamente.
         </p>
       )}

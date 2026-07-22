@@ -74,7 +74,7 @@ export function CambiarPasswordDialog() {
 
         {success ? (
           <div className="py-4 text-center">
-            <p className="text-sm text-green-600 font-medium">Contraseña actualizada correctamente.</p>
+            <p className="text-sm text-green-600 dark:text-green-400 font-medium">Contraseña actualizada correctamente.</p>
             <Button className="mt-4" onClick={() => setOpen(false)}>Cerrar</Button>
           </div>
         ) : (

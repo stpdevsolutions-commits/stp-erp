@@ -149,7 +149,7 @@ function EditDialog({
                   setValue('projectId', '')
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar cliente">
                     {selectedClientName}
                   </SelectValue>
@@ -169,7 +169,7 @@ function EditDialog({
                 value={watch('projectId') ?? ''}
                 onValueChange={(v) => setValue('projectId', v ?? '')}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="— Ninguno —">
                     {projectId ? selectedProjectName : undefined}
                   </SelectValue>
@@ -206,7 +206,7 @@ function EditDialog({
                 value={watch('method')}
                 onValueChange={(v) => v && setValue('method', v as EditFormValues['method'])}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(METHOD_LABELS).map(([value, label]) => (
                     <SelectItem key={value} value={value}>{label}</SelectItem>
@@ -221,7 +221,7 @@ function EditDialog({
                 value={watch('status')}
                 onValueChange={(v) => v && setValue('status', v as EditFormValues['status'])}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(STATUS_LABELS).map(([value, label]) => (
                     <SelectItem key={value} value={value}>{label}</SelectItem>

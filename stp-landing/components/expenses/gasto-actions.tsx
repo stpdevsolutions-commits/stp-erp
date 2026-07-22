@@ -132,7 +132,7 @@ function EditDialog({
                 value={watch('projectId') ?? ''}
                 onValueChange={(v) => v && setValue('projectId', v)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar proyecto">
                     {selectedProjectName}
                   </SelectValue>
@@ -158,7 +158,7 @@ function EditDialog({
                 value={watch('category')}
                 onValueChange={(v) => v && setValue('category', v as EditFormValues['category'])}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
                     <SelectItem key={value} value={value}>{label}</SelectItem>
@@ -184,7 +184,7 @@ function EditDialog({
                 value={watch('supplierId') ?? ''}
                 onValueChange={(v) => setValue('supplierId', v ?? '')}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="— Ninguno —">
                     {supplierId ? selectedSupplierName : undefined}
                   </SelectValue>

@@ -313,7 +313,7 @@ function EditDialog({
             <div className="space-y-1.5">
               <Label>Cliente <span className="text-destructive">*</span></Label>
               <Select value={clientId ?? ''} onValueChange={(v) => { setValue('clientId', v ?? ''); setValue('projectId', undefined) }}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar cliente">{selectedClient?.name}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -330,7 +330,7 @@ function EditDialog({
                 onValueChange={(v) => setValue('projectId', !v || v === '__none__' ? undefined : v)}
                 disabled={!clientId}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Sin proyecto">
                     {selectedProject ? `${selectedProject.code} — ${selectedProject.name}` : 'Sin proyecto'}
                   </SelectValue>
@@ -350,7 +350,7 @@ function EditDialog({
                 value={watch('status')}
                 onValueChange={(v) => v && setValue('status', v as EditFormValues['status'])}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(STATUS_LABELS).map(([value, label]) => (
                     <SelectItem key={value} value={value}>{label}</SelectItem>

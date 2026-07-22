@@ -24,12 +24,13 @@ const STATUS_LABELS: Record<Project['status'], string> = {
   cancelled: 'Cancelado',
 }
 
-const STATUS_VARIANTS: Record<Project['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  draft: 'secondary',
-  active: 'default',
-  on_hold: 'outline',
-  completed: 'default',
-  cancelled: 'destructive',
+// Colores semánticos de estado (tinte suave, coherente con la identidad STP)
+const STATUS_BADGE: Record<Project['status'], string> = {
+  draft: 'bg-muted text-muted-foreground',
+  active: 'bg-primary/10 text-primary',
+  on_hold: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  completed: 'bg-green-600/10 text-green-700 dark:text-green-400',
+  cancelled: 'bg-destructive/10 text-destructive',
 }
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
@@ -141,7 +142,7 @@ export default async function ProyectosPage({
                         ) : '—'}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={STATUS_VARIANTS[p.status]}>{STATUS_LABELS[p.status]}</Badge>
+                        <Badge className={STATUS_BADGE[p.status]}>{STATUS_LABELS[p.status]}</Badge>
                       </TableCell>
                       <TableCell>{p.budget != null ? DOP.format(p.budget) : '—'}</TableCell>
                       <TableCell>

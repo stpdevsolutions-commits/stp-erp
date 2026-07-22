@@ -146,7 +146,7 @@ function EditDialog({
                 value={clientId}
                 onValueChange={(v) => v && setValue('clientId', v)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar cliente">
                     {selectedClientName}
                   </SelectValue>
@@ -170,7 +170,7 @@ function EditDialog({
                 value={watch('status')}
                 onValueChange={(v) => v && setValue('status', v as EditFormValues['status'])}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

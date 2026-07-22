@@ -24,12 +24,13 @@ const STATUS_LABELS: Record<Quote['status'], string> = {
   rejected: 'Rechazada',
   expired: 'Expirada',
 }
-const STATUS_VARIANTS: Record<Quote['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  draft: 'outline',
-  sent: 'secondary',
-  approved: 'default',
-  rejected: 'destructive',
-  expired: 'secondary',
+// Colores semánticos de estado (tinte suave, coherente con la identidad STP)
+const STATUS_BADGE: Record<Quote['status'], string> = {
+  draft: 'bg-muted text-muted-foreground',
+  sent: 'bg-primary/10 text-primary',
+  approved: 'bg-green-600/10 text-green-700 dark:text-green-400',
+  rejected: 'bg-destructive/10 text-destructive',
+  expired: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
 }
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
@@ -92,7 +93,7 @@ export default async function CotizacionDetallePage({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="font-mono text-sm text-muted-foreground">{quote.number}</span>
-            <Badge variant={STATUS_VARIANTS[quote.status]}>{STATUS_LABELS[quote.status]}</Badge>
+            <Badge className={STATUS_BADGE[quote.status]}>{STATUS_LABELS[quote.status]}</Badge>
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{quote.title}</h1>
         </div>

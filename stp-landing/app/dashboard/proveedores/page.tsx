@@ -75,7 +75,7 @@ export default async function ProveedoresPage({
             <CardTitle className="text-xs font-medium text-muted-foreground">Activos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{activos}</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{activos}</div>
           </CardContent>
         </Card>
         <Card>
