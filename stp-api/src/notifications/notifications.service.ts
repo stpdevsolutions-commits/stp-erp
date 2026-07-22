@@ -82,7 +82,7 @@ export class NotificationsService {
                 ${validUntil ? `<tr><td style="padding:12px 0;color:#6b7280;font-size:14px">Válida hasta</td><td style="padding:12px 0;text-align:right;color:#374151;font-size:14px">${validUntil}</td></tr>` : ''}
               </table>
 
-              <p style="color:#374151;font-size:14px">Puede aprobar o rechazar esta cotización con los siguientes botones. Si prefiere solicitar ajustes, contáctenos respondiendo este correo o al número de teléfono de su ejecutivo de cuenta.</p>
+              <p style="color:#374151;font-size:14px">Puede aprobar o rechazar esta cotización con los siguientes botones. Si prefiere solicitar ajustes, contáctenos al correo <a href="mailto:proyectos@stpsoluciones.com" style="color:#0D3773">proyectos@stpsoluciones.com</a> o a los teléfonos 809-537-6566 / 809-350-9162.</p>
               ${decisionBlock}
             </div>
             <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
