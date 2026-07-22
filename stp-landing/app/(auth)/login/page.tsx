@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -116,11 +117,17 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/40">
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="size-8 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-              STP
-            </div>
-            <span className="font-semibold text-sm text-muted-foreground">Soluciones Técnicas Profesionales</span>
+          <div className="mb-3 flex justify-center">
+            <span className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-black/5">
+              <Image
+                src="/logo-stp.png"
+                alt="STP — Soluciones Técnicas Profesionales"
+                width={242}
+                height={151}
+                className="h-14 w-auto"
+                priority
+              />
+            </span>
           </div>
           <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
           <CardDescription>Ingresa tus credenciales para acceder al sistema</CardDescription>

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Users,
@@ -82,15 +83,22 @@ export function AppSidebar({ role = 'user' }: { role?: string }) {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="size-8 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs shrink-0">
-            STP
-          </div>
-          <div className="flex flex-col leading-tight">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
+          <span className="flex shrink-0 items-center justify-center rounded-md bg-white p-1.5 shadow-sm ring-1 ring-black/5">
+            <Image
+              src="/logo-stp.png"
+              alt="STP — Soluciones Técnicas Profesionales"
+              width={242}
+              height={151}
+              className="h-7 w-auto"
+              priority
+            />
+          </span>
+          <span className="flex flex-col leading-tight">
             <span className="font-semibold text-sm">STP ERP</span>
             <span className="text-xs text-muted-foreground">Panel de gestión</span>
-          </div>
-        </div>
+          </span>
+        </Link>
       </SidebarHeader>
 
       <SidebarContent>
