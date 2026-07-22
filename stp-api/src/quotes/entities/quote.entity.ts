@@ -26,6 +26,21 @@ const dec = {
   from: (v: string) => (v != null ? parseFloat(v) : 0),
 };
 
+/**
+ * Gasto indirecto aplicado sobre el subtotal de costos directos (los items).
+ * - `kind` undefined = gasto normal (amount = base * pct/100).
+ * - `kind` 'itbis'  = entrada especial: amount = pct% del monto de los gastos
+ *                     marcados como `taxable` (por defecto, Dirección Técnica).
+ * El backend SIEMPRE recalcula `amount` server-side; el valor recibido se ignora.
+ */
+export interface IndirectCost {
+  name: string;
+  pct: number;
+  amount: number;
+  kind?: 'itbis';
+  taxable?: boolean;
+}
+
 @Entity('quotes')
 export class Quote {
   @PrimaryGeneratedColumn('uuid')
@@ -78,6 +93,13 @@ export class Quote {
 
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0, transformer: dec })
   total: number;
+
+  /**
+   * Desglose de gastos indirectos. `null` = cotización legacy (ITBIS 18% clásico
+   * sobre subtotal - discount). Presente = modo gastos indirectos.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  indirectCosts: IndirectCost[];
 
   @Column({ type: 'text', nullable: true })
   notes: string;

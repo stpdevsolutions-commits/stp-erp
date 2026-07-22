@@ -14,6 +14,7 @@ import {
 import { Type } from 'class-transformer';
 import { QuoteStatus } from '../entities/quote.entity';
 import { CreateQuoteItemDto } from './create-quote-item.dto';
+import { IndirectCostDto } from './indirect-cost.dto';
 
 export class CreateQuoteDto {
   @IsString()
@@ -59,4 +60,10 @@ export class CreateQuoteDto {
   @ValidateNested({ each: true })
   @Type(() => CreateQuoteItemDto)
   items?: CreateQuoteItemDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => IndirectCostDto)
+  indirectCosts?: IndirectCostDto[];
 }

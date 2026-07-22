@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { join, relative } from 'path';
 import { mkdirSync, statSync, existsSync, unlink } from 'fs';
-import { Quote, QuoteStatus } from './entities/quote.entity';
+import { Quote, QuoteStatus, IndirectCost } from './entities/quote.entity';
 import { QuoteItem } from './entities/quote-item.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Project, ProjectStatus, ProjectType } from '../projects/entities/project.entity';
@@ -127,6 +127,8 @@ export class QuotesService implements OnModuleInit {
       );
       await this.itemsRepository.save(items);
       await this.recalculate(saved.id);
+    } else if (dto.indirectCosts) {
+      await this.recalculate(saved.id);
     }
 
     const result = await this.findOne(saved.id);
@@ -222,7 +224,11 @@ export class QuotesService implements OnModuleInit {
         await this.itemsRepository.save(newItems);
       }
       await this.recalculate(id);
-    } else if (dto.taxRate !== undefined || dto.discount !== undefined) {
+    } else if (
+      dto.taxRate !== undefined ||
+      dto.discount !== undefined ||
+      dto.indirectCosts !== undefined
+    ) {
       await this.recalculate(id);
     }
 
@@ -402,6 +408,42 @@ export class QuotesService implements OnModuleInit {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
+  private round2(n: number): number {
+    return parseFloat(n.toFixed(2));
+  }
+
+  /**
+   * Recalcula los amounts de los gastos indirectos server-side y devuelve
+   * { costs, taxAmount, total }. Los amounts recibidos del cliente se ignoran.
+   */
+  private computeIndirectCosts(base: number, costs: IndirectCost[]): {
+    costs: IndirectCost[];
+    taxAmount: number;
+    total: number;
+  } {
+    let taxBase = 0;
+    // 1ª pasada: gastos normales (porcentaje del base). Acumula la base del ITBIS.
+    const computed: IndirectCost[] = costs
+      .filter((c) => c.kind !== 'itbis')
+      .map((c) => {
+        const amount = this.round2(base * (Number(c.pct) || 0) / 100);
+        if (c.taxable) taxBase += amount;
+        return { name: c.name, pct: Number(c.pct) || 0, amount, taxable: c.taxable || undefined };
+      });
+
+    // 2ª pasada: entradas ITBIS (porcentaje sobre la base gravada, p.ej. Dirección Técnica).
+    let taxAmount = 0;
+    for (const c of costs.filter((c) => c.kind === 'itbis')) {
+      const amount = this.round2(taxBase * (Number(c.pct) || 0) / 100);
+      taxAmount += amount;
+      computed.push({ name: c.name, pct: Number(c.pct) || 0, amount, kind: 'itbis' });
+    }
+
+    const sumCosts = computed.reduce((s, c) => s + c.amount, 0);
+    const total = this.round2(base + sumCosts);
+    return { costs: computed, taxAmount: this.round2(taxAmount), total };
+  }
+
   private async recalculate(quoteId: string): Promise<void> {
     const [quote, items] = await Promise.all([
       this.quotesRepository.findOneBy({ id: quoteId }),
@@ -409,14 +451,23 @@ export class QuotesService implements OnModuleInit {
     ]);
     if (!quote) return;
 
-    const subtotal = items.reduce((sum, i) => sum + Number(i.total), 0);
-    const taxableAmount = Math.max(0, subtotal - Number(quote.discount ?? 0));
-    const taxAmount = parseFloat((taxableAmount * (Number(quote.taxRate ?? 18) / 100)).toFixed(2));
-    const total = parseFloat((taxableAmount + taxAmount).toFixed(2));
+    const subtotal = this.round2(items.reduce((sum, i) => sum + Number(i.total), 0));
+    const base = Math.max(0, this.round2(subtotal - Number(quote.discount ?? 0)));
 
-    quote.subtotal = subtotal;
-    quote.taxAmount = taxAmount;
-    quote.total = total;
+    if (Array.isArray(quote.indirectCosts)) {
+      // Modo gastos indirectos: el backend recalcula los amounts.
+      const { costs, taxAmount, total } = this.computeIndirectCosts(base, quote.indirectCosts);
+      quote.subtotal = subtotal;
+      quote.indirectCosts = costs;
+      quote.taxAmount = taxAmount;
+      quote.total = total;
+    } else {
+      // Legacy: ITBIS clásico (taxRate% sobre subtotal - discount).
+      const taxAmount = this.round2(base * (Number(quote.taxRate ?? 18) / 100));
+      quote.subtotal = subtotal;
+      quote.taxAmount = taxAmount;
+      quote.total = this.round2(base + taxAmount);
+    }
     await this.quotesRepository.save(quote);
   }
 

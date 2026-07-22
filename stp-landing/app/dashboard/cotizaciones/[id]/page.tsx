@@ -64,6 +64,11 @@ export default async function CotizacionDetallePage({
     // ignore
   }
 
+  const indirectCosts = (
+    quote as { indirectCosts?: { name: string; pct: number; amount: number; kind?: string }[] | null }
+  ).indirectCosts
+  const hasIndirect = Array.isArray(indirectCosts) && indirectCosts.length > 0
+
   // Group items by section
   const sections: Map<string, typeof quote.items> = new Map()
   for (const item of quote.items ?? []) {
@@ -239,16 +244,35 @@ export default async function CotizacionDetallePage({
 
       {/* Totals */}
       <div className="flex justify-end">
-        <div className="w-72 space-y-2 text-sm">
+        <div className="w-80 space-y-2 text-sm">
           <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal</span>
+            <span>{hasIndirect ? 'Subtotal costos directos' : 'Subtotal'}</span>
             <span className="tabular-nums">{DOP.format(quote.subtotal)}</span>
           </div>
-          {quote.taxRate > 0 && (
-            <div className="flex justify-between text-muted-foreground">
-              <span>ITBIS ({quote.taxRate}%)</span>
-              <span className="tabular-nums">{DOP.format(quote.taxAmount)}</span>
-            </div>
+          {hasIndirect ? (
+            <>
+              <div className="pt-1 text-xs font-semibold uppercase text-muted-foreground">
+                Gastos indirectos
+              </div>
+              {indirectCosts!.map((c, i) => (
+                <div key={i} className="flex justify-between text-muted-foreground">
+                  <span>
+                    {c.name}{' '}
+                    <span className="text-xs">
+                      ({c.pct}%{c.kind === 'itbis' ? ' Dir. Técnica' : ''})
+                    </span>
+                  </span>
+                  <span className="tabular-nums">{DOP.format(c.amount)}</span>
+                </div>
+              ))}
+            </>
+          ) : (
+            quote.taxRate > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>ITBIS ({quote.taxRate}%)</span>
+                <span className="tabular-nums">{DOP.format(quote.taxAmount)}</span>
+              </div>
+            )
           )}
           <div className="flex justify-between font-semibold text-base border-t pt-2">
             <span>Total</span>

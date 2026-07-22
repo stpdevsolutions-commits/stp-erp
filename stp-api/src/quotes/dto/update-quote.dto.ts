@@ -7,6 +7,7 @@ import {
   IsDateString,
   IsArray,
   ValidateNested,
+  ValidateIf,
   MinLength,
   Min,
   Max,
@@ -14,6 +15,7 @@ import {
 import { Type } from 'class-transformer';
 import { QuoteStatus } from '../entities/quote.entity';
 import { CreateQuoteItemDto } from './create-quote-item.dto';
+import { IndirectCostDto } from './indirect-cost.dto';
 
 export class UpdateQuoteDto {
   @IsOptional()
@@ -61,4 +63,12 @@ export class UpdateQuoteDto {
   @ValidateNested({ each: true })
   @Type(() => CreateQuoteItemDto)
   items?: CreateQuoteItemDto[];
+
+  // `null` desactiva los gastos indirectos y vuelve al ITBIS clásico (legacy).
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => IndirectCostDto)
+  indirectCosts?: IndirectCostDto[] | null;
 }

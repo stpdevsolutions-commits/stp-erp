@@ -49,7 +49,9 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
     stream.on('error', reject);
 
     const logoPath    = findLogoPath();
-    const showITBIS   = (quote.taxRate ?? 0) > 0;
+    const hasIndirect = Array.isArray(quote.indirectCosts) && quote.indirectCosts.length > 0;
+    // Con gastos indirectos, el ITBIS ya no se prorratea por ítem.
+    const showITBIS   = !hasIndirect && (quote.taxRate ?? 0) > 0;
 
     // ── Column layout ──────────────────────────────────────────────────────
     const C = showITBIS
@@ -248,11 +250,40 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
     doc.moveTo(tLabelX, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
     y += 7;
 
+    const subtotalLabel = hasIndirect ? 'Subtotal costos directos' : 'Subtotal';
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(9)
-      .text('Subtotal', tLabelX, y, { width: tLabelW, lineBreak: false });
+      .text(subtotalLabel, tLabelX, y, { width: tLabelW, lineBreak: false });
     doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9)
       .text(money(quote.subtotal), tValueX, y, { width: tValueW, align: 'right', lineBreak: false });
     y += 14;
+
+    if (Number(quote.discount ?? 0) > 0) {
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(9)
+        .text('Descuento', tLabelX, y, { width: tLabelW, lineBreak: false });
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9)
+        .text('- ' + money(Number(quote.discount)), tValueX, y, { width: tValueW, align: 'right', lineBreak: false });
+      y += 14;
+    }
+
+    if (hasIndirect) {
+      // ── Desglose de gastos indirectos ──────────────────────────────────────
+      y += 2;
+      doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(8)
+        .text('GASTOS INDIRECTOS', tLabelX, y, { width: tLabelW + tValueW, lineBreak: false });
+      y += 13;
+      for (const cost of quote.indirectCosts) {
+        y = checkBreak(y, 14);
+        const pctLabel = cost.kind === 'itbis'
+          ? `${cost.name} (${cost.pct}% Dir. Técnica)`
+          : `${cost.name} (${cost.pct}%)`;
+        doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8.5)
+          .text(pctLabel, tLabelX, y, { width: tLabelW, lineBreak: false });
+        doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8.5)
+          .text(money(Number(cost.amount ?? 0)), tValueX, y, { width: tValueW, align: 'right', lineBreak: false });
+        y += 13;
+      }
+      y += 1;
+    }
 
     if (showITBIS) {
       doc.fillColor(MID_GRAY).font('Helvetica').fontSize(9)

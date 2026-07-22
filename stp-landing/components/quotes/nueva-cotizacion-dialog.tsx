@@ -26,6 +26,13 @@ import {
 } from '@/components/ui/select'
 import type { Client, Project } from '@/lib/types'
 import { createQuote } from '@/lib/actions/quotes'
+import {
+  IndirectCostsSection,
+  defaultIndirectRows,
+  computeIndirect,
+  indirectToPayload,
+  type IndirectRow,
+} from '@/components/quotes/indirect-costs'
 
 // ── Section / Item types (local state, not persisted to form) ─────────────────
 
@@ -115,6 +122,8 @@ export function NuevaCotizacionDialog({
   const [serverError, setServerError] = useState<string | null>(null)
   const [itemsError, setItemsError] = useState<string | null>(null)
   const [applyITBIS, setApplyITBIS] = useState(true)
+  const [useIndirect, setUseIndirect] = useState(true)
+  const [indirectRows, setIndirectRows] = useState<IndirectRow[]>(() => defaultIndirectRows())
   const [sections, setSections] = useState<Section[]>(() => [makeSection('Partida 1')])
 
   const {
@@ -186,8 +195,9 @@ export function NuevaCotizacionDialog({
     const disc = parseFloat(item.discountPct || '0') || 0
     return sum + qty * price * (1 - disc / 100)
   }, 0)
-  const itbis = applyITBIS ? subtotal * ITBIS_RATE : 0
-  const total = subtotal + itbis
+  const indirectCalc = computeIndirect(subtotal, indirectRows)
+  const itbis = useIndirect ? indirectCalc.itbis : applyITBIS ? subtotal * ITBIS_RATE : 0
+  const total = useIndirect ? indirectCalc.total : subtotal + itbis
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -198,6 +208,8 @@ export function NuevaCotizacionDialog({
     setServerError(null)
     setItemsError(null)
     setApplyITBIS(true)
+    setUseIndirect(true)
+    setIndirectRows(defaultIndirectRows())
   }
 
   async function onSubmit(headerData: HeaderValues) {
@@ -246,8 +258,9 @@ export function NuevaCotizacionDialog({
       validUntil: headerData.validUntil || undefined,
       notes: headerData.notes || undefined,
       terms: headerData.terms || undefined,
-      taxRate: applyITBIS ? 18 : 0,
+      taxRate: useIndirect ? 0 : applyITBIS ? 18 : 0,
       items: flatItems,
+      ...(useIndirect ? { indirectCosts: indirectToPayload(indirectRows) } : {}),
     })
 
     if (!result.ok) {
@@ -395,27 +408,50 @@ export function NuevaCotizacionDialog({
             <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{itemsError}</p>
           )}
 
-          {/* ITBIS toggle + Totals */}
-          <div className="flex items-end justify-between">
-            <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+          {/* Gastos indirectos */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium select-none">
               <input
                 type="checkbox"
-                checked={applyITBIS}
-                onChange={(e) => setApplyITBIS(e.target.checked)}
+                checked={useIndirect}
+                onChange={(e) => setUseIndirect(e.target.checked)}
                 className="rounded border-input"
               />
-              Aplicar ITBIS (18%)
+              Aplicar gastos indirectos
             </label>
 
-            <div className="w-64 space-y-1 text-sm">
+            {useIndirect ? (
+              <IndirectCostsSection rows={indirectRows} setRows={setIndirectRows} base={subtotal} />
+            ) : (
+              <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+                <input
+                  type="checkbox"
+                  checked={applyITBIS}
+                  onChange={(e) => setApplyITBIS(e.target.checked)}
+                  className="rounded border-input"
+                />
+                Aplicar ITBIS (18%)
+              </label>
+            )}
+          </div>
+
+          {/* Totals */}
+          <div className="flex justify-end">
+            <div className="w-72 space-y-1 text-sm">
               <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
+                <span>{useIndirect ? 'Subtotal costos directos' : 'Subtotal'}</span>
                 <span className="tabular-nums">{DOP.format(subtotal)}</span>
               </div>
-              {applyITBIS && (
+              {!useIndirect && applyITBIS && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>ITBIS (18%)</span>
                   <span className="tabular-nums">{DOP.format(itbis)}</span>
+                </div>
+              )}
+              {useIndirect && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Total gastos indirectos</span>
+                  <span className="tabular-nums">{DOP.format(total - subtotal)}</span>
                 </div>
               )}
               <div className="flex justify-between font-semibold border-t pt-1">

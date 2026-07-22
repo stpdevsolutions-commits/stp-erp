@@ -19,6 +19,14 @@ export interface QuoteItemInput {
   sortOrder?: number
 }
 
+export interface IndirectCostInput {
+  name: string
+  pct: number
+  amount?: number
+  kind?: 'itbis'
+  taxable?: boolean
+}
+
 export interface CreateQuoteInput {
   title: string
   projectId?: string
@@ -29,6 +37,7 @@ export interface CreateQuoteInput {
   terms?: string
   taxRate?: number
   items: QuoteItemInput[]
+  indirectCosts?: IndirectCostInput[]
 }
 
 export interface UpdateQuoteInput {
@@ -41,6 +50,7 @@ export interface UpdateQuoteInput {
   terms?: string | null
   taxRate?: number
   items?: QuoteItemInput[]
+  indirectCosts?: IndirectCostInput[] | null
 }
 
 export async function createQuote(input: CreateQuoteInput): Promise<ActionResult> {
