@@ -1,0 +1,84 @@
+#
+# Immich — reemplazo self-hosted de Google Fotos / iCloud Fotos.
+# Stack aislado (proyecto "immich"), enganchado a la red de Caddy (stp_stp-network)
+# para ser servido por el reverse proxy en fotos.stpsoluciones.com (solo VPN/LAN).
+#
+# Basado en la plantilla oficial:
+# https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+#
+# Datos:
+#   - Originales (fotos/videos)  -> /storage/immich        (HDD 500GB)  via UPLOAD_LOCATION
+#   - Base de datos PostgreSQL   -> /data/immich-postgres   (SSD)       via DB_DATA_LOCATION
+#
+name: immich
+
+services:
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    volumes:
+      - ${UPLOAD_LOCATION}:/data
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    # Sin puerto público: solo accesible por la red interna via Caddy (patrón app privada).
+    expose:
+      - "2283"
+    depends_on:
+      - redis
+      - database
+    restart: unless-stopped
+    healthcheck:
+      disable: false
+    networks:
+      - default
+      - stp-shared
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    volumes:
+      - model-cache:/cache
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      disable: false
+    networks:
+      - default
+
+  redis:
+    container_name: immich_redis
+    image: docker.io/valkey/valkey:9@sha256:4963247afc4cd33c7d3b2d2816b9f7f8eeebab148d29056c2ca4d7cbc966f2d9
+    healthcheck:
+      test: redis-cli ping || exit 1
+    restart: unless-stopped
+    networks:
+      - default
+
+  database:
+    container_name: immich_postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_DATABASE_NAME}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    volumes:
+      - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    shm_size: 128mb
+    restart: unless-stopped
+    healthcheck:
+      disable: false
+    networks:
+      - default
+
+volumes:
+  model-cache:
+
+networks:
+  default:
+  # Red compartida de Caddy — permite que fotos.stpsoluciones.com llegue a immich-server.
+  stp-shared:
+    external: true
+    name: stp_stp-network

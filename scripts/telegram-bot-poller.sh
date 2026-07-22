@@ -23,11 +23,44 @@ TELEGRAM_BOT_TOKEN=$(docker exec "$VIGIA_CONTAINER" printenv TELEGRAM_BOT_TOKEN)
 TELEGRAM_CHAT_ID=$(docker exec "$VIGIA_CONTAINER" printenv TELEGRAM_CHAT_ID)
 API="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}"
 
+# Escapa un valor para el formato de fichero de configuración de curl, donde los
+# valores entre comillas admiten \\ , \" y \n.
+curl_cfg_escape() {
+  local s=$1
+  s=${s//\\/\\\\}
+  s=${s//\"/\\\"}
+  s=${s//$'\n'/\\n}
+  printf '%s' "$s"
+}
+
+# Llama a la API de Telegram pasándole a curl la petición entera por stdin
+# (--config -) en lugar de por argumentos. El token viaja dentro de la URL, así
+# que ponerlo en la línea de comandos lo dejaría visible en /proc/<pid>/cmdline
+# para cualquier usuario del sistema (un simple `ps aux` lo delata). De esta
+# forma `ps` solo ve "curl --config -".
+# Uso: tg_call <endpoint> <get|post> <pares clave=valor...>
+tg_call() {
+  local endpoint=$1 method=$2 pair
+  shift 2
+  {
+    printf 'url = "%s/%s"\n' "$API" "$endpoint"
+    printf 'silent\n'
+    printf 'max-time = %s\n' "$([ "$method" = get ] && echo 20 || echo 10)"
+    if [ "$method" = get ]; then
+      printf 'get\n'
+      printf 'keepalive-time = 5\n'
+    fi
+    for pair in "$@"; do
+      printf 'data-urlencode = "%s"\n' "$(curl_cfg_escape "$pair")"
+    done
+  } | curl --config -
+}
+
 answer_callback() {
   local callback_id="$1" text="$2" resp
-  resp=$(curl -s --max-time 10 -X POST "${API}/answerCallbackQuery" \
-    --data-urlencode "callback_query_id=${callback_id}" \
-    --data-urlencode "text=${text}")
+  resp=$(tg_call answerCallbackQuery post \
+    "callback_query_id=${callback_id}" \
+    "text=${text}")
   if [ "$(echo "$resp" | jq -r '.ok // false' 2>/dev/null)" != "true" ]; then
     echo "$(date -Iseconds) ERROR answerCallbackQuery falló: ${resp:-sin respuesta}" >&2
   fi
@@ -35,10 +68,10 @@ answer_callback() {
 
 edit_message() {
   local chat_id="$1" message_id="$2" text="$3" resp
-  resp=$(curl -s --max-time 10 -X POST "${API}/editMessageText" \
-    --data-urlencode "chat_id=${chat_id}" \
-    --data-urlencode "message_id=${message_id}" \
-    --data-urlencode "text=${text}")
+  resp=$(tg_call editMessageText post \
+    "chat_id=${chat_id}" \
+    "message_id=${message_id}" \
+    "text=${text}")
   if [ "$(echo "$resp" | jq -r '.ok // false' 2>/dev/null)" != "true" ] \
      && ! echo "$resp" | jq -e '(.description // "") | test("message is not modified")' >/dev/null 2>&1; then
     echo "$(date -Iseconds) ERROR editMessageText falló: ${resp:-sin respuesta}" >&2
@@ -50,10 +83,10 @@ echo "$(date -Iseconds) telegram-bot-poller arrancando"
 while true; do
   OFFSET=$(cat "$OFFSET_FILE" 2>/dev/null || echo "")
 
-  UPDATES=$(curl -s --max-time 20 --keepalive-time 5 -G "${API}/getUpdates" \
-    --data-urlencode "timeout=15" \
-    --data-urlencode "allowed_updates=[\"callback_query\"]" \
-    ${OFFSET:+--data-urlencode "offset=${OFFSET}"})
+  UPDATES=$(tg_call getUpdates get \
+    "timeout=15" \
+    'allowed_updates=["callback_query"]' \
+    ${OFFSET:+"offset=${OFFSET}"})
 
   if [ -z "$UPDATES" ] || ! echo "$UPDATES" | jq -e . >/dev/null 2>&1; then
     echo "$(date -Iseconds) respuesta inválida de Telegram, reintento en 5s"
