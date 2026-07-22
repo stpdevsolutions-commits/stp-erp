@@ -58,11 +58,13 @@ services:
     depends_on:
       - stp-api
 
-  # NestJS API
+  # NestJS API — modo producción (build multi-stage, sin hot-reload).
+  # Para desarrollo: dockerfile Dockerfile.dev + volumen ./stp-api/src:/app/src
+  # + command npm run start:dev + NODE_ENV=development en .env.
   stp-api:
     build:
       context: ./stp-api
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: stp-api
     restart: unless-stopped
     ports:
@@ -70,7 +72,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ./stp-api/src:/app/src
       - /storage/erp-uploads:/app/uploads
     networks:
       - stp-network
@@ -79,7 +80,6 @@ services:
         condition: service_healthy
       stp-redis:
         condition: service_healthy
-    command: npm run start:dev
 
   # Vaultwarden — gestor de contraseñas
   stp-vaultwarden:

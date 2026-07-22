@@ -112,8 +112,8 @@ client: Client;
 @Column({ type: 'uuid' }) clientId: string;
 ```
 
-### 5. Hot reload funciona nativamente en Linux
-En este servidor Ubuntu el watch de NestJS detecta cambios en tiempo real. Solo se necesita `docker restart stp-api` cuando se cambia algo fuera de `src/` (package.json, Dockerfile, etc.).
+### 5. stp-api corre en MODO PRODUCCIÓN (desde 2026-07-22) — ya NO hay hot reload
+El contenedor usa el `Dockerfile` multi-stage (`node dist/main`), `NODE_ENV=production` (en `.env`) → `synchronize:false` + `migrationsRun:true` + sin log SQL. **Cualquier cambio en `stp-api/` requiere `docker compose up -d --build stp-api`.** Cambios de schema requieren migración (la imagen prod no tiene `src/` ni ts-node: generar la migración en un entorno dev — p. ej. levantando temporalmente el servicio con `Dockerfile.dev` — y comitearla). Para volver a dev: `Dockerfile.dev` + volumen `./stp-api/src:/app/src` + `command: npm run start:dev` en compose y `NODE_ENV=development`.
 
 ### 6. Migraciones
 - **Desarrollo**: `synchronize: true` (TypeORM actualiza el schema automáticamente)
