@@ -129,7 +129,6 @@ services:
     volumes:
       - nextcloud-app:/var/www/html
       - /storage/nextcloud:/var/www/html/data
-      - /storage/erp-uploads:/erp-uploads
       - /storage/erp-named:/erp-named
     networks:
       - stp-network
@@ -178,7 +177,6 @@ services:
       - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./www:/srv/www:ro
       - caddy-data:/data
       - caddy-config:/config
     networks:
