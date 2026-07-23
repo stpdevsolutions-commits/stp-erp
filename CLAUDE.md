@@ -186,8 +186,8 @@ Las facturas se desarrollan en una **app separada** que se integrará al ERP má
 
 ## Infraestructura del servidor
 - **Host**: stp-server (Ubuntu 22.04.5 LTS) — permanentemente en casa de Pedro
-- **IP local**: 192.168.4.41 | **Tailscale VPN**: 100.64.0.6
-- **Acceso SSH**: `ssh stp@100.64.0.6` (VPN) o `ssh stp@192.168.4.41` (LAN)
+- **IP local**: por DHCP, **cambia** (192.168.4.30 al 2026-07-23) | **Tailscale VPN**: 100.64.0.6 (fija)
+- **Acceso SSH**: usar siempre `ssh stp@100.64.0.6` o `ssh stp@stp-server` (VPN); la IP LAN no es estable
 - **CPU**: i7-7700T | **RAM**: 8GB
 - **Discos**: SSD 119GB (`/`) · HDD 220GB (`/data`, Docker data root) · HDD 458GB (`/storage`, datos persistentes)
 - **Dominio**: stpsoluciones.com — VPN-only para las apps privadas. La landing pública está en Vercel; el Cloudflare Tunnel solo expone `gw.stpsoluciones.com/erp-api/quotes/decision` (botones aprobar/rechazar de los correos)
