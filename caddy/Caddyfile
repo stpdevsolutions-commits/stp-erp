@@ -18,6 +18,21 @@ http://stpsoluciones.com, http://www.stpsoluciones.com {
 	file_server
 }
 
+# ── Pasarela del tunnel para los botones de cotización (pública) ──────────────
+# La landing vive en Vercel; su vercel.json reenvía /erp-api/* aquí para que
+# los enlaces de aprobar/rechazar de los correos (stpsoluciones.com/erp-api/...)
+# sigan funcionando. SOLO la ruta exacta de decisión; todo lo demás 404.
+http://gw.stpsoluciones.com {
+	handle /erp-api/quotes/decision {
+		uri strip_prefix /erp-api
+		reverse_proxy stp-api:3001
+	}
+
+	handle {
+		respond 404
+	}
+}
+
 # ── Apps privadas — HTTPS wildcard, solo VPN (100.64.0.0/10) o LAN (10.0.0.0/8 · 192.168.0.0/16)
 *.stpsoluciones.com {
 	tls {
