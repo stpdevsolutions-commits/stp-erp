@@ -1,4 +1,5 @@
-import { Controller, Get, Query, Header } from '@nestjs/common';
+import { Controller, Get, Query, Header, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { QuotesService, QuoteDecisionResult } from './quotes.service';
 import { QuoteStatus } from './entities/quote.entity';
@@ -21,8 +22,16 @@ export class QuotesPublicController {
   async decision(
     @Query('token') token: string,
     @Query('action') action: string,
+    @Req() req: Request,
   ): Promise<string> {
-    const result = await this.quotesService.decide(token ?? '', action ?? '');
+    // Detrás de Caddy: la IP real del cliente llega en X-Forwarded-For.
+    const forwarded = (req.headers['x-forwarded-for'] as string | undefined)
+      ?.split(',')[0]
+      ?.trim();
+    const result = await this.quotesService.decide(token ?? '', action ?? '', {
+      ip: forwarded || req.ip,
+      userAgent: req.headers['user-agent'],
+    });
     return renderDecisionPage(result);
   }
 }

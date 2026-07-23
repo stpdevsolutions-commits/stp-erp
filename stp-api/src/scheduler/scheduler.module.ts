@@ -6,12 +6,14 @@ import { Quote } from '../quotes/entities/quote.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { Payment } from '../payments/entities/payment.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { QuotesModule } from '../quotes/quotes.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([Quote, Task, Payment]),
     NotificationsModule,
+    QuotesModule,
   ],
   providers: [SchedulerService],
 })

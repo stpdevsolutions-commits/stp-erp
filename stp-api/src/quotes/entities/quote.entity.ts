@@ -101,6 +101,26 @@ export class Quote {
   @Column({ type: 'jsonb', nullable: true })
   indirectCosts: IndirectCost[];
 
+  /** Última transición a SENT — base del ciclo de recordatorios al cliente. */
+  @Column({ type: 'timestamptz', nullable: true })
+  sentAt: Date;
+
+  @Column({ type: 'int', default: 0 })
+  reminderCount: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lastReminderAt: Date;
+
+  /** Auditoría de la decisión del cliente vía enlace del correo. */
+  @Column({ type: 'timestamptz', nullable: true })
+  decidedAt: Date;
+
+  @Column({ nullable: true })
+  decisionIp: string;
+
+  @Column({ type: 'text', nullable: true })
+  decisionUserAgent: string;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 

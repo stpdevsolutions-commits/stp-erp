@@ -5,7 +5,7 @@ ERP para **Soluciones Técnicas Profesionales (STP)**, empresa dominicana de ele
 
 ## Stack
 - **API**: NestJS 11 + TypeScript (`target: ES2023`, `experimentalDecorators: true`)
-- **Frontend**: Next.js (stp-landing) — conecta a la API en `http://stp-api:3001`
+- **Frontend**: Next.js (`stp-landing`) — es el **frontend del ERP** (erp.stpsoluciones.com), no la landing pública; conecta a la API en `http://stp-api:3001`. La landing de stpsoluciones.com vive en Vercel, en el repo aparte `stpsoluciones-landing`.
 - **ORM**: TypeORM 1.x con PostgreSQL 15
 - **Auth**: JWT 7 días, `@nestjs/passport`
 - **Infra**: Docker + Docker Compose — Caddy (reverse proxy), PostgreSQL, Redis, stp-api, stp-landing
@@ -20,7 +20,7 @@ ERP para **Soluciones Técnicas Profesionales (STP)**, empresa dominicana de ele
 ├── caddy/Caddyfile           ← reverse proxy HTTPS wildcard (DNS-01, Cloudflare)
 ├── scripts/backup.sh         ← backup diario a Google Drive (cron 2am)
 ├── logs/backup.log           ← log del cron de backup
-├── stp-landing/              ← frontend Next.js
+├── stp-landing/              ← frontend Next.js del ERP (nombre histórico)
 └── stp-api/
     ├── Dockerfile.dev        ← imagen de desarrollo (hot reload)
     ├── Dockerfile            ← imagen de producción (multi-stage build)
@@ -155,7 +155,7 @@ Jerarquía en `RolesGuard`: ADMIN (rango 3) > MANAGER (rango 2) > USER (rango 1)
 16. **Inventory** — materiales, equipos, herramientas con categorías y SKU
 17. **Settings** — configuración empresa (logo, nombre, términos y condiciones)
 18. **Notifications** — emails via Resend (cotizaciones enviadas/aprobadas, tareas vencidas)
-19. **Scheduler** — cron diario 8am: alerta cotizaciones a 3 días de vencer, tareas vencidas
+19. **Scheduler** — cron diario 8am: alerta cotizaciones a 3 días de vencer, tareas vencidas; 9am: recordatorio al cliente de cotizaciones `sent` sin respuesta (a partir de 3 días, máx. 2 por envío)
 
 ## Módulo Fichas — contexto adicional
 Las fichas son el módulo central de la **app móvil** (Expo/React Native). Los técnicos crean fichas en campo, las llenan con datos estructurados (JSONB por tipo), adjuntan fotos y firma, y las envían (`POST /fichas/:id/submit`). El servidor genera un PDF (`GET /fichas/:id/pdf`).
@@ -190,5 +190,5 @@ Las facturas se desarrollan en una **app separada** que se integrará al ERP má
 - **Acceso SSH**: `ssh stp@100.64.0.6` (VPN) o `ssh stp@192.168.4.41` (LAN)
 - **CPU**: i7-7700T | **RAM**: 8GB
 - **Discos**: SSD 119GB (`/`) · HDD 220GB (`/data`, Docker data root) · HDD 458GB (`/storage`, datos persistentes)
-- **Dominio**: stpsoluciones.com — VPN-only para apps privadas, Cloudflare Tunnel para landing pública
+- **Dominio**: stpsoluciones.com — VPN-only para las apps privadas. La landing pública está en Vercel; el Cloudflare Tunnel solo expone `gw.stpsoluciones.com/erp-api/quotes/decision` (botones aprobar/rechazar de los correos)
 - **Email**: Resend API (`RESEND_API_KEY` en .env)

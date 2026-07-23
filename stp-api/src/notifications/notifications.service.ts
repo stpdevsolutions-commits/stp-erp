@@ -94,6 +94,69 @@ export class NotificationsService {
     });
   }
 
+  // ── Quote: reminder to client (sin respuesta) ─────────────────────────────
+
+  sendQuoteReminder(params: {
+    clientEmail: string;
+    clientName: string;
+    quoteNumber: string;
+    quoteTitle: string;
+    total: number;
+    validUntil?: string;
+    approveUrl: string;
+    rejectUrl: string;
+  }): void {
+    const { clientEmail, clientName, quoteNumber, quoteTitle, total, validUntil, approveUrl, rejectUrl } = params;
+    void this.send({
+      to: clientEmail,
+      subject: `Recordatorio — Cotización ${quoteNumber} pendiente de su respuesta`,
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
+          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
+            <div style="background:#1a3c6e;padding:28px 32px">
+              <h1 style="color:#fff;margin:0;font-size:22px;letter-spacing:.5px">Soluciones Técnicas Profesionales</h1>
+              <p style="color:#a8c4e0;margin:4px 0 0;font-size:13px">stpsoluciones.com</p>
+            </div>
+            <div style="padding:32px">
+              <p style="color:#374151;font-size:15px">Estimado(a) <strong>${clientName}</strong>,</p>
+              <p style="color:#374151;font-size:15px">Le recordamos que tiene una cotización pendiente de respuesta:</p>
+
+              <div style="background:#f0f4ff;border-left:4px solid #1a3c6e;border-radius:4px;padding:20px 24px;margin:24px 0">
+                <p style="margin:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Cotización</p>
+                <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#1a3c6e">${quoteNumber}</p>
+                <p style="margin:0;color:#374151;font-size:15px">${quoteTitle}</p>
+              </div>
+
+              <table style="width:100%;border-collapse:collapse;margin:24px 0">
+                <tr>
+                  <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">Monto total (ITBIS incluido)</td>
+                  <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;font-size:18px;font-weight:700;color:#1a3c6e">RD$ ${total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
+                </tr>
+                ${validUntil ? `<tr><td style="padding:12px 0;color:#6b7280;font-size:14px">Válida hasta</td><td style="padding:12px 0;text-align:right;color:#374151;font-size:14px">${validUntil}</td></tr>` : ''}
+              </table>
+
+              <p style="color:#374151;font-size:14px">Puede aprobarla o rechazarla con los siguientes botones. Si prefiere solicitar ajustes, contáctenos al correo <a href="mailto:proyectos@stpsoluciones.com" style="color:#0D3773">proyectos@stpsoluciones.com</a> o a los teléfonos 809-537-6566 / 809-350-9162.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 8px">
+                <tr>
+                  <td style="padding:0 8px">
+                    <a href="${approveUrl}" style="background:#157B52;color:#fff;text-decoration:none;padding:14px 28px;border-radius:6px;font-size:15px;font-weight:700;display:inline-block">Aprobar cotización</a>
+                  </td>
+                  <td style="padding:0 8px">
+                    <a href="${rejectUrl}" style="background:#b91c1c;color:#fff;text-decoration:none;padding:14px 28px;border-radius:6px;font-size:15px;font-weight:700;display:inline-block">Rechazar</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="color:#9ca3af;font-size:12px;text-align:center;word-break:break-all">O copia este enlace para aprobar:<br>${approveUrl}</p>
+            </div>
+            <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">Soluciones Técnicas Profesionales · República Dominicana</p>
+            </div>
+          </div>
+        </div>
+      `,
+    });
+  }
+
   // ── Quote: approved (internal) ─────────────────────────────────────────────
 
   sendQuoteApproved(params: {

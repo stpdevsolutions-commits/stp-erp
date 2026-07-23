@@ -6,6 +6,7 @@ import { Quote, QuoteStatus } from '../quotes/entities/quote.entity';
 import { Task, TaskStatus } from '../tasks/entities/task.entity';
 import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { QuotesService } from '../quotes/quotes.service';
 
 @Injectable()
 export class SchedulerService {
@@ -19,7 +20,18 @@ export class SchedulerService {
     @InjectRepository(Payment)
     private readonly paymentsRepo: Repository<Payment>,
     private readonly notifications: NotificationsService,
+    private readonly quotesService: QuotesService,
   ) {}
+
+  // Todos los días a las 9am — recordatorio al cliente de cotizaciones sin respuesta
+  @Cron('0 9 * * *')
+  async remindPendingQuotes() {
+    try {
+      await this.quotesService.remindPendingQuotes();
+    } catch (err) {
+      this.logger.error(`Quote reminders failed: ${(err as Error).message}`);
+    }
+  }
 
   // Todos los días a las 8am — cotizaciones por vencer en 3 días
   @Cron('0 8 * * *')

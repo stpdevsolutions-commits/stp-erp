@@ -88,6 +88,12 @@ export interface Quote {
   client?: Pick<Client, 'id' | 'name' | 'email'>
   items: QuoteItem[]
   createdAt: string
+  sentAt?: string
+  reminderCount?: number
+  lastReminderAt?: string
+  decidedAt?: string
+  decisionIp?: string
+  decisionUserAgent?: string
 }
 
 export type SupplierCategory = 'materials' | 'equipment' | 'services' | 'subcontract' | 'other'

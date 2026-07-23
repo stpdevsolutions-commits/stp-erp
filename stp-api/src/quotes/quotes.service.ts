@@ -116,7 +116,11 @@ export class QuotesService implements OnModuleInit {
    * Público e idempotente. Devuelve un resultado tipado que el controlador
    * traduce a HTML con branding STP.
    */
-  async decide(token: string, action: string): Promise<QuoteDecisionResult> {
+  async decide(
+    token: string,
+    action: string,
+    meta?: { ip?: string; userAgent?: string },
+  ): Promise<QuoteDecisionResult> {
     if (action !== 'approve' && action !== 'reject') {
       return { kind: 'invalid' };
     }
@@ -149,6 +153,9 @@ export class QuotesService implements OnModuleInit {
 
     const newStatus = action === 'approve' ? QuoteStatus.APPROVED : QuoteStatus.REJECTED;
     quote.status = newStatus;
+    quote.decidedAt = new Date();
+    if (meta?.ip) quote.decisionIp = meta.ip.slice(0, 64);
+    if (meta?.userAgent) quote.decisionUserAgent = meta.userAgent.slice(0, 512);
     await this.quotesRepository.save(quote);
 
     if (newStatus === QuoteStatus.APPROVED) {
@@ -208,6 +215,56 @@ export class QuotesService implements OnModuleInit {
     }
   }
 
+  /**
+   * Recordatorio automático al cliente de cotizaciones SENT sin respuesta.
+   * Reglas: 3+ días desde el envío (o el último recordatorio), máximo 2
+   * recordatorios por envío, y solo si la cotización sigue vigente.
+   * Lo invoca el SchedulerService a diario.
+   */
+  async remindPendingQuotes(): Promise<number> {
+    const REMIND_AFTER_DAYS = 3;
+    const MAX_REMINDERS = 2;
+    const cutoff = new Date(Date.now() - REMIND_AFTER_DAYS * 24 * 60 * 60 * 1000);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const pending = await this.quotesRepository
+      .createQueryBuilder('q')
+      .leftJoinAndSelect('q.client', 'client')
+      .where('q.status = :sent', { sent: QuoteStatus.SENT })
+      .andWhere('q.sentAt IS NOT NULL')
+      .andWhere('q.sentAt <= :cutoff', { cutoff })
+      .andWhere('q.reminderCount < :max', { max: MAX_REMINDERS })
+      .andWhere('(q.lastReminderAt IS NULL OR q.lastReminderAt <= :cutoff)', { cutoff })
+      .andWhere('(q.validUntil IS NULL OR q.validUntil >= :today)', { today })
+      .getMany();
+
+    let sent = 0;
+    for (const quote of pending) {
+      if (!quote.client?.email) continue;
+      const { approveUrl, rejectUrl } = this.buildDecisionUrls(quote);
+      this.notifySafe('quote-reminder', () =>
+        this.notifications.sendQuoteReminder({
+          clientEmail: quote.client.email,
+          clientName: quote.client.name,
+          quoteNumber: quote.number,
+          quoteTitle: quote.title,
+          total: quote.total,
+          validUntil: quote.validUntil,
+          approveUrl,
+          rejectUrl,
+        }),
+      );
+      await this.quotesRepository.update(quote.id, {
+        reminderCount: quote.reminderCount + 1,
+        lastReminderAt: new Date(),
+      });
+      sent++;
+    }
+
+    if (sent) this.logger.log(`Sent ${sent} quote reminder(s) to clients`);
+    return sent;
+  }
+
   async create(dto: CreateQuoteDto, createdById: string): Promise<Quote> {
     await this.assertClientExists(dto.clientId);
     if (dto.projectId) await this.assertProjectExists(dto.projectId);
@@ -216,6 +273,7 @@ export class QuotesService implements OnModuleInit {
     const { items: itemDtos, ...quoteData } = dto;
 
     const quote = this.quotesRepository.create({ ...quoteData, number, createdById });
+    if (dto.status === QuoteStatus.SENT) quote.sentAt = new Date();
     const saved = await this.quotesRepository.save(quote);
 
     if (itemDtos?.length) {
@@ -313,6 +371,10 @@ export class QuotesService implements OnModuleInit {
       Object.entries(headerDto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
     Object.assign(quote, defined);
+    if (dto.status === QuoteStatus.SENT && previousStatus !== QuoteStatus.SENT) {
+      quote.sentAt = new Date();
+      quote.reminderCount = 0;
+    }
     await this.quotesRepository.save(quote);
 
     if (itemsDto !== undefined) {
@@ -394,6 +456,8 @@ export class QuotesService implements OnModuleInit {
 
     if (quote.status === QuoteStatus.DRAFT) {
       quote.status = QuoteStatus.SENT;
+      quote.sentAt = new Date();
+      quote.reminderCount = 0;
       await this.quotesRepository.save(quote);
     }
 

@@ -34,6 +34,7 @@ const STATUS_BADGE: Record<Quote['status'], string> = {
 }
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
+const DATE_TIME = new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium', timeStyle: 'short' })
 
 export default async function CotizacionDetallePage({
   params,
@@ -187,6 +188,47 @@ export default async function CotizacionDetallePage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Seguimiento y decisión del cliente */}
+      {(quote.sentAt || quote.decidedAt || (quote.reminderCount ?? 0) > 0) && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold">Seguimiento y decisión</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 grid gap-3 sm:grid-cols-3 text-sm">
+            {quote.sentAt && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Enviada al cliente</p>
+                <p className="font-medium">{DATE_TIME.format(new Date(quote.sentAt))}</p>
+              </div>
+            )}
+            {(quote.reminderCount ?? 0) > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Recordatorios enviados</p>
+                <p className="font-medium">
+                  {quote.reminderCount}
+                  {quote.lastReminderAt && (
+                    <span className="text-muted-foreground font-normal">
+                      {' '}· último {DATE_TIME.format(new Date(quote.lastReminderAt))}
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+            {quote.decidedAt && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">
+                  {quote.status === 'approved' ? 'Aprobada por el cliente' : 'Rechazada por el cliente'}
+                </p>
+                <p className="font-medium">{DATE_TIME.format(new Date(quote.decidedAt))}</p>
+                {quote.decisionIp && (
+                  <p className="text-xs text-muted-foreground">desde IP {quote.decisionIp}</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Items by section */}
       {sections.size > 0 && (
