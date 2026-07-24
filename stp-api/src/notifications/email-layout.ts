@@ -299,7 +299,6 @@ export function emailLayout(params: {
           <td bgcolor="${PALETTE.navy}" style="background-color:${PALETTE.navy};padding:26px 32px 22px">
             ${eyebrow}
             <div style="font-family:${FONT};font-size:20px;font-weight:700;line-height:1.3;color:#ffffff;letter-spacing:.2px">${esc(COMPANY.name)}</div>
-            <div style="font-family:${FONT};font-size:12px;line-height:1.5;color:${PALETTE.navyLight};padding-top:4px">Electromecánica y Construcción &nbsp;·&nbsp; ${esc(COMPANY.website)}</div>
           </td>
         </tr>
         <tr>
@@ -333,10 +332,9 @@ export function emailLayout(params: {
             ${internalNote}
             <p style="margin:0 0 4px;font-family:${FONT};font-size:13px;font-weight:700;line-height:1.5;color:${PALETTE.navy};text-align:center">${esc(COMPANY.name)} (${esc(COMPANY.shortName)})</p>
             <p style="margin:0 0 4px;font-family:${FONT};font-size:12px;line-height:1.6;color:${PALETTE.muted};text-align:center">RNC ${esc(COMPANY.rnc)} &nbsp;·&nbsp; ${esc(COMPANY.address1)}<br>${esc(COMPANY.address2)}</p>
+            <!-- Correo y teléfonos NO se repiten aquí: ya van en el bloque de asistencia. -->
             <p style="margin:0;font-family:${FONT};font-size:12px;line-height:1.6;color:${PALETTE.muted};text-align:center">
-              <a href="mailto:${esc(COMPANY.email)}" style="color:${PALETTE.navy};text-decoration:none">${esc(COMPANY.email)}</a>
-              &nbsp;·&nbsp; ${esc(COMPANY.phones)}
-              &nbsp;·&nbsp; <a href="https://${esc(COMPANY.website)}" style="color:${PALETTE.navy};text-decoration:none">${esc(COMPANY.website)}</a>
+              <a href="https://${esc(COMPANY.website)}" style="color:${PALETTE.navy};text-decoration:none">${esc(COMPANY.website)}</a>
             </p>
           </td>
         </tr>
@@ -359,7 +357,8 @@ export function textFooter(audience: Audience = 'client'): string {
     `${COMPANY.name} (${COMPANY.shortName})`,
     `RNC ${COMPANY.rnc}`,
     `${COMPANY.address1}, ${COMPANY.address2}`,
-    `${COMPANY.email} · ${COMPANY.phones} · ${COMPANY.website}`,
+    // Correo y teléfonos ya aparecen en contactText(); aquí solo la web.
+    COMPANY.website,
   ].join('\n');
 }
 
