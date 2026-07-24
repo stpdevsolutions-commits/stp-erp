@@ -14,7 +14,7 @@ import { NuevoPagoDialog } from '@/components/payments/nuevo-pago-dialog'
 import { PagoActions } from '@/components/payments/pago-actions'
 import { FiltrosPagos } from '@/components/pagos/filtros-pagos'
 import { Paginacion } from '@/components/ui/paginacion'
-import { ExportCsvButton } from '@/components/ui/export-csv-button'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 
 const METHOD_LABELS: Record<Payment['method'], string> = {
   cash: 'Efectivo',
@@ -96,7 +96,7 @@ export default async function PagosPage({
           <p className="text-muted-foreground text-sm">Pagos recibidos de clientes</p>
         </div>
         <div className="flex gap-2">
-          <ExportCsvButton href={`/api/export/pagos?${query.toString()}`} label="Exportar CSV" />
+          <ExportExcelButton href={`/api/export/pagos?${query.toString()}`} label="Exportar Excel" />
           <NuevoPagoDialog clients={clients} projects={projects} />
         </div>
       </div>

@@ -16,6 +16,7 @@ import { NuevaCotizacionDialog } from '@/components/quotes/nueva-cotizacion-dial
 import { QuoteActions } from '@/components/quotes/quote-actions'
 import { FiltrosCotizaciones } from '@/components/cotizaciones/filtros-cotizaciones'
 import { Paginacion } from '@/components/ui/paginacion'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 
 const STATUS_LABELS: Record<Quote['status'], string> = {
   draft: 'Borrador',
@@ -92,7 +93,10 @@ export default async function CotizacionesPage({
           <h1 className="text-2xl font-bold tracking-tight">Cotizaciones</h1>
           <p className="text-muted-foreground text-sm">Gestión de cotizaciones y propuestas</p>
         </div>
-        <NuevaCotizacionDialog clients={clients} projects={projects} defaultTerms={defaultTerms} />
+        <div className="flex gap-2">
+          <ExportExcelButton href={`/api/export/cotizaciones?${q.toString()}`} label="Exportar Excel" />
+          <NuevaCotizacionDialog clients={clients} projects={projects} defaultTerms={defaultTerms} />
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">

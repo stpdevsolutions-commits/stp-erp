@@ -14,7 +14,7 @@ import { NuevoGastoDialog } from '@/components/expenses/nuevo-gasto-dialog'
 import { GastoActions } from '@/components/expenses/gasto-actions'
 import { FiltrosGastos } from '@/components/gastos/filtros-gastos'
 import { Paginacion } from '@/components/ui/paginacion'
-import { ExportCsvButton } from '@/components/ui/export-csv-button'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 
 const CATEGORY_LABELS: Record<Expense['category'], string> = {
   materials: 'Materiales',
@@ -74,7 +74,7 @@ export default async function GastosPage({
           <p className="text-muted-foreground text-sm">Gastos operativos por proyecto</p>
         </div>
         <div className="flex gap-2">
-          <ExportCsvButton href={`/api/export/gastos?${q.toString()}`} label="Exportar CSV" />
+          <ExportExcelButton href={`/api/export/gastos?${q.toString()}`} label="Exportar Excel" />
           <NuevoGastoDialog projects={projects} suppliers={suppliers} />
         </div>
       </div>

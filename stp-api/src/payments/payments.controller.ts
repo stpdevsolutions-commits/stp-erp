@@ -24,8 +24,32 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '../users/entities/user.entity';
+import type { Payment } from './entities/payment.entity';
+import {
+  addReportSheet,
+  createWorkbook,
+  dateOnly,
+  sendWorkbook,
+  type ReportColumn,
+  type ReportFilter,
+} from '../common/excel-report';
 
 interface AuthUser { id: string; role: UserRole; }
+
+const PAYMENT_METHOD_ES: Record<string, string> = {
+  cash: 'Efectivo',
+  transfer: 'Transferencia',
+  check: 'Cheque',
+  card: 'Tarjeta',
+  other: 'Otro',
+};
+
+const PAYMENT_STATUS_ES: Record<string, string> = {
+  completed: 'Completado',
+  pending: 'Pendiente',
+  failed: 'Fallido',
+  refunded: 'Reembolsado',
+};
 
 @Controller('payments')
 @UseGuards(JwtAuthGuard)
@@ -44,28 +68,68 @@ export class PaymentsController {
     return this.paymentsService.findAll(query);
   }
 
-  @Get('export/csv')
-  async exportCsv(@Query() query: QueryPaymentsDto, @Res() res: Response) {
+  /** Exporta los pagos filtrados a Excel (.xlsx) con formato e identidad STP. */
+  @Get('export/xlsx')
+  async exportXlsx(@Query() query: QueryPaymentsDto, @Res() res: Response): Promise<void> {
     const { data } = await this.paymentsService.findAll({ ...query, limit: 5000, page: 1 });
-    const METHOD: Record<string, string> = {
-      cash: 'Efectivo', transfer: 'Transferencia', check: 'Cheque', card: 'Tarjeta', other: 'Otro',
-    };
-    const STATUS: Record<string, string> = {
-      completed: 'Completado', pending: 'Pendiente', failed: 'Fallido', refunded: 'Reembolsado',
-    };
-    const header = 'Fecha,Descripción,Cliente,Proyecto,Método,Estado,Monto RD$\n';
-    const rows = data.map((p) => [
-      p.date,
-      `"${(p.description ?? '').replace(/"/g, '""')}"`,
-      `"${(p.client?.name ?? '').replace(/"/g, '""')}"`,
-      `"${(p.project?.name ?? '').replace(/"/g, '""')}"`,
-      METHOD[p.method] ?? p.method,
-      STATUS[p.status] ?? p.status,
-      p.amount.toFixed(2),
-    ].join(',')).join('\n');
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="pagos_${new Date().toISOString().slice(0,10)}.csv"`);
-    res.send('﻿' + header + rows);
+
+    const columns: ReportColumn<Payment>[] = [
+      { header: 'Fecha', value: (p) => dateOnly(p.date), type: 'date' },
+      { header: 'Descripción', value: (p) => p.description ?? '' },
+      { header: 'Referencia', value: (p) => p.reference ?? '' },
+      { header: 'Cliente', value: (p) => p.client?.name ?? '' },
+      { header: 'Código proyecto', value: (p) => p.project?.code ?? '' },
+      { header: 'Proyecto', value: (p) => p.project?.name ?? '' },
+      { header: 'Cotización', value: (p) => p.quote?.number ?? '' },
+      { header: 'Método', value: (p) => PAYMENT_METHOD_ES[p.method] ?? p.method },
+      { header: 'Estado', value: (p) => PAYMENT_STATUS_ES[p.status] ?? p.status },
+      { header: 'Monto RD$', value: (p) => p.amount ?? 0, type: 'money', total: true },
+      { header: 'Notas', value: (p) => p.notes ?? '', width: 40 },
+      {
+        header: 'Registrado por',
+        value: (p) =>
+          p.createdBy ? `${p.createdBy.firstName ?? ''} ${p.createdBy.lastName ?? ''}`.trim() : '',
+      },
+    ];
+
+    const filters: ReportFilter[] = [];
+    if (query.dateFrom) filters.push({ label: 'Desde', value: query.dateFrom });
+    if (query.dateTo) filters.push({ label: 'Hasta', value: query.dateTo });
+    if (query.clientId) {
+      filters.push({
+        label: 'Cliente',
+        value: data.find((p) => p.clientId === query.clientId)?.client?.name ?? query.clientId,
+      });
+    }
+    if (query.projectId) {
+      const p = data.find((x) => x.projectId === query.projectId)?.project;
+      filters.push({ label: 'Proyecto', value: p ? `${p.code} — ${p.name}` : query.projectId });
+    }
+    if (query.quoteId) {
+      filters.push({
+        label: 'Cotización',
+        value: data.find((x) => x.quoteId === query.quoteId)?.quote?.number ?? query.quoteId,
+      });
+    }
+    if (query.method) {
+      filters.push({ label: 'Método', value: PAYMENT_METHOD_ES[query.method] ?? query.method });
+    }
+    if (query.status) {
+      filters.push({ label: 'Estado', value: PAYMENT_STATUS_ES[query.status] ?? query.status });
+    }
+    if (query.search) filters.push({ label: 'Búsqueda', value: query.search });
+
+    const workbook = createWorkbook();
+    addReportSheet<Payment>(workbook, {
+      sheetName: 'Pagos',
+      title: 'Reporte de Pagos Recibidos',
+      filters,
+      columns,
+      rows: data,
+      totalsLabel: 'TOTAL',
+    });
+
+    await sendWorkbook(res, workbook, 'pagos');
   }
 
   @Get(':id')

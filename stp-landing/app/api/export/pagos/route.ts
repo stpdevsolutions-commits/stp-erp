@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 export async function GET(req: NextRequest) {
   const store = await cookies()
@@ -9,17 +10,17 @@ export async function GET(req: NextRequest) {
   if (!token) return new NextResponse('Unauthorized', { status: 401 })
 
   const params = req.nextUrl.searchParams.toString()
-  const res = await fetch(`${API_URL}/payments/export/csv${params ? `?${params}` : ''}`, {
+  const res = await fetch(`${API_URL}/payments/export/xlsx${params ? `?${params}` : ''}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) return new NextResponse('Error al exportar', { status: res.status })
 
-  const csv = await res.text()
-  const disposition = res.headers.get('content-disposition') ?? 'attachment; filename="pagos.csv"'
+  const buffer = await res.arrayBuffer()
+  const disposition = res.headers.get('content-disposition') ?? 'attachment; filename="pagos.xlsx"'
 
-  return new NextResponse(csv, {
+  return new NextResponse(buffer, {
     headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Type': XLSX_TYPE,
       'Content-Disposition': disposition,
       'Cache-Control': 'no-store',
     },

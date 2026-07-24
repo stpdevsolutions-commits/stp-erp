@@ -2,6 +2,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { existsSync, readFileSync } from 'fs';
 import { Resend } from 'resend';
+import {
+  PALETTE,
+  buttonRow,
+  dataTable,
+  detailRows,
+  emailLayout,
+  esc,
+  fallbackLink,
+  highlightCard,
+  money,
+  note,
+  p,
+  plainText,
+} from './email-layout';
 
 @Injectable()
 export class NotificationsService {
@@ -39,58 +53,59 @@ export class NotificationsService {
     if (pdfPath && existsSync(pdfPath)) {
       attachments.push({ filename: `${quoteNumber}.pdf`, content: readFileSync(pdfPath) });
     }
+    const hasDecision = Boolean(approveUrl && rejectUrl);
 
-    const decisionBlock = approveUrl && rejectUrl ? `
-              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 8px">
-                <tr>
-                  <td style="padding:0 8px">
-                    <a href="${approveUrl}" style="background:#157B52;color:#fff;text-decoration:none;padding:14px 28px;border-radius:6px;font-size:15px;font-weight:700;display:inline-block">Aprobar cotización</a>
-                  </td>
-                  <td style="padding:0 8px">
-                    <a href="${rejectUrl}" style="background:#b91c1c;color:#fff;text-decoration:none;padding:14px 28px;border-radius:6px;font-size:15px;font-weight:700;display:inline-block">Rechazar</a>
-                  </td>
-                </tr>
-              </table>
-              <p style="color:#9ca3af;font-size:12px;text-align:center;word-break:break-all">O copia este enlace para aprobar:<br>${approveUrl}</p>
-    ` : '';
+    const decisionBlock = hasDecision
+      ? `${p('Puede registrar su decisión directamente desde este correo:')}
+         ${buttonRow([
+           { href: approveUrl as string, label: 'Aprobar cotización', color: PALETTE.green, width: 230 },
+           { href: rejectUrl as string, label: 'Rechazar', color: PALETTE.red, width: 160 },
+         ])}
+         ${fallbackLink(approveUrl as string, 'Si los botones no funcionan, copie y pegue este enlace para aprobar:')}`
+      : '';
+
+    const bodyHtml = `
+${p(`Estimado(a) <strong>${esc(clientName)}</strong>,`)}
+${p('Nos complace enviarle la siguiente cotización para su revisión. Quedamos atentos a sus comentarios.')}
+${highlightCard({
+  tone: 'primary',
+  eyebrow: 'Cotización',
+  title: esc(quoteNumber),
+  subtitle: esc(quoteTitle),
+})}
+${detailRows([
+  { label: 'Monto total (ITBIS incluido)', value: money(total), strong: true },
+  ...(validUntil ? [{ label: 'Válida hasta', value: esc(validUntil) }] : []),
+  ...(attachments.length ? [{ label: 'Documento adjunto', value: `${esc(quoteNumber)}.pdf` }] : []),
+])}
+${decisionBlock}
+${note('Si prefiere solicitar ajustes a la propuesta, respóndanos por esta vía o utilice los datos de contacto que aparecen al final del correo.')}`;
+
     void this.send({
       to: clientEmail,
       subject: `Cotización ${quoteNumber} — ${quoteTitle}`,
       attachments,
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
-            <div style="background:#1a3c6e;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:22px;letter-spacing:.5px">Soluciones Técnicas Profesionales</h1>
-              <p style="color:#a8c4e0;margin:4px 0 0;font-size:13px">stpsoluciones.com</p>
-            </div>
-            <div style="padding:32px">
-              <p style="color:#374151;font-size:15px">Estimado(a) <strong>${clientName}</strong>,</p>
-              <p style="color:#374151;font-size:15px">Nos complace enviarle la siguiente cotización para su revisión:</p>
-
-              <div style="background:#f0f4ff;border-left:4px solid #1a3c6e;border-radius:4px;padding:20px 24px;margin:24px 0">
-                <p style="margin:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Cotización</p>
-                <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#1a3c6e">${quoteNumber}</p>
-                <p style="margin:0;color:#374151;font-size:15px">${quoteTitle}</p>
-              </div>
-
-              <table style="width:100%;border-collapse:collapse;margin:24px 0">
-                <tr>
-                  <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">Monto total (ITBIS incluido)</td>
-                  <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;font-size:18px;font-weight:700;color:#1a3c6e">RD$ ${total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
-                </tr>
-                ${validUntil ? `<tr><td style="padding:12px 0;color:#6b7280;font-size:14px">Válida hasta</td><td style="padding:12px 0;text-align:right;color:#374151;font-size:14px">${validUntil}</td></tr>` : ''}
-              </table>
-
-              <p style="color:#374151;font-size:14px">Puede aprobar o rechazar esta cotización con los siguientes botones. Si prefiere solicitar ajustes, contáctenos al correo <a href="mailto:proyectos@stpsoluciones.com" style="color:#0D3773">proyectos@stpsoluciones.com</a> o a los teléfonos 809-537-6566 / 809-350-9162.</p>
-              ${decisionBlock}
-            </div>
-            <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">Soluciones Técnicas Profesionales · República Dominicana</p>
-            </div>
-          </div>
-        </div>
-      `,
+      html: emailLayout({
+        title: 'Su cotización está lista',
+        preheader: `${quoteNumber} · ${quoteTitle} · ${money(total)}`,
+        accentColor: PALETTE.green,
+        eyebrow: 'Cotización',
+        audience: 'client',
+        bodyHtml,
+      }),
+      text: plainText([
+        `Estimado(a) ${clientName},`,
+        '',
+        'Nos complace enviarle la siguiente cotización para su revisión.',
+        '',
+        `Cotización: ${quoteNumber}`,
+        `Descripción: ${quoteTitle}`,
+        `Monto total (ITBIS incluido): ${money(total)}`,
+        ...(validUntil ? [`Válida hasta: ${validUntil}`] : []),
+        ...(hasDecision
+          ? ['', `Aprobar: ${approveUrl as string}`, `Rechazar: ${rejectUrl as string}`]
+          : []),
+      ]),
     });
   }
 
@@ -107,53 +122,52 @@ export class NotificationsService {
     rejectUrl: string;
   }): void {
     const { clientEmail, clientName, quoteNumber, quoteTitle, total, validUntil, approveUrl, rejectUrl } = params;
+
+    const bodyHtml = `
+${p(`Estimado(a) <strong>${esc(clientName)}</strong>,`)}
+${p('Le recordamos cordialmente que la siguiente cotización se encuentra pendiente de su respuesta:')}
+${highlightCard({
+  tone: 'primary',
+  eyebrow: 'Cotización pendiente',
+  title: esc(quoteNumber),
+  subtitle: esc(quoteTitle),
+})}
+${detailRows([
+  { label: 'Monto total (ITBIS incluido)', value: money(total), strong: true },
+  ...(validUntil ? [{ label: 'Válida hasta', value: esc(validUntil), color: PALETTE.amber }] : []),
+])}
+${p('Puede aprobarla o rechazarla con un solo clic:')}
+${buttonRow([
+  { href: approveUrl, label: 'Aprobar cotización', color: PALETTE.green, width: 230 },
+  { href: rejectUrl, label: 'Rechazar', color: PALETTE.red, width: 160 },
+])}
+${fallbackLink(approveUrl, 'Si los botones no funcionan, copie y pegue este enlace para aprobar:')}
+${note('Si necesita más tiempo o desea ajustes en la propuesta, indíquenoslo y con gusto la actualizamos.')}`;
+
     void this.send({
       to: clientEmail,
-      subject: `Recordatorio — Cotización ${quoteNumber} pendiente de su respuesta`,
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
-            <div style="background:#1a3c6e;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:22px;letter-spacing:.5px">Soluciones Técnicas Profesionales</h1>
-              <p style="color:#a8c4e0;margin:4px 0 0;font-size:13px">stpsoluciones.com</p>
-            </div>
-            <div style="padding:32px">
-              <p style="color:#374151;font-size:15px">Estimado(a) <strong>${clientName}</strong>,</p>
-              <p style="color:#374151;font-size:15px">Le recordamos que tiene una cotización pendiente de respuesta:</p>
-
-              <div style="background:#f0f4ff;border-left:4px solid #1a3c6e;border-radius:4px;padding:20px 24px;margin:24px 0">
-                <p style="margin:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.5px">Cotización</p>
-                <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#1a3c6e">${quoteNumber}</p>
-                <p style="margin:0;color:#374151;font-size:15px">${quoteTitle}</p>
-              </div>
-
-              <table style="width:100%;border-collapse:collapse;margin:24px 0">
-                <tr>
-                  <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">Monto total (ITBIS incluido)</td>
-                  <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;font-size:18px;font-weight:700;color:#1a3c6e">RD$ ${total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
-                </tr>
-                ${validUntil ? `<tr><td style="padding:12px 0;color:#6b7280;font-size:14px">Válida hasta</td><td style="padding:12px 0;text-align:right;color:#374151;font-size:14px">${validUntil}</td></tr>` : ''}
-              </table>
-
-              <p style="color:#374151;font-size:14px">Puede aprobarla o rechazarla con los siguientes botones. Si prefiere solicitar ajustes, contáctenos al correo <a href="mailto:proyectos@stpsoluciones.com" style="color:#0D3773">proyectos@stpsoluciones.com</a> o a los teléfonos 809-537-6566 / 809-350-9162.</p>
-              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 8px">
-                <tr>
-                  <td style="padding:0 8px">
-                    <a href="${approveUrl}" style="background:#157B52;color:#fff;text-decoration:none;padding:14px 28px;border-radius:6px;font-size:15px;font-weight:700;display:inline-block">Aprobar cotización</a>
-                  </td>
-                  <td style="padding:0 8px">
-                    <a href="${rejectUrl}" style="background:#b91c1c;color:#fff;text-decoration:none;padding:14px 28px;border-radius:6px;font-size:15px;font-weight:700;display:inline-block">Rechazar</a>
-                  </td>
-                </tr>
-              </table>
-              <p style="color:#9ca3af;font-size:12px;text-align:center;word-break:break-all">O copia este enlace para aprobar:<br>${approveUrl}</p>
-            </div>
-            <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">Soluciones Técnicas Profesionales · República Dominicana</p>
-            </div>
-          </div>
-        </div>
-      `,
+      subject: `Recordatorio: cotización ${quoteNumber} pendiente de su respuesta`,
+      html: emailLayout({
+        title: 'Cotización pendiente de su respuesta',
+        preheader: `${quoteNumber} · ${quoteTitle} · ${money(total)}`,
+        accentColor: PALETTE.navy,
+        eyebrow: 'Recordatorio',
+        audience: 'client',
+        bodyHtml,
+      }),
+      text: plainText([
+        `Estimado(a) ${clientName},`,
+        '',
+        'Le recordamos que la siguiente cotización está pendiente de su respuesta.',
+        '',
+        `Cotización: ${quoteNumber}`,
+        `Descripción: ${quoteTitle}`,
+        `Monto total (ITBIS incluido): ${money(total)}`,
+        ...(validUntil ? [`Válida hasta: ${validUntil}`] : []),
+        '',
+        `Aprobar: ${approveUrl}`,
+        `Rechazar: ${rejectUrl}`,
+      ]),
     });
   }
 
@@ -166,33 +180,43 @@ export class NotificationsService {
     total: number;
   }): void {
     const { quoteNumber, quoteTitle, clientName, total } = params;
+
+    const bodyHtml = `
+${p('El cliente aprobó la cotización indicada a continuación.')}
+${highlightCard({
+  tone: 'success',
+  eyebrow: 'Cotización aprobada',
+  title: esc(quoteNumber),
+  subtitle: esc(quoteTitle),
+  meta: `Cliente: <strong>${esc(clientName)}</strong>`,
+})}
+${detailRows([{ label: 'Monto aprobado', value: money(total), strong: true, color: PALETTE.green }])}
+${p('Próximo paso: iniciar la planificación del proyecto, confirmar disponibilidad de materiales y coordinar el cronograma con el cliente.')}`;
+
     void this.send({
       to: this.adminEmail,
-      subject: `✅ Cotización aprobada: ${quoteNumber} — ${clientName}`,
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
-            <div style="background:#166534;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:20px">✅ Cotización Aprobada</h1>
-              <p style="color:#bbf7d0;margin:4px 0 0;font-size:13px">STP ERP — Notificación interna</p>
-            </div>
-            <div style="padding:32px">
-              <div style="background:#f0fdf4;border-left:4px solid #166534;border-radius:4px;padding:20px 24px;margin-bottom:24px">
-                <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#166534">${quoteNumber}</p>
-                <p style="margin:0 0 4px;color:#374151">${quoteTitle}</p>
-                <p style="margin:0;color:#6b7280;font-size:14px">Cliente: <strong>${clientName}</strong></p>
-              </div>
-              <table style="width:100%;border-collapse:collapse">
-                <tr>
-                  <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">Monto aprobado</td>
-                  <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;font-size:18px;font-weight:700;color:#166534">RD$ ${total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
-                </tr>
-              </table>
-              <p style="color:#374151;font-size:14px;margin-top:24px">El cliente ha aprobado la cotización. Proceder con la planificación del proyecto.</p>
-            </div>
-          </div>
-        </div>
-      `,
+      subject: `Cotización ${quoteNumber} aprobada — ${clientName}`,
+      html: emailLayout({
+        title: 'Cotización aprobada',
+        preheader: `${quoteNumber} · ${clientName} · ${money(total)}`,
+        accentColor: PALETTE.green,
+        eyebrow: 'STP ERP · Notificación interna',
+        audience: 'internal',
+        bodyHtml,
+      }),
+      text: plainText(
+        [
+          'Cotización aprobada por el cliente.',
+          '',
+          `Cotización: ${quoteNumber}`,
+          `Descripción: ${quoteTitle}`,
+          `Cliente: ${clientName}`,
+          `Monto aprobado: ${money(total)}`,
+          '',
+          'Próximo paso: iniciar la planificación del proyecto.',
+        ],
+        'internal',
+      ),
     });
   }
 
@@ -204,27 +228,41 @@ export class NotificationsService {
     quoteTitle: string;
   }): void {
     const { clientName, quoteNumber, quoteTitle } = params;
+
+    const bodyHtml = `
+${p('El cliente rechazó la cotización indicada a continuación.')}
+${highlightCard({
+  tone: 'danger',
+  eyebrow: 'Cotización rechazada',
+  title: esc(quoteNumber),
+  subtitle: esc(quoteTitle),
+  meta: `Cliente: <strong>${esc(clientName)}</strong>`,
+})}
+${p('Se recomienda contactar al cliente para conocer los motivos y evaluar si procede una propuesta ajustada.')}`;
+
     void this.send({
       to: this.adminEmail,
-      subject: `❌ Cotización rechazada: ${quoteNumber} — ${clientName}`,
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
-            <div style="background:#7f1d1d;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:20px">❌ Cotización Rechazada</h1>
-              <p style="color:#fca5a5;margin:4px 0 0;font-size:13px">STP ERP — Notificación interna</p>
-            </div>
-            <div style="padding:32px">
-              <div style="background:#fef2f2;border-left:4px solid #7f1d1d;border-radius:4px;padding:20px 24px;margin-bottom:24px">
-                <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#7f1d1d">${quoteNumber}</p>
-                <p style="margin:0 0 4px;color:#374151">${quoteTitle}</p>
-                <p style="margin:0;color:#6b7280;font-size:14px">Cliente: <strong>${clientName}</strong></p>
-              </div>
-              <p style="color:#374151;font-size:14px">El cliente ha rechazado la cotización. Considere contactarlo para discutir ajustes o emitir una nueva propuesta.</p>
-            </div>
-          </div>
-        </div>
-      `,
+      subject: `Cotización ${quoteNumber} rechazada — ${clientName}`,
+      html: emailLayout({
+        title: 'Cotización rechazada',
+        preheader: `${quoteNumber} · ${clientName} · requiere seguimiento`,
+        accentColor: PALETTE.red,
+        eyebrow: 'STP ERP · Notificación interna',
+        audience: 'internal',
+        bodyHtml,
+      }),
+      text: plainText(
+        [
+          'Cotización rechazada por el cliente.',
+          '',
+          `Cotización: ${quoteNumber}`,
+          `Descripción: ${quoteTitle}`,
+          `Cliente: ${clientName}`,
+          '',
+          'Se recomienda contactar al cliente para evaluar una propuesta ajustada.',
+        ],
+        'internal',
+      ),
     });
   }
 
@@ -238,32 +276,41 @@ export class NotificationsService {
     validUntil?: string;
   }): void {
     const { clientEmail, clientName, quoteNumber, quoteTitle, validUntil } = params;
+
+    const bodyHtml = `
+${p(`Estimado(a) <strong>${esc(clientName)}</strong>,`)}
+${p('Le informamos que la vigencia de la siguiente cotización ha concluido:')}
+${highlightCard({
+  tone: 'warning',
+  eyebrow: 'Cotización vencida',
+  title: esc(quoteNumber),
+  subtitle: esc(quoteTitle),
+  meta: validUntil ? `Fecha de vencimiento: ${esc(validUntil)}` : undefined,
+})}
+${p('Si aún está interesado en la propuesta, con gusto emitimos una cotización actualizada con los precios vigentes. Solo debe indicárnoslo.')}`;
+
     void this.send({
       to: clientEmail,
-      subject: `Cotización ${quoteNumber} vencida`,
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
-            <div style="background:#78350f;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:20px">Cotización Vencida</h1>
-              <p style="color:#fcd34d;margin:4px 0 0;font-size:13px">Soluciones Técnicas Profesionales</p>
-            </div>
-            <div style="padding:32px">
-              <p style="color:#374151;font-size:15px">Estimado(a) <strong>${clientName}</strong>,</p>
-              <p style="color:#374151;font-size:15px">Le informamos que la siguiente cotización ha vencido:</p>
-              <div style="background:#fffbeb;border-left:4px solid #78350f;border-radius:4px;padding:20px 24px;margin:24px 0">
-                <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#78350f">${quoteNumber}</p>
-                <p style="margin:0 0 8px;color:#374151">${quoteTitle}</p>
-                ${validUntil ? `<p style="margin:0;color:#6b7280;font-size:13px">Fecha de vencimiento: ${validUntil}</p>` : ''}
-              </div>
-              <p style="color:#374151;font-size:14px">Si está interesado en retomar la propuesta, contáctenos para emitir una nueva cotización actualizada.</p>
-            </div>
-            <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">Soluciones Técnicas Profesionales · República Dominicana</p>
-            </div>
-          </div>
-        </div>
-      `,
+      subject: `Cotización ${quoteNumber} vencida — ${quoteTitle}`,
+      html: emailLayout({
+        title: 'Su cotización ha vencido',
+        preheader: `${quoteNumber} · ${quoteTitle} · podemos emitirle una propuesta actualizada`,
+        accentColor: PALETTE.amber,
+        eyebrow: 'Cotización',
+        audience: 'client',
+        bodyHtml,
+      }),
+      text: plainText([
+        `Estimado(a) ${clientName},`,
+        '',
+        'Le informamos que la vigencia de la siguiente cotización ha concluido.',
+        '',
+        `Cotización: ${quoteNumber}`,
+        `Descripción: ${quoteTitle}`,
+        ...(validUntil ? [`Fecha de vencimiento: ${validUntil}`] : []),
+        '',
+        'Si aún está interesado, con gusto emitimos una cotización actualizada.',
+      ]),
     });
   }
 
@@ -277,29 +324,45 @@ export class NotificationsService {
     total: number;
   }): void {
     const { quoteNumber, quoteTitle, clientName, validUntil, total } = params;
+
+    const bodyHtml = `
+${p('La siguiente cotización vence en los próximos 3 días y aún no tiene respuesta del cliente.')}
+${highlightCard({
+  tone: 'warning',
+  eyebrow: 'Por vencer',
+  title: esc(quoteNumber),
+  subtitle: esc(quoteTitle),
+  meta: `Cliente: <strong>${esc(clientName)}</strong>`,
+})}
+${detailRows([
+  { label: 'Monto', value: money(total), strong: true },
+  ...(validUntil ? [{ label: 'Vence el', value: esc(validUntil), color: PALETTE.amber }] : []),
+])}
+${p('Se recomienda dar seguimiento al cliente para cerrar la cotización antes de su vencimiento.')}`;
+
     void this.send({
       to: this.adminEmail,
-      subject: `⚠️ Cotización por vencer: ${quoteNumber} — ${clientName}`,
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden">
-            <div style="background:#78350f;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:20px">⚠️ Cotización por vencer en 3 días</h1>
-            </div>
-            <div style="padding:32px">
-              <div style="background:#fffbeb;border-left:4px solid #78350f;border-radius:4px;padding:20px 24px;margin-bottom:24px">
-                <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#78350f">${quoteNumber}</p>
-                <p style="margin:0 0 4px;color:#374151">${quoteTitle}</p>
-                <p style="margin:0;color:#6b7280;font-size:14px">Cliente: <strong>${clientName}</strong></p>
-              </div>
-              <table style="width:100%;border-collapse:collapse">
-                <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">Monto</td><td style="padding:10px 0;text-align:right;font-weight:700;color:#1a3c6e">RD$ ${total.toLocaleString('es-DO',{minimumFractionDigits:2})}</td></tr>
-                ${validUntil ? `<tr><td style="padding:10px 0;color:#6b7280;font-size:14px">Vence el</td><td style="padding:10px 0;text-align:right;font-weight:600;color:#dc2626">${validUntil}</td></tr>` : ''}
-              </table>
-              <p style="color:#374151;font-size:14px;margin-top:24px">Considera hacer seguimiento al cliente para cerrar esta cotización antes de que expire.</p>
-            </div>
-          </div>
-        </div>`,
+      subject: `Cotización ${quoteNumber} vence en 3 días — ${clientName}`,
+      html: emailLayout({
+        title: 'Cotización por vencer en 3 días',
+        preheader: `${quoteNumber} · ${clientName} · ${money(total)}`,
+        accentColor: PALETTE.amber,
+        eyebrow: 'STP ERP · Alerta interna',
+        audience: 'internal',
+        bodyHtml,
+      }),
+      text: plainText(
+        [
+          'Cotización por vencer en 3 días, sin respuesta del cliente.',
+          '',
+          `Cotización: ${quoteNumber}`,
+          `Descripción: ${quoteTitle}`,
+          `Cliente: ${clientName}`,
+          `Monto: ${money(total)}`,
+          ...(validUntil ? [`Vence el: ${validUntil}`] : []),
+        ],
+        'internal',
+      ),
     });
   }
 
@@ -308,37 +371,47 @@ export class NotificationsService {
   sendOverdueTasksSummary(params: {
     tasks: { title: string; projectName: string; assignedTo: string; dueDate: string }[];
   }): void {
-    const { tasks } = params;
-    const rows = tasks.map((t) => `
-      <tr>
-        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#374151">${t.title}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280">${t.projectName}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280">${t.assignedTo}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#dc2626;font-weight:600">${t.dueDate}</td>
-      </tr>`).join('');
+    const tasks = params.tasks ?? [];
+
+    const bodyHtml = `
+${p(`Al día de hoy hay <strong>${tasks.length}</strong> tarea(s) con la fecha límite vencida.`)}
+${dataTable({
+  headers: [
+    { label: 'Tarea' },
+    { label: 'Proyecto' },
+    { label: 'Asignado a' },
+    { label: 'Venció', align: 'right' },
+  ],
+  alignments: ['left', 'left', 'left', 'right'],
+  rows: tasks.map((t) => [
+    `<strong style="color:${PALETTE.text}">${esc(t.title)}</strong>`,
+    `<span style="color:${PALETTE.muted}">${esc(t.projectName)}</span>`,
+    `<span style="color:${PALETTE.muted}">${esc(t.assignedTo)}</span>`,
+    `<strong style="color:${PALETTE.red}">${esc(t.dueDate)}</strong>`,
+  ]),
+})}
+${p('Se recomienda actualizar el estado de estas tareas o reprogramar su fecha límite en el ERP.')}`;
+
     void this.send({
       to: this.adminEmail,
-      subject: `🔴 ${tasks.length} tarea(s) vencida(s) — STP ERP`,
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
-          <div style="max-width:700px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden">
-            <div style="background:#7f1d1d;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:20px">🔴 Tareas Vencidas — Resumen diario</h1>
-            </div>
-            <div style="padding:32px">
-              <p style="color:#374151;font-size:15px;margin-bottom:20px">Hay <strong>${tasks.length}</strong> tarea(s) con fecha límite vencida:</p>
-              <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb">
-                <thead><tr style="background:#f9fafb">
-                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Tarea</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Proyecto</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Asignado a</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Venció</th>
-                </tr></thead>
-                <tbody>${rows}</tbody>
-              </table>
-            </div>
-          </div>
-        </div>`,
+      subject: `${tasks.length} tarea(s) vencida(s) — resumen diario STP ERP`,
+      html: emailLayout({
+        title: 'Tareas vencidas — resumen diario',
+        preheader: `${tasks.length} tarea(s) con fecha límite vencida requieren atención`,
+        accentColor: PALETTE.red,
+        eyebrow: 'STP ERP · Resumen interno',
+        audience: 'internal',
+        maxWidth: 700,
+        bodyHtml,
+      }),
+      text: plainText(
+        [
+          `Tareas vencidas: ${tasks.length}`,
+          '',
+          ...tasks.map((t) => `- ${t.title} · ${t.projectName} · ${t.assignedTo} · venció ${t.dueDate}`),
+        ],
+        'internal',
+      ),
     });
   }
 
@@ -346,31 +419,34 @@ export class NotificationsService {
 
   sendPasswordReset(params: { email: string; firstName: string; resetUrl: string }): void {
     const { email, firstName, resetUrl } = params;
+
+    const bodyHtml = `
+${p(`Estimado(a) <strong>${esc(firstName)}</strong>,`)}
+${p('Recibimos una solicitud para restablecer la contraseña de su cuenta en el sistema STP ERP. Para continuar, utilice el siguiente botón:')}
+${buttonRow([{ href: resetUrl, label: 'Restablecer contraseña', color: PALETTE.navy, width: 250 }])}
+${fallbackLink(resetUrl)}
+${note('Por seguridad, este enlace expira en 1 hora y solo puede utilizarse una vez. Si usted no solicitó este cambio, ignore este correo: su contraseña actual seguirá siendo válida.')}`;
+
     void this.send({
       to: email,
-      subject: 'Restablecer contraseña — STP',
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
-            <div style="background:#1a3c6e;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:20px">Restablecer contraseña</h1>
-              <p style="color:#a8c4e0;margin:4px 0 0;font-size:13px">Soluciones Técnicas Profesionales</p>
-            </div>
-            <div style="padding:32px">
-              <p style="color:#374151;font-size:15px">Hola <strong>${firstName}</strong>,</p>
-              <p style="color:#374151;font-size:15px">Recibimos una solicitud para restablecer la contraseña de tu cuenta. Haz clic en el botón para continuar:</p>
-              <div style="text-align:center;margin:32px 0">
-                <a href="${resetUrl}" style="background:#1a3c6e;color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-size:15px;font-weight:700;display:inline-block">Restablecer contraseña</a>
-              </div>
-              <p style="color:#6b7280;font-size:13px">Este enlace expira en 1 hora. Si no solicitaste restablecer tu contraseña, ignora este correo.</p>
-              <p style="color:#9ca3af;font-size:12px;word-break:break-all">O copia este enlace en tu navegador:<br>${resetUrl}</p>
-            </div>
-            <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">Soluciones Técnicas Profesionales · República Dominicana</p>
-            </div>
-          </div>
-        </div>
-      `,
+      subject: 'Restablecimiento de contraseña — STP ERP',
+      html: emailLayout({
+        title: 'Restablecer su contraseña',
+        preheader: 'Enlace válido por 1 hora para restablecer su contraseña del STP ERP',
+        accentColor: PALETTE.navy,
+        eyebrow: 'Seguridad de la cuenta',
+        audience: 'client',
+        bodyHtml,
+      }),
+      text: plainText([
+        `Estimado(a) ${firstName},`,
+        '',
+        'Recibimos una solicitud para restablecer la contraseña de su cuenta en el STP ERP.',
+        '',
+        `Enlace: ${resetUrl}`,
+        '',
+        'El enlace expira en 1 hora. Si usted no solicitó este cambio, ignore este correo.',
+      ]),
     });
   }
 
@@ -388,32 +464,48 @@ export class NotificationsService {
     const methodLabels: Record<string, string> = {
       cash: 'Efectivo', transfer: 'Transferencia', check: 'Cheque', card: 'Tarjeta', other: 'Otro',
     };
+    const methodLabel = methodLabels[method] ?? method;
+
+    const bodyHtml = `
+${p('Se registró un nuevo pago en el sistema.')}
+${highlightCard({
+  tone: 'success',
+  eyebrow: 'Cliente',
+  title: esc(clientName),
+  subtitle: esc(description),
+})}
+${detailRows([
+  { label: 'Monto', value: money(amount), strong: true, color: PALETTE.green },
+  { label: 'Método', value: esc(methodLabel) },
+  { label: 'Fecha', value: esc(date) },
+  ...(reference ? [{ label: 'Referencia', value: esc(reference) }] : []),
+])}
+${p('Verifique que el pago esté correctamente aplicado al proyecto o cotización correspondiente.')}`;
+
     void this.send({
       to: this.adminEmail,
-      subject: `💰 Pago registrado — ${clientName} — RD$ ${amount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`,
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
-            <div style="background:#1a3c6e;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:20px">💰 Pago Registrado</h1>
-              <p style="color:#a8c4e0;margin:4px 0 0;font-size:13px">STP ERP — Notificación interna</p>
-            </div>
-            <div style="padding:32px">
-              <div style="background:#f0f4ff;border-left:4px solid #1a3c6e;border-radius:4px;padding:20px 24px;margin-bottom:24px">
-                <p style="margin:0 0 4px;color:#6b7280;font-size:12px;text-transform:uppercase">Cliente</p>
-                <p style="margin:0;font-size:18px;font-weight:700;color:#1a3c6e">${clientName}</p>
-              </div>
-              <table style="width:100%;border-collapse:collapse">
-                <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">Monto</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;text-align:right;font-size:18px;font-weight:700;color:#1a3c6e">RD$ ${amount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td></tr>
-                <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">Descripción</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;text-align:right;color:#374151;font-size:14px">${description}</td></tr>
-                <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">Método</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;text-align:right;color:#374151;font-size:14px">${methodLabels[method] ?? method}</td></tr>
-                <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">Fecha</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;text-align:right;color:#374151;font-size:14px">${date}</td></tr>
-                ${reference ? `<tr><td style="padding:10px 0;color:#6b7280;font-size:14px">Referencia</td><td style="padding:10px 0;text-align:right;color:#374151;font-size:14px">${reference}</td></tr>` : ''}
-              </table>
-            </div>
-          </div>
-        </div>
-      `,
+      subject: `Pago registrado: ${money(amount)} — ${clientName}`,
+      html: emailLayout({
+        title: 'Pago registrado',
+        preheader: `${clientName} · ${money(amount)} · ${methodLabel}`,
+        accentColor: PALETTE.green,
+        eyebrow: 'STP ERP · Notificación interna',
+        audience: 'internal',
+        bodyHtml,
+      }),
+      text: plainText(
+        [
+          'Nuevo pago registrado.',
+          '',
+          `Cliente: ${clientName}`,
+          `Descripción: ${description}`,
+          `Monto: ${money(amount)}`,
+          `Método: ${methodLabel}`,
+          `Fecha: ${date}`,
+          ...(reference ? [`Referencia: ${reference}`] : []),
+        ],
+        'internal',
+      ),
     });
   }
 
@@ -423,43 +515,53 @@ export class NotificationsService {
     payments: { clientName: string; amount: number; description: string; date: string }[];
     totalAmount: number;
   }): void {
-    const { payments, totalAmount } = params;
-    const rows = payments
-      .map(
-        (p) => `
-      <tr>
-        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#374151">${p.clientName}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#6b7280">${p.description}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#374151">${p.date}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600;color:#d97706;text-align:right">RD$ ${p.amount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
-      </tr>`,
-      )
-      .join('');
+    const payments = params.payments ?? [];
+    const { totalAmount } = params;
+
+    const bodyHtml = `
+${highlightCard({
+  tone: 'warning',
+  eyebrow: 'Total pendiente de cobro',
+  title: money(totalAmount),
+  subtitle: `${payments.length} pago(s) registrado(s) como pendientes`,
+})}
+${dataTable({
+  headers: [
+    { label: 'Cliente' },
+    { label: 'Descripción' },
+    { label: 'Fecha' },
+    { label: 'Monto', align: 'right' },
+  ],
+  alignments: ['left', 'left', 'left', 'right'],
+  rows: payments.map((pay) => [
+    `<strong style="color:${PALETTE.text}">${esc(pay.clientName)}</strong>`,
+    `<span style="color:${PALETTE.muted}">${esc(pay.description)}</span>`,
+    `<span style="color:${PALETTE.muted}">${esc(pay.date)}</span>`,
+    `<strong style="color:${PALETTE.amber}">${money(pay.amount)}</strong>`,
+  ]),
+})}
+${p('Se recomienda dar seguimiento a estos cobros con los clientes correspondientes.')}`;
+
     void this.send({
       to: this.adminEmail,
-      subject: `⏳ ${payments.length} pago(s) pendiente(s) — RD$ ${totalAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })} — STP ERP`,
-      html: `
-        <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:32px 16px">
-          <div style="max-width:700px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden">
-            <div style="background:#92400e;padding:28px 32px">
-              <h1 style="color:#fff;margin:0;font-size:20px">⏳ Pagos Pendientes — Resumen semanal</h1>
-            </div>
-            <div style="padding:32px">
-              <div style="background:#fffbeb;border-left:4px solid #d97706;border-radius:4px;padding:16px 20px;margin-bottom:24px">
-                <p style="margin:0;color:#92400e;font-size:15px">Total pendiente: <strong>RD$ ${totalAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</strong> en ${payments.length} pago(s)</p>
-              </div>
-              <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb">
-                <thead><tr style="background:#f9fafb">
-                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Cliente</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Descripción</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280">Fecha</th>
-                  <th style="padding:10px 12px;text-align:right;font-size:12px;color:#6b7280">Monto</th>
-                </tr></thead>
-                <tbody>${rows}</tbody>
-              </table>
-            </div>
-          </div>
-        </div>`,
+      subject: `${payments.length} pago(s) pendiente(s) por ${money(totalAmount)} — resumen semanal STP ERP`,
+      html: emailLayout({
+        title: 'Pagos pendientes — resumen semanal',
+        preheader: `${payments.length} pago(s) pendiente(s) por un total de ${money(totalAmount)}`,
+        accentColor: PALETTE.amber,
+        eyebrow: 'STP ERP · Resumen interno',
+        audience: 'internal',
+        maxWidth: 700,
+        bodyHtml,
+      }),
+      text: plainText(
+        [
+          `Pagos pendientes: ${payments.length} · Total ${money(totalAmount)}`,
+          '',
+          ...payments.map((pay) => `- ${pay.clientName} · ${pay.description} · ${pay.date} · ${money(pay.amount)}`),
+        ],
+        'internal',
+      ),
     });
   }
 
@@ -469,6 +571,7 @@ export class NotificationsService {
     to: string;
     subject: string;
     html: string;
+    text?: string;
     attachments?: { filename: string; content: Buffer }[];
   }): Promise<void> {
     if (!this.resend) return;
@@ -478,6 +581,7 @@ export class NotificationsService {
         to: options.to,
         subject: options.subject,
         html: options.html,
+        ...(options.text ? { text: options.text } : {}),
         ...(options.attachments?.length ? { attachments: options.attachments } : {}),
       });
       this.logger.log(`Email sent to ${options.to}: ${options.subject}`);
