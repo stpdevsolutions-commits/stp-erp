@@ -1,12 +1,14 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
-import type { Project, Task, Expense, Payment, FileUpload, PaginatedResponse, Ficha } from '@/lib/types'
+import type { Project, Task, Expense, Payment, FileUpload, PaginatedResponse, Ficha, User as AppUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChevronLeft, Calendar, DollarSign, User } from 'lucide-react'
 import { ProjectDetailTabs } from '@/components/projects/project-detail-tabs'
+import { MembersCard } from '@/components/access/members-card'
+import type { Member } from '@/lib/actions/memberships'
 
 const STATUS_LABELS: Record<Project['status'], string> = {
   draft: 'Pendiente',
@@ -48,6 +50,19 @@ export default async function ProyectoDetallePage({
     api.get<Ficha[]>(`/fichas?projectId=${id}`).catch(() => [] as Ficha[]),
   ])
   const files = { data: rawFiles, total: rawFiles.length, page: 1, limit: rawFiles.length || 1 }
+
+  // Panel de accesos: solo para ADMIN (los endpoints /members también lo son)
+  const me = await api.get<Pick<AppUser, 'role'>>('/users/me').catch(() => ({ role: 'user' as const }))
+  const isAdmin = me.role === 'admin'
+  const [members, users] = isAdmin
+    ? await Promise.all([
+        api.get<Member[]>(`/projects/${id}/members`).catch(() => [] as Member[]),
+        api
+          .get<PaginatedResponse<AppUser>>('/users?limit=100')
+          .then((r) => r.data)
+          .catch(() => [] as AppUser[]),
+      ])
+    : [[] as Member[], [] as AppUser[]]
 
   return (
     <div className="space-y-6">
@@ -125,6 +140,11 @@ export default async function ProyectoDetallePage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Accesos (solo ADMIN) */}
+      {isAdmin && (
+        <MembersCard scope="project" resourceId={id} members={members} users={users} />
+      )}
 
       {/* Tabs */}
       <ProjectDetailTabs

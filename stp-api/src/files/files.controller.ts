@@ -38,18 +38,21 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
+import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
 import { UserRole } from '../users/entities/user.entity';
 
 @ApiTags('files')
 @ApiBearerAuth()
 @Controller('files')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard)
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 
   // ── Fotos de fichas técnicas (acceso: cualquier técnico autenticado) ─────────
 
   @Post('fichas-photo')
+  @ScopedResource({ kind: 'project', param: 'projectId', in: 'query' })
   @UseInterceptors(FileInterceptor('file', fichaPhotosOpts))
   @ApiOperation({ summary: 'Subir foto para ficha técnica' })
   @ApiConsumes('multipart/form-data')
@@ -67,6 +70,7 @@ export class FilesController {
   // ── Perfil del cliente ──────────────────────────────────────────
 
   @Post('clients/:clientId/profile')
+  @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', clientProfileOpts))
@@ -83,6 +87,7 @@ export class FilesController {
   }
 
   @Get('clients/:clientId/profile')
+  @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
   @ApiOperation({ summary: 'Listar archivos de perfil del cliente' })
   listClientProfile(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -94,6 +99,7 @@ export class FilesController {
   // ── Documentos del cliente (sin proyecto) ──────────────────────
 
   @Post('clients/:clientId/documents')
+  @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', clientDocumentsOpts))
@@ -110,6 +116,7 @@ export class FilesController {
   }
 
   @Get('clients/:clientId/documents')
+  @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
   @ApiOperation({ summary: 'Listar documentos del cliente' })
   listClientDocuments(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -120,6 +127,7 @@ export class FilesController {
   // ── Cotizaciones del cliente (sin proyecto) ─────────────────────
 
   @Post('clients/:clientId/quotes')
+  @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', clientQuotesOpts))
@@ -138,6 +146,7 @@ export class FilesController {
   // ── Fotos del proyecto ──────────────────────────────────────────
 
   @Post('clients/:clientId/projects/:projectId/photos')
+  @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', projectPhotosOpts))
@@ -157,6 +166,7 @@ export class FilesController {
   // ── Documentos del proyecto ─────────────────────────────────────
 
   @Post('clients/:clientId/projects/:projectId/documents')
+  @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', projectDocumentsOpts))
@@ -176,6 +186,7 @@ export class FilesController {
   // ── Comprobantes de gastos ──────────────────────────────────────
 
   @Post('clients/:clientId/projects/:projectId/expenses')
+  @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', projectExpensesOpts))
@@ -195,6 +206,7 @@ export class FilesController {
   // ── Archivos de cotizaciones ────────────────────────────────────
 
   @Post('clients/:clientId/projects/:projectId/quotes')
+  @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', projectQuotesOpts))
@@ -214,6 +226,7 @@ export class FilesController {
   // ── Pagos del cliente (sin proyecto) ────────────────────────────
 
   @Post('clients/:clientId/payments')
+  @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', clientPaymentsOpts))
@@ -232,6 +245,7 @@ export class FilesController {
   // ── Pagos del proyecto ───────────────────────────────────────────
 
   @Post('clients/:clientId/projects/:projectId/payments')
+  @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file', projectPaymentsOpts))
@@ -251,6 +265,7 @@ export class FilesController {
   // ── Listados ────────────────────────────────────────────────────
 
   @Get('clients/:clientId')
+  @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
   @ApiOperation({ summary: 'Listar archivos de un cliente (todos los contextos)' })
   listClientFiles(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -260,6 +275,7 @@ export class FilesController {
   }
 
   @Get('clients/:clientId/projects/:projectId')
+  @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
   @ApiOperation({ summary: 'Listar archivos de un proyecto' })
   listProjectFiles(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -272,6 +288,7 @@ export class FilesController {
   // ── Descarga ────────────────────────────────────────────────────
 
   @Get(':id/download')
+  @ScopedResource('file')
   @ApiOperation({ summary: 'Descargar un archivo por ID' })
   async download(
     @Param('id', ParseUUIDPipe) id: string,
@@ -287,6 +304,7 @@ export class FilesController {
   // ── Eliminar ────────────────────────────────────────────────────
 
   @Delete(':id')
+  @ScopedResource('file')
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)

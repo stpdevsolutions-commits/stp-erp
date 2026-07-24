@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic'
 
 import { api } from '@/lib/api'
 import type {
@@ -22,20 +22,18 @@ import {
   Users,
   FolderKanban,
   CheckSquare,
-  FileText,
-  Receipt,
-  CreditCard,
-  TrendingDown,
+  Scale,
   AlertCircle,
 } from 'lucide-react'
 
-const PROJECT_STATUS_LABELS: Record<Project['status'], string> = {
-  draft: 'Pendiente',
-  active: 'En curso',
-  on_hold: 'En pausa',
-  completed: 'Completado',
-  cancelled: 'Cancelado',
-}
+import type { AnalyticsReport } from '@/components/charts/types'
+import { VizTokens } from '@/components/charts/viz-tokens'
+import { IncomeVsExpenses } from '@/components/charts/income-vs-expenses'
+import { QuotesFunnel } from '@/components/charts/quotes-funnel'
+import { QuotesAging } from '@/components/charts/quotes-aging'
+import { ProjectsMix } from '@/components/charts/projects-mix'
+import { ExpensesByCategory } from '@/components/charts/expenses-by-category'
+import { ReceivablesMeter } from '@/components/charts/receivables-meter'
 
 const PRIORITY_VARIANTS: Record<Task['priority'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
   low: 'outline',
@@ -70,15 +68,19 @@ const QUOTE_STATUS_BADGE: Record<Quote['status'], string> = {
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 
+const MONTHS_WINDOW = 6
+
 export default async function DashboardPage() {
-  const [drResult, pResult, tResult, qResult] = await Promise.allSettled([
+  const [drResult, anResult, pResult, tResult, qResult] = await Promise.allSettled([
     api.get<DashboardReport>('/reports/dashboard'),
+    api.get<AnalyticsReport>(`/reports/analytics?months=${MONTHS_WINDOW}`),
     api.get<PaginatedResponse<Project>>('/projects?limit=20'),
     api.get<PaginatedResponse<Task>>('/tasks?limit=20'),
     api.get<PaginatedResponse<Quote>>('/quotes?limit=5'),
   ])
 
   const dashReport = drResult.status === 'fulfilled' ? drResult.value : null
+  const analytics = anResult.status === 'fulfilled' ? anResult.value : null
   const allProjects = pResult.status === 'fulfilled' ? pResult.value.data : []
   const allTasks = tResult.status === 'fulfilled' ? tResult.value.data : []
   const recentQuotes = qResult.status === 'fulfilled' ? qResult.value.data : []
@@ -95,26 +97,26 @@ export default async function DashboardPage() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // KPI values — from report if available, else derived from fetched data
   const totalClientes = dashReport?.clients.total ?? '—'
   const proyectosEnCurso = dashReport?.projects.active ?? activeProjects.length
   const tareasVencidas = dashReport?.tasks.overdue ?? 0
-  const cotizAprobadas = dashReport?.quotes.approved?.amount ?? 0
   const gastosEsteMes = dashReport?.expenses.thisMonth ?? 0
   const cobrosEsteMes = dashReport?.payments.thisMonth ?? 0
   const balanceMes = cobrosEsteMes - gastosEsteMes
 
-  const projectStatusCounts: Partial<Record<Project['status'], number>> =
-    dashReport?.projects ?? {}
-
   return (
     <div className="space-y-6">
+      <VizTokens />
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Resumen</h1>
-        <p className="text-muted-foreground text-sm">Vista general del sistema ERP</p>
+        <p className="text-muted-foreground text-sm">
+          Vista general del sistema ERP
+          {analytics && ` · datos al ${new Date(analytics.generatedAt + 'T00:00:00').toLocaleDateString('es-DO')}`}
+        </p>
       </div>
 
-      {/* Primary stat cards */}
+      {/* Fila de indicadores */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -122,7 +124,7 @@ export default async function DashboardPage() {
             <Users className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{totalClientes}</div>
+            <div className="text-2xl font-bold">{totalClientes}</div>
             <p className="text-xs text-muted-foreground mt-1">en total</p>
           </CardContent>
         </Card>
@@ -133,7 +135,7 @@ export default async function DashboardPage() {
             <FolderKanban className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{proyectosEnCurso}</div>
+            <div className="text-2xl font-bold">{proyectosEnCurso}</div>
             <p className="text-xs text-muted-foreground mt-1">activos ahora</p>
           </CardContent>
         </Card>
@@ -144,7 +146,7 @@ export default async function DashboardPage() {
             <CheckSquare className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-3xl font-bold ${tareasVencidas > 0 ? 'text-destructive' : ''}`}>
+            <div className={`text-2xl font-bold ${tareasVencidas > 0 ? 'text-destructive' : ''}`}>
               {tareasVencidas}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -159,90 +161,51 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Cotizaciones aprobadas</CardTitle>
-            <FileText className="size-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Balance del mes</CardTitle>
+            <Scale className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold tabular-nums">{DOP.format(cotizAprobadas)}</div>
+            <div className="text-lg font-bold tabular-nums">{DOP.format(balanceMes)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {dashReport?.quotes.approved?.count ?? 0} aprobadas
+              {DOP.format(cobrosEsteMes)} cobrados − {DOP.format(gastosEsteMes)} gastados
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Financial snapshot — only shown if report data is available */}
-      {dashReport && (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Gastos este mes</CardTitle>
-              <Receipt className="size-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold tabular-nums text-destructive">
-                {DOP.format(gastosEsteMes)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">egresos del mes actual</p>
-            </CardContent>
-          </Card>
+      {analytics ? (
+        <>
+          <ReceivablesMeter receivables={analytics.receivables} />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Cobros este mes</CardTitle>
-              <CreditCard className="size-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold tabular-nums text-green-600 dark:text-green-400">
-                {DOP.format(cobrosEsteMes)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">pagos completados</p>
-            </CardContent>
-          </Card>
+          <IncomeVsExpenses
+            months={analytics.cashflow.months}
+            totals={analytics.cashflow.totals}
+            hasData={analytics.cashflow.hasData}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Balance del mes</CardTitle>
-              {balanceMes >= 0 ? (
-                <CreditCard className="size-4 text-muted-foreground" />
-              ) : (
-                <TrendingDown className="size-4 text-destructive" />
-              )}
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`text-2xl font-bold tabular-nums ${
-                  balanceMes >= 0
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-destructive'
-                }`}
-              >
-                {DOP.format(balanceMes)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">cobros − gastos</p>
-            </CardContent>
-          </Card>
-        </div>
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+            <QuotesFunnel quotes={analytics.quotes} />
+            <QuotesAging aging={analytics.quotesAging} />
+          </div>
+
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+            <ProjectsMix projects={analytics.projects} />
+            <ExpensesByCategory
+              expenses={analytics.expenses}
+              months={analytics.window.months}
+            />
+          </div>
+        </>
+      ) : (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No se pudieron cargar las gráficas del panel. Vuelve a intentarlo en unos
+            minutos.
+          </CardContent>
+        </Card>
       )}
 
-      {/* Projects status breakdown */}
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-5">
-        {(['draft', 'active', 'on_hold', 'completed', 'cancelled'] as const).map((s) => {
-          const count =
-            projectStatusCounts[s] ??
-            allProjects.filter((p) => p.status === s).length
-          return (
-            <Card key={s} className="text-center">
-              <CardContent className="pt-4 pb-3">
-                <div className="text-2xl font-bold">{count}</div>
-                <p className="text-xs text-muted-foreground mt-0.5">{PROJECT_STATUS_LABELS[s]}</p>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
-      {/* Two-column: active projects + priority tasks */}
+      {/* Dos columnas: proyectos activos + tareas prioritarias */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-3">
@@ -333,7 +296,7 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Recent quotes */}
+      {/* Últimas cotizaciones */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Últimas cotizaciones</CardTitle>

@@ -23,6 +23,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
+import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
 import { UserRole } from '../users/entities/user.entity';
 import type { Expense } from './entities/expense.entity';
 import {
@@ -46,24 +48,29 @@ const EXPENSE_CATEGORY_ES: Record<string, string> = {
 };
 
 @Controller('expenses')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard)
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
   @Post()
+  @ScopedResource({ kind: 'project', param: 'projectId', in: 'body' })
   create(@Body() dto: CreateExpenseDto, @CurrentUser() user: AuthUser) {
     return this.expensesService.create(dto, user.id);
   }
 
   @Get()
-  findAll(@Query() query: QueryExpensesDto) {
-    return this.expensesService.findAll(query);
+  findAll(@Query() query: QueryExpensesDto, @CurrentUser() user: AuthUser) {
+    return this.expensesService.findAll(query, user);
   }
 
   /** Exporta los gastos filtrados a Excel (.xlsx) con formato e identidad STP. */
   @Get('export/xlsx')
-  async exportXlsx(@Query() query: QueryExpensesDto, @Res() res: Response): Promise<void> {
-    const { data } = await this.expensesService.findAll({ ...query, limit: 5000, page: 1 });
+  async exportXlsx(
+    @Query() query: QueryExpensesDto,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.expensesService.findAll({ ...query, limit: 5000, page: 1 }, user);
 
     const columns: ReportColumn<Expense>[] = [
       { header: 'Fecha', value: (e) => dateOnly(e.date), type: 'date' },
@@ -109,11 +116,13 @@ export class ExpensesController {
   }
 
   @Get(':id')
+  @ScopedResource('expense')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.expensesService.findOne(id);
   }
 
   @Get(':id/pdf-file')
+  @ScopedResource('expense')
   async getPdfFile(@Param('id', ParseUUIDPipe) id: string) {
     const file = await this.expensesService.findPdfFile(id);
     if (!file) throw new NotFoundException('PDF no disponible todavía');
@@ -121,6 +130,7 @@ export class ExpensesController {
   }
 
   @Patch(':id')
+  @ScopedResource('expense')
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   update(
@@ -131,6 +141,7 @@ export class ExpensesController {
   }
 
   @Delete(':id')
+  @ScopedResource('expense')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)

@@ -18,6 +18,8 @@ import { SettingsService } from '../settings/settings.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { QueryExpensesDto } from './dto/query-expenses.dto';
+import { AccessControlService } from '../common/access/access-control.service';
+import type { AccessSubject } from '../common/access/access-policy';
 
 @Injectable()
 export class ExpensesService {
@@ -33,6 +35,7 @@ export class ExpensesService {
     @InjectRepository(FileUpload)
     private readonly fileRepo: Repository<FileUpload>,
     private readonly settingsService: SettingsService,
+    private readonly access: AccessControlService,
   ) {}
 
   async create(dto: CreateExpenseDto, createdById: string): Promise<Expense> {
@@ -47,7 +50,7 @@ export class ExpensesService {
     return result;
   }
 
-  async findAll(query: QueryExpensesDto) {
+  async findAll(query: QueryExpensesDto, user?: AccessSubject) {
     const { projectId, category, dateFrom, dateTo, page = 1, limit = 20 } = query;
 
     const qb = this.expensesRepository
@@ -64,6 +67,11 @@ export class ExpensesService {
     if (category) qb.andWhere('expense.category = :category', { category });
     if (dateFrom) qb.andWhere('expense.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('expense.date <= :dateTo', { dateTo });
+
+    await this.access.applyScope(qb, user, {
+      projectExpr: 'expense.projectId',
+      clientExpr: 'project.clientId',
+    });
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit };

@@ -27,6 +27,8 @@ import { QueryQuotesDto } from './dto/query-quotes.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UserRole } from '../users/entities/user.entity';
 import { SettingsService } from '../settings/settings.service';
+import { AccessControlService } from '../common/access/access-control.service';
+import type { AccessSubject } from '../common/access/access-policy';
 
 export type QuoteDecisionResult =
   | { kind: 'success'; status: QuoteStatus.APPROVED | QuoteStatus.REJECTED; quoteNumber: string }
@@ -53,6 +55,7 @@ export class QuotesService implements OnModuleInit {
     private readonly settingsService: SettingsService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly access: AccessControlService,
   ) {}
 
   onModuleInit() {
@@ -319,7 +322,7 @@ export class QuotesService implements OnModuleInit {
     return result;
   }
 
-  async findAll(query: QueryQuotesDto) {
+  async findAll(query: QueryQuotesDto, user?: AccessSubject) {
     const { search, status, clientId, projectId, page = 1, limit = 20 } = query;
 
     const qb = this.quotesRepository
@@ -338,6 +341,11 @@ export class QuotesService implements OnModuleInit {
     if (status) qb.andWhere('quote.status = :status', { status });
     if (clientId) qb.andWhere('quote.clientId = :clientId', { clientId });
     if (projectId) qb.andWhere('quote.projectId = :projectId', { projectId });
+
+    await this.access.applyScope(qb, user, {
+      projectExpr: 'quote.projectId',
+      clientExpr: 'quote.clientId',
+    });
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit };

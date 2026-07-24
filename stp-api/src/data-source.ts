@@ -16,6 +16,8 @@ import { Collaborator } from './collaborators/entities/collaborator.entity';
 import { Ficha } from './fichas/entities/ficha.entity';
 import { InventoryItem } from './inventory/entities/inventory-item.entity';
 import { AppSettings } from './settings/entities/app-settings.entity';
+import { ProjectMember } from './projects/entities/project-member.entity';
+import { ClientMember } from './clients/entities/client-member.entity';
 
 dotenv.config();
 
@@ -25,6 +27,7 @@ export const AppDataSource = new DataSource({
   entities: [
     User, Client, Project, Task, Quote, QuoteItem, Expense, Payment,
     Supplier, FileUpload, RefreshToken, Collaborator, Ficha, InventoryItem, AppSettings,
+    ProjectMember, ClientMember,
   ],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,

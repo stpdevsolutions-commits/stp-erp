@@ -38,6 +38,9 @@ import { QuoteItem } from './quotes/entities/quote-item.entity';
 import { Expense } from './expenses/entities/expense.entity';
 import { Payment } from './payments/entities/payment.entity';
 import { Supplier } from './suppliers/entities/supplier.entity';
+import { ProjectMember } from './projects/entities/project-member.entity';
+import { ClientMember } from './clients/entities/client-member.entity';
+import { AccessModule } from './common/access/access.module';
 
 @Module({
   imports: [
@@ -48,7 +51,7 @@ import { Supplier } from './suppliers/entities/supplier.entity';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',
@@ -56,6 +59,7 @@ import { Supplier } from './suppliers/entities/supplier.entity';
       }),
       inject: [ConfigService],
     }),
+    AccessModule,
     AuthModule,
     UsersModule,
     ClientsModule,

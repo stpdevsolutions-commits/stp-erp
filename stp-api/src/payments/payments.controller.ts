@@ -23,6 +23,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
+import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
 import { UserRole } from '../users/entities/user.entity';
 import type { Payment } from './entities/payment.entity';
 import {
@@ -52,7 +54,7 @@ const PAYMENT_STATUS_ES: Record<string, string> = {
 };
 
 @Controller('payments')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard)
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
@@ -64,14 +66,18 @@ export class PaymentsController {
   }
 
   @Get()
-  findAll(@Query() query: QueryPaymentsDto) {
-    return this.paymentsService.findAll(query);
+  findAll(@Query() query: QueryPaymentsDto, @CurrentUser() user: AuthUser) {
+    return this.paymentsService.findAll(query, user);
   }
 
   /** Exporta los pagos filtrados a Excel (.xlsx) con formato e identidad STP. */
   @Get('export/xlsx')
-  async exportXlsx(@Query() query: QueryPaymentsDto, @Res() res: Response): Promise<void> {
-    const { data } = await this.paymentsService.findAll({ ...query, limit: 5000, page: 1 });
+  async exportXlsx(
+    @Query() query: QueryPaymentsDto,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.paymentsService.findAll({ ...query, limit: 5000, page: 1 }, user);
 
     const columns: ReportColumn<Payment>[] = [
       { header: 'Fecha', value: (p) => dateOnly(p.date), type: 'date' },
@@ -133,11 +139,13 @@ export class PaymentsController {
   }
 
   @Get(':id')
+  @ScopedResource('payment')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.paymentsService.findOne(id);
   }
 
   @Get(':id/pdf-file')
+  @ScopedResource('payment')
   async getPdfFile(@Param('id', ParseUUIDPipe) id: string) {
     const file = await this.paymentsService.findPdfFile(id);
     if (!file) throw new NotFoundException('PDF no disponible todavía');
@@ -145,6 +153,7 @@ export class PaymentsController {
   }
 
   @Patch(':id')
+  @ScopedResource('payment')
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   update(
@@ -155,6 +164,7 @@ export class PaymentsController {
   }
 
   @Delete(':id')
+  @ScopedResource('payment')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)

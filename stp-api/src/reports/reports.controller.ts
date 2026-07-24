@@ -29,6 +29,18 @@ export class ReportsController {
     return this.reportsService.getDashboard();
   }
 
+  /**
+   * Series agregadas para las gráficas del dashboard.
+   * `months` = ventana hacia atrás (1–24, por defecto 6).
+   */
+  @Get('analytics')
+  getAnalytics(@Query('months') months?: string) {
+    const parsed = months != null ? Number(months) : 6;
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 24)
+      throw new BadRequestException('El parámetro "months" debe ser un número entre 1 y 24');
+    return this.reportsService.getAnalytics(parsed);
+  }
+
   @Get('income')
   getIncomeReport(@Query('from') from?: string, @Query('to') to?: string) {
     const range = parseDateRange(from, to);

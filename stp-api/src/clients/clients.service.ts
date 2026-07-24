@@ -4,17 +4,23 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, FindOptionsWhere } from 'typeorm';
+import { Repository, ILike, In, FindOptionsWhere } from 'typeorm';
 import { Client, ClientType } from './entities/client.entity';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { QueryClientsDto } from './dto/query-clients.dto';
+import { AccessControlService } from '../common/access/access-control.service';
+import type { AccessSubject } from '../common/access/access-policy';
+
+/** UUID imposible: fuerza un resultado vacío cuando el usuario no tiene asignaciones. */
+const NO_MATCH_ID = '00000000-0000-0000-0000-000000000000';
 
 @Injectable()
 export class ClientsService {
   constructor(
     @InjectRepository(Client)
     private readonly clientsRepository: Repository<Client>,
+    private readonly access: AccessControlService,
   ) {}
 
   async create(dto: CreateClientDto): Promise<Client> {
@@ -26,10 +32,20 @@ export class ClientsService {
     return this.clientsRepository.save(client);
   }
 
-  async findAll(query: QueryClientsDto) {
+  async findAll(query: QueryClientsDto, user?: AccessSubject) {
     const { search, type, isActive, page = 1, limit = 20 } = query;
 
     const baseWhere: FindOptionsWhere<Client> = {};
+
+    // Acotado por pertenencia (no-op para ADMIN/MANAGER). Un USER solo ve los
+    // clientes asignados y los dueños de sus proyectos.
+    const scope = await this.access.getListScope(user);
+    if (scope) {
+      baseWhere.id = In(
+        scope.visibleClientIds.length > 0 ? scope.visibleClientIds : [NO_MATCH_ID],
+      );
+    }
+
     if (type) baseWhere.type = type;
     if (isActive !== undefined) baseWhere.isActive = isActive;
 

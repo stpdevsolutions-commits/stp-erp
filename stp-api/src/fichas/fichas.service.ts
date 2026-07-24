@@ -68,11 +68,13 @@ export class FichasService {
     });
     if (!ficha) throw new NotFoundException('Ficha no encontrada');
 
+    // 404 (no 403): revelar que la ficha existe ya es una fuga de información.
+    // El acceso por pertenencia al proyecto lo comprueba ResourceAccessGuard.
     if (
       currentUser.role === UserRole.USER &&
       ficha.technicianId !== currentUser.id
     ) {
-      throw new ForbiddenException('No tienes acceso a esta ficha');
+      throw new NotFoundException('Ficha no encontrada');
     }
 
     return ficha;

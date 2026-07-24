@@ -11,6 +11,8 @@ import { User } from '../users/entities/user.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { QueryProjectsDto } from './dto/query-projects.dto';
+import { AccessControlService } from '../common/access/access-control.service';
+import type { AccessSubject } from '../common/access/access-policy';
 
 @Injectable()
 export class ProjectsService {
@@ -21,6 +23,7 @@ export class ProjectsService {
     private readonly clientsRepository: Repository<Client>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly access: AccessControlService,
   ) {}
 
   async create(dto: CreateProjectDto, createdById: string): Promise<Project> {
@@ -32,7 +35,7 @@ export class ProjectsService {
     return this.projectsRepository.save(project);
   }
 
-  async findAll(query: QueryProjectsDto) {
+  async findAll(query: QueryProjectsDto, user?: AccessSubject) {
     const { search, status, type, clientId, assignedToId, page = 1, limit = 20 } = query;
 
     const qb = this.projectsRepository
@@ -50,6 +53,12 @@ export class ProjectsService {
     if (type) qb.andWhere('project.type = :type', { type });
     if (clientId) qb.andWhere('project.clientId = :clientId', { clientId });
     if (assignedToId) qb.andWhere('project.assignedToId = :assignedToId', { assignedToId });
+
+    // Acotado por pertenencia (no-op para ADMIN/MANAGER)
+    await this.access.applyScope(qb, user, {
+      projectExpr: 'project.id',
+      clientExpr: 'project.clientId',
+    });
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit };

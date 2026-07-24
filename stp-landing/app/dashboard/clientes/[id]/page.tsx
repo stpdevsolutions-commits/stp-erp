@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
-import type { Client, Project, FileUpload, PaginatedResponse } from '@/lib/types'
+import type { Client, Project, FileUpload, PaginatedResponse, User as AppUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -16,6 +16,8 @@ import {
 import { ChevronLeft, Building2, Phone, Mail, MapPin, User, Hash } from 'lucide-react'
 import { ClientActions } from '@/components/clients/client-actions'
 import { ArchivoViewer } from '@/components/files/archivo-viewer'
+import { MembersCard } from '@/components/access/members-card'
+import type { Member } from '@/lib/actions/memberships'
 
 const TYPE_LABELS = { company: 'Empresa', individual: 'Persona física' }
 
@@ -57,6 +59,19 @@ export default async function ClienteDetallePage({
     ),
     api.get<FileUpload[]>(`/files/clients/${id}`).catch(() => [] as FileUpload[]),
   ])
+
+  // Panel de accesos: solo para ADMIN (los endpoints /members también lo son)
+  const me = await api.get<Pick<AppUser, 'role'>>('/users/me').catch(() => ({ role: 'user' as const }))
+  const isAdmin = me.role === 'admin'
+  const [members, users] = isAdmin
+    ? await Promise.all([
+        api.get<Member[]>(`/clients/${id}/members`).catch(() => [] as Member[]),
+        api
+          .get<PaginatedResponse<AppUser>>('/users?limit=100')
+          .then((r) => r.data)
+          .catch(() => [] as AppUser[]),
+      ])
+    : [[] as Member[], [] as AppUser[]]
 
   return (
     <div className="space-y-6">
@@ -217,6 +232,11 @@ export default async function ClienteDetallePage({
           </Table>
         </div>
       </div>
+
+      {/* Accesos (solo ADMIN) */}
+      {isAdmin && (
+        <MembersCard scope="client" resourceId={id} members={members} users={users} />
+      )}
 
       {/* Archivos */}
       <div className="space-y-3">

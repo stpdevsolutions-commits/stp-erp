@@ -25,6 +25,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
+import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
 import { UserRole } from '../users/entities/user.entity';
 import type { Quote } from './entities/quote.entity';
 import {
@@ -62,7 +64,7 @@ interface QuoteItemRow {
 }
 
 @Controller('quotes')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard)
 export class QuotesController {
   constructor(private readonly quotesService: QuotesService) {}
 
@@ -74,8 +76,8 @@ export class QuotesController {
   }
 
   @Get()
-  findAll(@Query() query: QueryQuotesDto) {
-    return this.quotesService.findAll(query);
+  findAll(@Query() query: QueryQuotesDto, @CurrentUser() user: AuthUser) {
+    return this.quotesService.findAll(query, user);
   }
 
   /**
@@ -85,8 +87,12 @@ export class QuotesController {
    * Mismo criterio de acceso que `findAll` (cualquier usuario autenticado).
    */
   @Get('export/xlsx')
-  async exportXlsx(@Query() query: QueryQuotesDto, @Res() res: Response): Promise<void> {
-    const { data } = await this.quotesService.findAll({ ...query, limit: 2000, page: 1 });
+  async exportXlsx(
+    @Query() query: QueryQuotesDto,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.quotesService.findAll({ ...query, limit: 2000, page: 1 }, user);
 
     const columns: ReportColumn<Quote>[] = [
       { header: 'Número', value: (q) => q.number ?? '' },
@@ -173,11 +179,13 @@ export class QuotesController {
   }
 
   @Get(':id')
+  @ScopedResource('quote')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.quotesService.findOne(id);
   }
 
   @Get(':id/pdf-file')
+  @ScopedResource('quote')
   async getPdfFile(@Param('id', ParseUUIDPipe) id: string) {
     const file = await this.quotesService.findPdfFile(id);
     if (!file) throw new NotFoundException('PDF no disponible todavía');
@@ -185,6 +193,7 @@ export class QuotesController {
   }
 
   @Patch(':id')
+  @ScopedResource('quote')
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateQuoteDto, @CurrentUser() user: AuthUser) {
@@ -192,6 +201,7 @@ export class QuotesController {
   }
 
   @Post(':id/send')
+  @ScopedResource('quote')
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -200,6 +210,7 @@ export class QuotesController {
   }
 
   @Post(':id/convert-to-project')
+  @ScopedResource('quote')
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   convertToProject(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
@@ -207,6 +218,7 @@ export class QuotesController {
   }
 
   @Delete(':id')
+  @ScopedResource('quote')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -217,6 +229,7 @@ export class QuotesController {
   // ── Items ──────────────────────────────────────────────────────────────────
 
   @Post(':id/items')
+  @ScopedResource('quote')
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   addItem(
@@ -228,6 +241,7 @@ export class QuotesController {
   }
 
   @Patch(':id/items/:itemId')
+  @ScopedResource('quote')
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   updateItem(
@@ -240,6 +254,7 @@ export class QuotesController {
   }
 
   @Delete(':id/items/:itemId')
+  @ScopedResource('quote')
   @UseGuards(RolesGuard)
   @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.OK)

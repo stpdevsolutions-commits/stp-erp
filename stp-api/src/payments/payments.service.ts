@@ -21,6 +21,8 @@ import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
 import { PaymentStatus } from './entities/payment.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AccessControlService } from '../common/access/access-control.service';
+import type { AccessSubject } from '../common/access/access-policy';
 
 @Injectable()
 export class PaymentsService {
@@ -39,6 +41,7 @@ export class PaymentsService {
     private readonly fileRepo: Repository<FileUpload>,
     private readonly notifications: NotificationsService,
     private readonly settingsService: SettingsService,
+    private readonly access: AccessControlService,
   ) {}
 
   async create(dto: CreatePaymentDto, createdById: string): Promise<Payment> {
@@ -72,7 +75,7 @@ export class PaymentsService {
     return loaded;
   }
 
-  async findAll(query: QueryPaymentsDto) {
+  async findAll(query: QueryPaymentsDto, user?: AccessSubject) {
     const {
       clientId, projectId, quoteId, method, status,
       dateFrom, dateTo, search, page = 1, limit = 20,
@@ -102,6 +105,11 @@ export class PaymentsService {
         { q: `%${search}%` },
       );
     }
+
+    await this.access.applyScope(qb, user, {
+      projectExpr: 'payment.projectId',
+      clientExpr: 'payment.clientId',
+    });
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit };
