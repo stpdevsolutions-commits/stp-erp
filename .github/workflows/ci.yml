@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Un solo run por rama/PR: si llegan pushes seguidos, cancela el anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  api:
+    name: API (NestJS) · tipos, build y tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: stp-api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node ${{ env.NODE_VERSION }} + caché npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: stp-api/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Comprobar tipos (tsc --noEmit)
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Build de producción (nest build)
+        run: npm run build
+
+      - name: Tests (jest)
+        # --passWithNoTests: hoy casi no hay specs; que no falle por eso.
+        run: npx jest --ci --passWithNoTests
+
+  landing:
+    name: Frontend ERP (Next.js) · tipos y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: stp-landing
+
+    # Valores FICTICIOS solo para que el build compile. Nada real, nada secreto:
+    # el frontend lee estas vars en runtime dentro del contenedor, no en build.
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      COOKIE_SECURE: 'false'
+      NEXT_TELEMETRY_DISABLED: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node ${{ env.NODE_VERSION }} + caché npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: stp-landing/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Comprobar tipos (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: Build de producción (next build)
+        run: npm run build
+
+  lint:
+    # INFORMATIVO. El repo aún no está limpio (prettier/prettier y reglas
+    # no-unsafe-* acumulan cientos de avisos), así que este job NUNCA rompe el
+    # CI: sirve para leer el informe en los logs e ir bajando la deuda.
+    name: Lint (informativo, no bloquea)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: stp-api
+            label: API
+            target: src
+          - project: stp-landing
+            label: Frontend
+            target: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node ${{ env.NODE_VERSION }} + caché npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ matrix.project }}/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: ${{ matrix.project }}
+        run: npm ci
+
+      - name: ESLint ${{ matrix.label }} (solo informe)
+        working-directory: ${{ matrix.project }}
+        continue-on-error: true
+        run: npx eslint ${{ matrix.target }} --no-fix
