@@ -11,6 +11,9 @@ import { User } from '../users/entities/user.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { QueryTasksDto } from './dto/query-tasks.dto';
+import { AccessControlService } from '../common/access/access-control.service';
+import type { AccessSubject } from '../common/access/access-policy';
+import { taskResourceScope } from './task-access';
 
 @Injectable()
 export class TasksService {
@@ -21,9 +24,12 @@ export class TasksService {
     private readonly projectsRepository: Repository<Project>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly access: AccessControlService,
   ) {}
 
   async create(dto: CreateTaskDto, createdById: string): Promise<Task> {
+    // La pertenencia al proyecto la exige ResourceAccessGuard vía
+    // @ScopedResource({ kind: 'project', param: 'projectId', in: 'body' }).
     await this.assertProjectExists(dto.projectId);
     if (dto.assignedToId) await this.assertUserExists(dto.assignedToId);
 
@@ -31,8 +37,16 @@ export class TasksService {
     return this.tasksRepository.save(task);
   }
 
-  async findAll(query: QueryTasksDto) {
-    const { search, status, priority, projectId, assignedToId, page = 1, limit = 20 } = query;
+  async findAll(query: QueryTasksDto, user?: AccessSubject) {
+    const {
+      search,
+      status,
+      priority,
+      projectId,
+      assignedToId,
+      page = 1,
+      limit = 20,
+    } = query;
 
     const qb = this.tasksRepository
       .createQueryBuilder('task')
@@ -49,33 +63,46 @@ export class TasksService {
     if (status) qb.andWhere('task.status = :status', { status });
     if (priority) qb.andWhere('task.priority = :priority', { priority });
     if (projectId) qb.andWhere('task.projectId = :projectId', { projectId });
-    if (assignedToId) qb.andWhere('task.assignedToId = :assignedToId', { assignedToId });
+    if (assignedToId)
+      qb.andWhere('task.assignedToId = :assignedToId', { assignedToId });
+
+    await this.applyTaskScope(qb, user);
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit };
   }
 
-  async findOne(id: string): Promise<Task> {
+  async findOne(id: string, user?: AccessSubject): Promise<Task> {
     const task = await this.tasksRepository.findOne({
       where: { id },
       relations: { project: true, assignedTo: true, createdBy: true },
     });
     if (!task) throw new NotFoundException('Task not found');
+    await this.assertTaskAccess(task, user);
     return task;
   }
 
-  async update(id: string, dto: UpdateTaskDto): Promise<Task> {
-    const task = await this.findOne(id);
+  async update(
+    id: string,
+    dto: UpdateTaskDto,
+    user?: AccessSubject,
+  ): Promise<Task> {
+    const task = await this.findOne(id, user);
 
     if (dto.projectId && dto.projectId !== task.projectId) {
       await this.assertProjectExists(dto.projectId);
+      // Mover la tarea a un proyecto ajeno sería una fuga: se exige pertenencia
+      // también al proyecto de destino.
+      await this.access.assertProjectAccess(user, dto.projectId);
     }
     if (dto.assignedToId && dto.assignedToId !== task.assignedToId) {
       await this.assertUserExists(dto.assignedToId);
     }
 
     const defined = Object.fromEntries(
-      Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
+      Object.entries(dto as Record<string, unknown>).filter(
+        ([, v]) => v !== undefined,
+      ),
     );
     Object.assign(task, defined);
 
@@ -88,9 +115,70 @@ export class TasksService {
     return this.tasksRepository.save(task);
   }
 
-  async remove(id: string): Promise<void> {
-    const task = await this.findOne(id);
+  async remove(id: string, user?: AccessSubject): Promise<void> {
+    const task = await this.findOne(id, user);
     await this.tasksRepository.remove(task);
+  }
+
+  // ── Acceso ────────────────────────────────────────────────────────────────
+
+  /**
+   * Comprueba pertenencia sobre una tarea ya cargada. Delega la decisión en
+   * `decideAccess` a través de `AccessControlService.assertAccess` → 404.
+   */
+  private async assertTaskAccess(
+    task: Task,
+    user?: AccessSubject,
+  ): Promise<void> {
+    await this.access.assertAccess(
+      user,
+      taskResourceScope(
+        {
+          projectId: task.projectId,
+          clientId: task.project?.clientId ?? null,
+          assignedToId: task.assignedToId,
+          createdById: task.createdById,
+        },
+        user,
+      ),
+    );
+  }
+
+  /**
+   * Acota un listado de tareas. No se usa `applyScope()` genérico porque una
+   * tarea es visible además por asignación o autoría, aunque el usuario no sea
+   * miembro del proyecto; `applyScope` solo sabe de proyecto/cliente.
+   * La pertenencia sale de `getListScope()`, que sigue siendo la única fuente.
+   */
+  private async applyTaskScope(
+    qb: ReturnType<Repository<Task>['createQueryBuilder']>,
+    user?: AccessSubject,
+  ): Promise<void> {
+    const scope = await this.access.getListScope(user);
+    if (!scope) return; // ADMIN / MANAGER: sin restricción.
+
+    const conditions: string[] = [];
+    const params: Record<string, unknown> = {};
+
+    if (user?.id) {
+      conditions.push('task.assignedToId = :acUserId');
+      conditions.push('task.createdById = :acUserId');
+      params.acUserId = user.id;
+    }
+    if (scope.projectIds.length > 0) {
+      conditions.push('task.projectId IN (:...acProjectIds)');
+      params.acProjectIds = scope.projectIds;
+    }
+    if (scope.clientIds.length > 0) {
+      conditions.push('project.clientId IN (:...acClientIds)');
+      params.acClientIds = scope.clientIds;
+    }
+
+    if (conditions.length === 0) {
+      qb.andWhere('1 = 0'); // fail-closed
+      return;
+    }
+    qb.andWhere(`(${conditions.join(' OR ')})`, params);
   }
 
   private async assertProjectExists(projectId: string): Promise<void> {
