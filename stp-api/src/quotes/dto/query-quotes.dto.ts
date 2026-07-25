@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsUUID, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { QuoteStatus } from '../entities/quote.entity';
 
@@ -18,6 +18,12 @@ export class QueryQuotesDto {
   @IsOptional()
   @IsUUID()
   projectId?: string;
+
+  /** Incluir también las revisiones reemplazadas (por defecto solo la vigente). */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  includeSuperseded?: boolean;
 
   @IsOptional()
   @Transform(({ value }) => parseInt(value) || 1)

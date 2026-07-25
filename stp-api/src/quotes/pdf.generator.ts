@@ -49,6 +49,11 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
     stream.on('error', reject);
 
     const logoPath    = findLogoPath();
+    // Número mostrado en el encabezado: en revisiones (rev>1) se muestra el
+    // número base con la etiqueta "Rev. N" para el cliente.
+    const displayNumber = (quote.revision ?? 1) > 1
+      ? `${quote.baseNumber} · Rev. ${quote.revision}`
+      : quote.number;
     const hasIndirect = Array.isArray(quote.indirectCosts) && quote.indirectCosts.length > 0;
     // Con gastos indirectos, el ITBIS ya no se prorratea por ítem.
     const showITBIS   = !hasIndirect && (quote.taxRate ?? 0) > 0;
@@ -77,7 +82,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
     // ── Helper: check page break and add new page if needed ────────────────
     const newPage = (): number => {
       doc.addPage();
-      drawDocumentHeader(doc, 'COTIZACIÓN', quote.number, logoPath, company);
+      drawDocumentHeader(doc, 'COTIZACIÓN', displayNumber, logoPath, company);
       return CONTENT_Y;
     };
 
@@ -85,7 +90,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
       y + needed > 758 ? newPage() : y;
 
     // ── PAGE 1: Header ─────────────────────────────────────────────────────
-    drawDocumentHeader(doc, 'COTIZACIÓN', quote.number, logoPath, company);
+    drawDocumentHeader(doc, 'COTIZACIÓN', displayNumber, logoPath, company);
     let y = CONTENT_Y;
 
     // ── Client info block ──────────────────────────────────────────────────

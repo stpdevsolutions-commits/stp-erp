@@ -55,6 +55,7 @@ export function IncomeVsExpenses({
       empty={{
         message: 'Aún no hay datos suficientes',
         hint: 'No hay pagos cobrados ni gastos registrados en la ventana. La gráfica aparecerá en cuanto se registre el primer movimiento.',
+        action: { label: 'Ir a Pagos', href: '/dashboard/pagos' },
       }}
       table={{
         caption: 'Ingresos y gastos por mes',

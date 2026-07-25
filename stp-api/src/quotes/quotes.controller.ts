@@ -209,6 +209,14 @@ export class QuotesController {
     return this.quotesService.sendEmail(id);
   }
 
+  @Post(':id/revise')
+  @ScopedResource('quote')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
+  revise(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.quotesService.revise(id, user.id);
+  }
+
   @Post(':id/convert-to-project')
   @ScopedResource('quote')
   @UseGuards(RolesGuard)

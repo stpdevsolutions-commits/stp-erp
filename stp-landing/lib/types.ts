@@ -69,9 +69,23 @@ export interface QuoteItem {
   sectionName?: string
 }
 
+export interface QuoteRevisionSummary {
+  id: string
+  number: string
+  revision: number
+  status: 'draft' | 'sent' | 'approved' | 'rejected' | 'expired'
+  total: number
+  createdAt: string
+  supersededById: string | null
+}
+
 export interface Quote {
   id: string
   number: string
+  baseNumber: string
+  revision: number
+  supersededById?: string | null
+  revisions?: QuoteRevisionSummary[]
   title: string
   status: 'draft' | 'sent' | 'approved' | 'rejected' | 'expired'
   validUntil?: string

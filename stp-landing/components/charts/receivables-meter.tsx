@@ -35,6 +35,7 @@ export function ReceivablesMeter({
           <ChartEmpty
             message="Aún no hay datos suficientes"
             hint="No hay cotizaciones aprobadas ni cobros registrados todavía."
+            action={{ label: 'Ir a Cotizaciones', href: '/dashboard/cotizaciones' }}
           />
         ) : (
           <>

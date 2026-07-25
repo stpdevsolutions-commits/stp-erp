@@ -119,6 +119,23 @@ export async function deleteQuote(id: string): Promise<ActionResult> {
   return { ok: true }
 }
 
+export async function reviseQuote(id: string): Promise<ActionResult & { quoteId?: string }> {
+  const res = await authFetch(`/quotes/${id}/revise`, {
+    method: 'POST',
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    return { ok: false, error: apiError(err, 'Error al crear la revisión') }
+  }
+
+  const quote = await res.json().catch(() => ({}))
+  revalidatePath('/dashboard/cotizaciones')
+  revalidatePath(`/dashboard/cotizaciones/${id}`)
+  revalidatePath('/dashboard')
+  return { ok: true, quoteId: quote.id }
+}
+
 export async function convertQuoteToProject(id: string): Promise<ActionResult & { projectId?: string }> {
   const res = await authFetch(`/quotes/${id}/convert-to-project`, {
     method: 'POST',

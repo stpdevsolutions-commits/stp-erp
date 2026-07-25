@@ -41,6 +41,7 @@ export function QuotesFunnel({ quotes }: { quotes: AnalyticsReport['quotes'] }) 
       empty={{
         message: 'Aún no hay cotizaciones',
         hint: 'El embudo y la tasa de conversión se calculan sobre las cotizaciones registradas.',
+        action: { label: 'Ir a Cotizaciones', href: '/dashboard/cotizaciones' },
       }}
       table={{
         caption: 'Cotizaciones por estado',

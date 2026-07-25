@@ -688,7 +688,10 @@ export function QuoteActions({
   const [emailResult, setEmailResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   const isAdmin = userRole === 'ADMIN' || userRole === 'admin'
-  const isLocked = !isAdmin && (cotizacion.status === 'approved' || cotizacion.status === 'rejected')
+  const isSuperseded = !!cotizacion.supersededById
+  // Una reemplazada es documento histórico: bloqueada para todos (incl. ADMIN).
+  const isLocked =
+    isSuperseded || (!isAdmin && (cotizacion.status === 'approved' || cotizacion.status === 'rejected'))
   const hasClientEmail = !!cotizacion.client?.email
 
   async function handleSendEmail() {
@@ -739,7 +742,7 @@ export function QuoteActions({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={handleSendEmail}
-            disabled={sendingEmail || !hasClientEmail}
+            disabled={sendingEmail || !hasClientEmail || isSuperseded}
           >
             <Send className="size-4" />
             {sendingEmail ? 'Enviando...' : 'Enviar por email'}

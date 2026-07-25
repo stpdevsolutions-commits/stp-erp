@@ -48,6 +48,7 @@ export function ProjectsMix({ projects }: { projects: AnalyticsReport['projects'
       empty={{
         message: 'Aún no hay proyectos registrados',
         hint: 'La distribución por tipo (eléctrico, mecánico, construcción…) y estado aparecerá al crear el primer proyecto.',
+        action: { label: 'Ir a Proyectos', href: '/dashboard/proyectos' },
       }}
       table={{
         caption: 'Proyectos por tipo y estado',

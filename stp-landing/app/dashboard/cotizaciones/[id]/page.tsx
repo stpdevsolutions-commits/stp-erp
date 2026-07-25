@@ -13,9 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ChevronLeft, FileText, Calendar, User as UserIcon, FolderKanban } from 'lucide-react'
+import { ChevronLeft, FileText, Calendar, User as UserIcon, FolderKanban, History } from 'lucide-react'
 import { QuoteActions } from '@/components/quotes/quote-actions'
 import { ConvertToProjectButton } from '@/components/quotes/convert-to-project-button'
+import { ReviseQuoteButton } from '@/components/quotes/revise-quote-button'
+
+const REVISABLE_STATUSES: Quote['status'][] = ['sent', 'approved', 'rejected', 'expired']
 
 const STATUS_LABELS: Record<Quote['status'], string> = {
   draft: 'Borrador',
@@ -71,6 +74,17 @@ export default async function CotizacionDetallePage({
   ).indirectCosts
   const hasIndirect = Array.isArray(indirectCosts) && indirectCosts.length > 0
 
+  const isManager = ['ADMIN', 'admin', 'MANAGER', 'manager'].includes(userRole)
+  const isSuperseded = !!quote.supersededById
+  const isRevisable = !isSuperseded && REVISABLE_STATUSES.includes(quote.status)
+  const canRevise = isManager && isRevisable
+  const revisionSummaries = quote.revisions ?? []
+  const hasHistory = revisionSummaries.length > 1
+  // Revisión que reemplaza a ésta (para el aviso de "reemplazada").
+  const supersededBy = isSuperseded
+    ? revisionSummaries.find((r) => r.id === quote.supersededById)
+    : undefined
+
   // Group items by section
   const sections: Map<string, typeof quote.items> = new Map()
   for (const item of quote.items ?? []) {
@@ -92,14 +106,23 @@ export default async function CotizacionDetallePage({
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono text-sm text-muted-foreground">{quote.number}</span>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="font-mono text-sm text-muted-foreground">{quote.baseNumber ?? quote.number}</span>
+            {quote.revision > 1 && (
+              <Badge className="bg-primary/10 text-primary">Rev. {quote.revision}</Badge>
+            )}
             <Badge className={STATUS_BADGE[quote.status]}>{STATUS_LABELS[quote.status]}</Badge>
+            {isSuperseded && (
+              <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400">Reemplazada</Badge>
+            )}
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{quote.title}</h1>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          {quote.status === 'approved' && !quote.projectId && (
+          {canRevise && (
+            <ReviseQuoteButton quoteId={quote.id} quoteNumber={quote.number} />
+          )}
+          {!isSuperseded && quote.status === 'approved' && !quote.projectId && (
             <ConvertToProjectButton quoteId={quote.id} />
           )}
           <Button
@@ -125,6 +148,73 @@ export default async function CotizacionDetallePage({
           />
         </div>
       </div>
+
+      {/* Aviso de cotización reemplazada */}
+      {isSuperseded && (
+        <div className="rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 px-4 py-3 text-sm flex items-center gap-2">
+          <History className="size-4 shrink-0" />
+          <span>
+            Esta cotización fue reemplazada por una revisión posterior y se conserva como documento
+            histórico (no puede editarse ni reenviarse).
+            {supersededBy && (
+              <>
+                {' '}
+                <Link href={`/dashboard/cotizaciones/${supersededBy.id}`} className="font-medium underline">
+                  Ver la revisión vigente ({supersededBy.number})
+                </Link>
+              </>
+            )}
+          </span>
+        </div>
+      )}
+
+      {/* Historial de revisiones */}
+      {hasHistory && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <History className="size-4" />
+              Historial de revisiones
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <ul className="divide-y">
+              {revisionSummaries.map((rev) => {
+                const isCurrent = rev.id === quote.id
+                return (
+                  <li key={rev.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono text-muted-foreground shrink-0">{rev.number}</span>
+                      <Badge className="bg-muted text-muted-foreground shrink-0">
+                        {rev.revision > 1 ? `Rev. ${rev.revision}` : 'Original'}
+                      </Badge>
+                      <Badge className={STATUS_BADGE[rev.status]}>{STATUS_LABELS[rev.status]}</Badge>
+                      {!rev.supersededById && (
+                        <Badge className="bg-green-600/10 text-green-700 dark:text-green-400 shrink-0">
+                          Vigente
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="tabular-nums text-muted-foreground">{DOP.format(rev.total)}</span>
+                      {isCurrent ? (
+                        <span className="text-xs text-muted-foreground">actual</span>
+                      ) : (
+                        <Link
+                          href={`/dashboard/cotizaciones/${rev.id}`}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Ver
+                        </Link>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Info cards */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">

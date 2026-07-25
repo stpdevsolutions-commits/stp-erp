@@ -1,6 +1,7 @@
 import * as React from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Inbox } from 'lucide-react'
+import { Inbox, ArrowRight } from 'lucide-react'
 
 /**
  * Marco común de todas las gráficas del dashboard.
@@ -40,12 +41,34 @@ export function ChartLegend({ items }: { items: LegendItem[] }) {
   )
 }
 
-export function ChartEmpty({ message, hint }: { message: string; hint?: string }) {
+export interface EmptyAction {
+  label: string
+  href: string
+}
+
+export function ChartEmpty({
+  message,
+  hint,
+  action,
+}: {
+  message: string
+  hint?: string
+  action?: EmptyAction
+}) {
   return (
     <div className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/70 px-6 py-8 text-center">
       <Inbox className="size-5 text-muted-foreground/70" aria-hidden="true" />
       <p className="text-sm font-medium text-muted-foreground">{message}</p>
       {hint && <p className="max-w-xs text-xs text-muted-foreground/80">{hint}</p>}
+      {action && (
+        <Link
+          href={action.href}
+          className="mt-1 inline-flex items-center gap-1 rounded-md text-xs font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {action.label}
+          <ArrowRight className="size-3.5" aria-hidden="true" />
+        </Link>
+      )}
     </div>
   )
 }
@@ -116,7 +139,7 @@ export function ChartFrame({
   subtitle?: string
   legend?: LegendItem[]
   action?: React.ReactNode
-  empty: { message: string; hint?: string }
+  empty: { message: string; hint?: string; action?: EmptyAction }
   hasData: boolean
   table?: { caption: string; head: string[]; rows: (string | number)[][] }
   children: React.ReactNode

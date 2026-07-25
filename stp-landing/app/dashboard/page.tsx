@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import Link from 'next/link'
 import { api } from '@/lib/api'
 import type {
   Project,
@@ -34,6 +35,7 @@ import { QuotesAging } from '@/components/charts/quotes-aging'
 import { ProjectsMix } from '@/components/charts/projects-mix'
 import { ExpensesByCategory } from '@/components/charts/expenses-by-category'
 import { ReceivablesMeter } from '@/components/charts/receivables-meter'
+import { PendingActions } from '@/components/charts/pending-actions'
 
 const PRIORITY_VARIANTS: Record<Task['priority'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
   low: 'outline',
@@ -116,65 +118,93 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Fila de indicadores */}
+      {/* Fila de indicadores — cada tarjeta lleva a su registro */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Clientes</CardTitle>
-            <Users className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalClientes}</div>
-            <p className="text-xs text-muted-foreground mt-1">en total</p>
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/clientes" className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Card className="h-full transition-colors hover:bg-accent/40">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+              <Users className="size-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalClientes}</div>
+              <p className="text-xs text-muted-foreground mt-1">en total</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Proyectos en curso</CardTitle>
-            <FolderKanban className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{proyectosEnCurso}</div>
-            <p className="text-xs text-muted-foreground mt-1">activos ahora</p>
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/proyectos" className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Card className="h-full transition-colors hover:bg-accent/40">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Proyectos en curso</CardTitle>
+              <FolderKanban className="size-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{proyectosEnCurso}</div>
+              <p className="text-xs text-muted-foreground mt-1">activos ahora</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Tareas vencidas</CardTitle>
-            <CheckSquare className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${tareasVencidas > 0 ? 'text-destructive' : ''}`}>
-              {tareasVencidas}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {tareasVencidas > 0 ? (
-                <span className="text-destructive">requieren atención</span>
-              ) : (
-                'sin vencidas'
-              )}
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/tareas" className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Card className="h-full transition-colors hover:bg-accent/40">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Tareas vencidas</CardTitle>
+              <CheckSquare className="size-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${tareasVencidas > 0 ? 'text-destructive' : ''}`}>
+                {tareasVencidas}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {tareasVencidas > 0 ? (
+                  <span className="text-destructive">requieren atención</span>
+                ) : (
+                  'sin vencidas'
+                )}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Balance del mes</CardTitle>
-            <Scale className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold tabular-nums">{DOP.format(balanceMes)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {DOP.format(cobrosEsteMes)} cobrados − {DOP.format(gastosEsteMes)} gastados
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/pagos" className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Card className="h-full transition-colors hover:bg-accent/40">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Balance del mes</CardTitle>
+              <Scale className="size-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`text-lg font-bold tabular-nums ${
+                  balanceMes > 0
+                    ? 'text-green-700 dark:text-green-400'
+                    : balanceMes < 0
+                      ? 'text-destructive'
+                      : ''
+                }`}
+              >
+                {DOP.format(balanceMes)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                {DOP.format(cobrosEsteMes)} cobrados
+                <br className="sm:hidden" />
+                <span className="hidden sm:inline"> − </span>
+                <span className="sm:hidden">menos </span>
+                {DOP.format(gastosEsteMes)} gastados
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {analytics ? (
         <>
+          <PendingActions
+            receivables={analytics.receivables}
+            aging={analytics.quotesAging}
+            overdueTasks={dashReport?.tasks.overdue ?? tareasVencidas}
+          />
+
           <ReceivablesMeter receivables={analytics.receivables} />
 
           <IncomeVsExpenses

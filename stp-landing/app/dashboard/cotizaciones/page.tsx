@@ -154,12 +154,19 @@ export default async function CotizacionesPage({
                   cotizaciones.map((q) => (
                     <TableRow key={q.id}>
                       <TableCell className="font-mono text-sm">
-                        <Link
-                          href={`/dashboard/cotizaciones/${q.id}`}
-                          className="hover:underline text-primary"
-                        >
-                          {q.number}
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <Link
+                            href={`/dashboard/cotizaciones/${q.id}`}
+                            className="hover:underline text-primary"
+                          >
+                            {q.baseNumber ?? q.number}
+                          </Link>
+                          {q.revision > 1 && (
+                            <Badge className="bg-primary/10 text-primary text-[10px] px-1.5 py-0">
+                              Rev. {q.revision}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="font-medium">
                         <div>{q.title}</div>

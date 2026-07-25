@@ -41,6 +41,17 @@ export interface IndirectCost {
   taxable?: boolean;
 }
 
+/** Resumen ligero de una revisión, para el historial del detalle. */
+export interface QuoteRevisionSummary {
+  id: string;
+  number: string;
+  revision: number;
+  status: QuoteStatus;
+  total: number;
+  createdAt: Date;
+  supersededById: string | null;
+}
+
 @Entity('quotes')
 export class Quote {
   @PrimaryGeneratedColumn('uuid')
@@ -48,6 +59,28 @@ export class Quote {
 
   @Column({ unique: true })
   number: string;
+
+  /**
+   * Número base legible compartido por toda la familia de revisiones
+   * (p. ej. `COT-2026-001`). En la revisión 1 coincide con `number`; en las
+   * revisiones posteriores `number` lleva el sufijo `-R{n}` pero `baseNumber`
+   * permanece constante. Es la clave de agrupación de la familia.
+   */
+  @Column()
+  baseNumber: string;
+
+  /** Número de revisión dentro de la familia. 1 = original. */
+  @Column({ type: 'int', default: 1 })
+  revision: number;
+
+  /**
+   * Si está presente, esta cotización fue REEMPLAZADA por la revisión indicada
+   * y queda como documento histórico: no puede reenviarse, aprobarse ni
+   * rechazarse. La revisión vigente de una familia es la que tiene
+   * `supersededById = null`.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  supersededById: string;
 
   @Column()
   title: string;
@@ -129,6 +162,12 @@ export class Quote {
 
   @OneToMany(() => QuoteItem, (item) => item.quote, { cascade: true })
   items: QuoteItem[];
+
+  /**
+   * Resumen de todas las revisiones de la familia (no es una columna: lo
+   * rellena `findOne()` para el historial del detalle). Ordenado por revisión.
+   */
+  revisions?: QuoteRevisionSummary[];
 
   @CreateDateColumn()
   createdAt: Date;

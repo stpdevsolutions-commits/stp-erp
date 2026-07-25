@@ -12,7 +12,8 @@ import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { join, relative } from 'path';
 import { mkdirSync, statSync, existsSync, unlink } from 'fs';
-import { Quote, QuoteStatus, IndirectCost } from './entities/quote.entity';
+import { Quote, QuoteStatus, IndirectCost, QuoteRevisionSummary } from './entities/quote.entity';
+import { isRevisableStatus, revisionNumber } from './quote-revision';
 import { QuoteItem } from './entities/quote-item.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Project, ProjectStatus, ProjectType } from '../projects/entities/project.entity';
@@ -149,6 +150,12 @@ export class QuotesService implements OnModuleInit {
       return { kind: 'already', status: quote.status, quoteNumber: quote.number };
     }
 
+    // Reemplazada por una revisión posterior: el enlace del correo viejo ya no
+    // decide sobre este documento histórico.
+    if (quote.supersededById) {
+      return { kind: 'not-sent', quoteNumber: quote.number };
+    }
+
     // Solo se puede decidir sobre cotizaciones enviadas.
     if (quote.status !== QuoteStatus.SENT) {
       return { kind: 'not-sent', quoteNumber: quote.number };
@@ -275,7 +282,13 @@ export class QuotesService implements OnModuleInit {
     const number = await this.generateNumber();
     const { items: itemDtos, ...quoteData } = dto;
 
-    const quote = this.quotesRepository.create({ ...quoteData, number, createdById });
+    const quote = this.quotesRepository.create({
+      ...quoteData,
+      number,
+      baseNumber: number,
+      revision: 1,
+      createdById,
+    });
     if (dto.status === QuoteStatus.SENT) quote.sentAt = new Date();
     const saved = await this.quotesRepository.save(quote);
 
@@ -342,6 +355,12 @@ export class QuotesService implements OnModuleInit {
     if (clientId) qb.andWhere('quote.clientId = :clientId', { clientId });
     if (projectId) qb.andWhere('quote.projectId = :projectId', { projectId });
 
+    // Por defecto el listado muestra solo la revisión VIGENTE de cada familia
+    // (las reemplazadas quedan como historial, accesibles desde el detalle).
+    if (!query.includeSuperseded) {
+      qb.andWhere('quote.supersededById IS NULL');
+    }
+
     await this.access.applyScope(qb, user, {
       projectExpr: 'quote.projectId',
       clientExpr: 'quote.clientId',
@@ -358,7 +377,34 @@ export class QuotesService implements OnModuleInit {
       order: { items: { sortOrder: 'ASC' } },
     });
     if (!quote) throw new NotFoundException('Quote not found');
+    quote.revisions = await this.getRevisionHistory(quote.baseNumber);
     return quote;
+  }
+
+  /** Historial de la familia (todas las revisiones que comparten baseNumber). */
+  private async getRevisionHistory(baseNumber: string): Promise<QuoteRevisionSummary[]> {
+    const rows = await this.quotesRepository.find({
+      where: { baseNumber },
+      select: {
+        id: true,
+        number: true,
+        revision: true,
+        status: true,
+        total: true,
+        createdAt: true,
+        supersededById: true,
+      },
+      order: { revision: 'ASC' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      number: r.number,
+      revision: r.revision,
+      status: r.status,
+      total: r.total,
+      createdAt: r.createdAt,
+      supersededById: r.supersededById ?? null,
+    }));
   }
 
   async update(id: string, dto: UpdateQuoteDto, userRole?: UserRole): Promise<Quote> {
@@ -458,6 +504,7 @@ export class QuotesService implements OnModuleInit {
 
   async sendEmail(id: string): Promise<void> {
     const quote = await this.findOne(id);
+    this.assertNotSuperseded(quote);
     if (!quote.client?.email) {
       throw new BadRequestException('El cliente no tiene email registrado');
     }
@@ -495,6 +542,7 @@ export class QuotesService implements OnModuleInit {
 
   async convertToProject(id: string, createdById: string): Promise<Project> {
     const quote = await this.findOne(id);
+    this.assertNotSuperseded(quote);
 
     if (quote.status !== QuoteStatus.APPROVED) {
       throw new BadRequestException('Solo se pueden convertir cotizaciones aprobadas');
@@ -528,6 +576,89 @@ export class QuotesService implements OnModuleInit {
     await this.quotesRepository.save(quote);
 
     return saved;
+  }
+
+  /**
+   * Emite una REVISIÓN (rev.N+1) de una cotización sin perder la original.
+   * - Solo se puede revisar la cotización VIGENTE de la familia (no una ya
+   *   reemplazada) y solo desde un estado revisable (sent/approved/rejected/
+   *   expired). Una DRAFT se edita directamente.
+   * - Clona items, gastos indirectos, términos, descuento, taxRate, validUntil,
+   *   cliente y proyecto a un nuevo Quote en estado DRAFT, con el seguimiento
+   *   comercial REINICIADO (sentAt/decidedAt/recordatorios en cero).
+   * - Marca la original como reemplazada (`supersededById` → nueva revisión).
+   */
+  async revise(id: string, createdById: string): Promise<Quote> {
+    const origin = await this.findOne(id);
+
+    if (origin.supersededById) {
+      throw new UnprocessableEntityException(
+        'Esta cotización ya fue reemplazada por una revisión posterior; revisa la versión vigente.',
+      );
+    }
+    if (!isRevisableStatus(origin.status)) {
+      throw new UnprocessableEntityException(
+        'Solo se puede revisar una cotización enviada, aprobada, rechazada o expirada. Una cotización en borrador se edita directamente.',
+      );
+    }
+
+    const nextRevision = origin.revision + 1;
+    const number = revisionNumber(origin.baseNumber, nextRevision);
+
+    // Clon profundo de los gastos indirectos (el backend recalcula amounts).
+    const indirectCosts = Array.isArray(origin.indirectCosts)
+      ? origin.indirectCosts.map((c) => ({ ...c }))
+      : origin.indirectCosts;
+
+    const revision = this.quotesRepository.create({
+      number,
+      baseNumber: origin.baseNumber,
+      revision: nextRevision,
+      title: origin.title,
+      status: QuoteStatus.DRAFT,
+      clientId: origin.clientId,
+      projectId: origin.projectId ?? undefined,
+      createdById,
+      validUntil: origin.validUntil,
+      taxRate: origin.taxRate,
+      discount: origin.discount,
+      indirectCosts,
+      notes: origin.notes,
+      terms: origin.terms,
+      // Seguimiento comercial reiniciado: sentAt/decidedAt/reminderCount, etc.
+      // quedan en sus defaults (null/0) — la revisión aún no se ha enviado.
+    });
+    const saved = await this.quotesRepository.save(revision);
+
+    if (origin.items?.length) {
+      const items = origin.items.map((it) =>
+        this.itemsRepository.create({
+          quoteId: saved.id,
+          description: it.description,
+          unit: it.unit,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          discountPct: it.discountPct,
+          total: it.total,
+          sectionName: it.sectionName,
+          sortOrder: it.sortOrder,
+        }),
+      );
+      await this.itemsRepository.save(items);
+    }
+    await this.recalculate(saved.id);
+
+    // La original queda como documento histórico reemplazado.
+    origin.supersededById = saved.id;
+    await this.quotesRepository.save(origin);
+
+    const result = await this.findOne(saved.id);
+
+    await this.savePdfForQuote(result).catch((err: Error) =>
+      this.logger.error(`PDF generation failed for revision ${result.id}: ${err.message}`),
+    );
+
+    return result;
   }
 
   // ── Items ──────────────────────────────────────────────────────────────────
@@ -707,9 +838,22 @@ export class QuotesService implements OnModuleInit {
   }
 
   private assertEditable(quote: Quote, userRole?: UserRole): void {
+    this.assertNotSuperseded(quote);
     if (userRole === UserRole.ADMIN) return;
     if (quote.status === QuoteStatus.APPROVED || quote.status === QuoteStatus.REJECTED) {
       throw new UnprocessableEntityException('Approved or rejected quotes cannot be modified');
+    }
+  }
+
+  /**
+   * Una cotización reemplazada es un documento histórico: no puede editarse,
+   * reenviarse, aprobarse ni rechazarse. Aplica a todos los roles.
+   */
+  private assertNotSuperseded(quote: Quote): void {
+    if (quote.supersededById) {
+      throw new UnprocessableEntityException(
+        'Esta cotización fue reemplazada por una revisión posterior y no puede modificarse ni reenviarse.',
+      );
     }
   }
 

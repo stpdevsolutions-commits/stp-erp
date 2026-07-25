@@ -32,6 +32,7 @@ export function ExpensesByCategory({
       empty={{
         message: 'Aún no hay gastos registrados',
         hint: 'Al registrar gastos por proyecto (materiales, mano de obra, equipos, subcontratos…) esta gráfica muestra en qué se va el dinero.',
+        action: { label: 'Ir a Gastos', href: '/dashboard/gastos' },
       }}
       table={{
         caption: 'Gastos por categoría',
