@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
+import { AccessControlService } from '../common/access/access-control.service';
+import type { AccessSubject } from '../common/access/access-policy';
 import { Client } from '../clients/entities/client.entity';
 import { Project, ProjectStatus, ProjectType } from '../projects/entities/project.entity';
 import { Task } from '../tasks/entities/task.entity';
@@ -48,6 +50,9 @@ const int = (v: unknown): number => {
 const pct = (part: number, whole: number): number | null =>
   whole > 0 ? parseFloat(((part / whole) * 100).toFixed(1)) : null;
 
+/** UUID imposible: fuerza a 0 filas cuando un USER no tiene ámbito (fail-closed). */
+const NO_MATCH_ID = '00000000-0000-0000-0000-000000000000';
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -67,14 +72,153 @@ export class ReportsService {
     private readonly fichasRepo: Repository<Ficha>,
     @InjectRepository(Collaborator)
     private readonly collaboratorsRepo: Repository<Collaborator>,
+    private readonly access: AccessControlService,
   ) {}
 
-  async getDashboard() {
+  // ── Acotación por pertenencia ───────────────────────────────────────────────
+  //
+  // Todos los reportes se filtran con EXACTAMENTE el mismo criterio que el
+  // listado de cada módulo (ya en producción), para que un USER vea en el
+  // dashboard justo lo que ve en /quotes, /payments, etc. — ni un peso de más.
+  // ADMIN/MANAGER: `getListScope` devuelve null y estos helpers no filtran.
+
+  /** quotes y payments: `alias.projectId` / `alias.clientId`. */
+  private scopeProjectClient<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    user?: AccessSubject,
+  ): Promise<SelectQueryBuilder<T>> {
+    return this.access.applyScope(qb, user, {
+      projectExpr: `${qb.alias}.projectId`,
+      clientExpr: `${qb.alias}.clientId`,
+    });
+  }
+
+  /** projects: `alias.id` / `alias.clientId`. */
+  private scopeProjects<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    user?: AccessSubject,
+  ): Promise<SelectQueryBuilder<T>> {
+    return this.access.applyScope(qb, user, {
+      projectExpr: `${qb.alias}.id`,
+      clientExpr: `${qb.alias}.clientId`,
+    });
+  }
+
+  /** expenses: `alias.projectId` / `project.clientId` — REQUIERE join a `project`. */
+  private scopeExpenses<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    user?: AccessSubject,
+  ): Promise<SelectQueryBuilder<T>> {
+    return this.access.applyScope(qb, user, {
+      projectExpr: `${qb.alias}.projectId`,
+      clientExpr: 'project.clientId',
+    });
+  }
+
+  /** clientes: visibles = miembro explícito ∪ clientes de proyectos asignados. */
+  private async scopeClients<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    user?: AccessSubject,
+  ): Promise<SelectQueryBuilder<T>> {
+    const scope = await this.access.getListScope(user);
+    if (!scope) return qb;
+    const ids = scope.visibleClientIds.length ? scope.visibleClientIds : [NO_MATCH_ID];
+    return qb.andWhere(`${qb.alias}.id IN (:...acVisibleClientIds)`, {
+      acVisibleClientIds: ids,
+    });
+  }
+
+  /**
+   * tareas: mismo criterio que TasksService — proyecto/cliente asignado, o
+   * tarea asignada a / creada por el usuario (una tarea propia no se pierde
+   * aunque esté en un proyecto donde no es miembro).
+   */
+  private async scopeTasks<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    user?: AccessSubject,
+  ): Promise<SelectQueryBuilder<T>> {
+    const scope = await this.access.getListScope(user);
+    if (!scope) return qb;
+
+    const conditions: string[] = [];
+    const params: Record<string, unknown> = {};
+    if (user?.id) {
+      conditions.push(`${qb.alias}.assignedToId = :acTaskUser`);
+      conditions.push(`${qb.alias}.createdById = :acTaskUser`);
+      params.acTaskUser = user.id;
+    }
+    if (scope.projectIds.length > 0) {
+      conditions.push(`${qb.alias}.projectId IN (:...acTaskProjects)`);
+      params.acTaskProjects = scope.projectIds;
+    }
+    if (conditions.length === 0) return qb.andWhere('1 = 0');
+    return qb.andWhere(`(${conditions.join(' OR ')})`, params);
+  }
+
+  /** fichas: un USER ve solo las suyas (technicianId), igual que /fichas. */
+  private async scopeFichas<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    user?: AccessSubject,
+  ): Promise<SelectQueryBuilder<T>> {
+    const scope = await this.access.getListScope(user);
+    if (!scope) return qb;
+    if (!user?.id) return qb.andWhere('1 = 0');
+    return qb.andWhere(`${qb.alias}.technicianId = :acFichaUser`, {
+      acFichaUser: user.id,
+    });
+  }
+
+  async getDashboard(user?: AccessSubject) {
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       .toISOString()
       .split('T')[0];
     const today = now.toISOString().split('T')[0];
+
+    const clientsQb = this.clientsRepo
+      .createQueryBuilder('client')
+      .where('client.isActive = :active', { active: true });
+    await this.scopeClients(clientsQb, user);
+
+    const projectsQb = this.projectsRepo
+      .createQueryBuilder('p')
+      .select('p.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('p.status');
+    await this.scopeProjects(projectsQb, user);
+
+    const quotesQb = this.quotesRepo
+      .createQueryBuilder('q')
+      .select('q.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('COALESCE(SUM(q.total), 0)', 'totalAmount')
+      .groupBy('q.status');
+    await this.scopeProjectClient(quotesQb, user);
+
+    const expensesQb = this.expensesRepo
+      .createQueryBuilder('e')
+      .leftJoin('e.project', 'project')
+      .select('COALESCE(SUM(e.amount), 0)', 'total')
+      .where('e.date >= :from AND e.date <= :to', { from: firstOfMonth, to: today });
+    await this.scopeExpenses(expensesQb, user);
+
+    const paymentsQb = this.paymentsRepo
+      .createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'total')
+      .where('p.date >= :from AND p.date <= :to AND p.status = :status', {
+        from: firstOfMonth,
+        to: today,
+        status: PaymentStatus.COMPLETED,
+      });
+    await this.scopeProjectClient(paymentsQb, user);
+
+    const overdueQb = this.tasksRepo
+      .createQueryBuilder('t')
+      .where('t.dueDate < :today AND t.status NOT IN (:...done)', {
+        today,
+        done: ['done', 'cancelled'],
+      });
+    await this.scopeTasks(overdueQb, user);
 
     const [
       totalClients,
@@ -84,46 +228,12 @@ export class ReportsService {
       paymentsThisMonth,
       overdueTasksCount,
     ] = await Promise.all([
-      this.clientsRepo.countBy({ isActive: true }),
-
-      this.projectsRepo
-        .createQueryBuilder('p')
-        .select('p.status', 'status')
-        .addSelect('COUNT(*)', 'count')
-        .groupBy('p.status')
-        .getRawMany(),
-
-      this.quotesRepo
-        .createQueryBuilder('q')
-        .select('q.status', 'status')
-        .addSelect('COUNT(*)', 'count')
-        .addSelect('COALESCE(SUM(q.total), 0)', 'totalAmount')
-        .groupBy('q.status')
-        .getRawMany(),
-
-      this.expensesRepo
-        .createQueryBuilder('e')
-        .select('COALESCE(SUM(e.amount), 0)', 'total')
-        .where('e.date >= :from AND e.date <= :to', { from: firstOfMonth, to: today })
-        .getRawOne(),
-
-      this.paymentsRepo
-        .createQueryBuilder('p')
-        .select('COALESCE(SUM(p.amount), 0)', 'total')
-        .where('p.date >= :from AND p.date <= :to AND p.status = :status', {
-          from: firstOfMonth,
-          to: today,
-          status: PaymentStatus.COMPLETED,
-        })
-        .getRawOne(),
-
-      this.tasksRepo
-        .createQueryBuilder('t')
-        .where('t.dueDate < :today AND t.status NOT IN (:...done)', {
-          today,
-          done: ['done', 'cancelled'],
-        })
-        .getCount(),
+      clientsQb.getCount(),
+      projectsQb.getRawMany(),
+      quotesQb.getRawMany(),
+      expensesQb.getRawOne<{ total: string }>(),
+      paymentsQb.getRawOne<{ total: string }>(),
+      overdueQb.getCount(),
     ]);
 
     return {
@@ -139,8 +249,8 @@ export class ReportsService {
         }),
         {} as Record<string, { count: number; amount: number }>,
       ),
-      expenses: { thisMonth: parseFloat(expensesThisMonth.total) },
-      payments: { thisMonth: parseFloat(paymentsThisMonth.total) },
+      expenses: { thisMonth: num(expensesThisMonth?.total) },
+      payments: { thisMonth: num(paymentsThisMonth?.total) },
       tasks: { overdue: overdueTasksCount },
     };
   }
@@ -154,7 +264,7 @@ export class ReportsService {
    *
    * @param months ventana de meses hacia atrás (incluye el mes actual)
    */
-  async getAnalytics(months = 6) {
+  async getAnalytics(months = 6, user?: AccessSubject) {
     const span = Math.min(Math.max(Math.trunc(months) || 6, 1), 24);
     const now = new Date();
     const today = now.toISOString().split('T')[0];
@@ -172,6 +282,108 @@ export class ReportsService {
     }
     const windowStart = `${axis[0].month}-01`;
 
+    // Ingresos por mes (pagos completados)
+    const incomeQb = this.paymentsRepo
+      .createQueryBuilder('p')
+      .select("to_char(p.date, 'YYYY-MM')", 'month')
+      .addSelect('COALESCE(SUM(p.amount), 0)', 'total')
+      .where('p.date >= :from AND p.status = :status', {
+        from: windowStart,
+        status: PaymentStatus.COMPLETED,
+      })
+      .groupBy("to_char(p.date, 'YYYY-MM')");
+    await this.scopeProjectClient(incomeQb, user);
+
+    // Gastos por mes
+    const expenseQb = this.expensesRepo
+      .createQueryBuilder('e')
+      .leftJoin('e.project', 'project')
+      .select("to_char(e.date, 'YYYY-MM')", 'month')
+      .addSelect('COALESCE(SUM(e.amount), 0)', 'total')
+      .where('e.date >= :from', { from: windowStart })
+      .groupBy("to_char(e.date, 'YYYY-MM')");
+    await this.scopeExpenses(expenseQb, user);
+
+    // Cotizaciones por estado (todas, para el embudo)
+    const quotesStatusQb = this.quotesRepo
+      .createQueryBuilder('q')
+      .select('q.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('COALESCE(SUM(q.total), 0)', 'total')
+      .groupBy('q.status');
+    await this.scopeProjectClient(quotesStatusQb, user);
+
+    // Tiempo medio de respuesta del cliente (solo donde hay ambas marcas)
+    const quotesResponseQb = this.quotesRepo
+      .createQueryBuilder('q')
+      .select('AVG(EXTRACT(EPOCH FROM (q.decidedAt - q.sentAt)) / 86400)', 'avgDays')
+      .addSelect('COUNT(*)', 'count')
+      .where('q.sentAt IS NOT NULL AND q.decidedAt IS NOT NULL');
+    await this.scopeProjectClient(quotesResponseQb, user);
+
+    // Cotizaciones enviadas esperando respuesta, con su antigüedad en días
+    const pendingQuotesQb = this.quotesRepo
+      .createQueryBuilder('q')
+      .leftJoin('q.client', 'client')
+      .select('q.id', 'id')
+      .addSelect('q.number', 'number')
+      .addSelect('q.total', 'total')
+      .addSelect('q.reminderCount', 'reminderCount')
+      .addSelect('client.name', 'clientName')
+      .addSelect(
+        'GREATEST(0, DATE_PART(\'day\', now() - COALESCE(q.sentAt, q.createdAt)))',
+        'ageDays',
+      )
+      .where('q.status = :status', { status: QuoteStatus.SENT })
+      .orderBy('COALESCE(q.sentAt, q.createdAt)', 'ASC');
+    await this.scopeProjectClient(pendingQuotesQb, user);
+
+    // Proyectos: tabla cruzada tipo × estado
+    const projectRowsQb = this.projectsRepo
+      .createQueryBuilder('p')
+      .select('p.type', 'type')
+      .addSelect('p.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('p.type')
+      .addGroupBy('p.status');
+    await this.scopeProjects(projectRowsQb, user);
+
+    // Gastos por categoría dentro de la ventana
+    const expensesByCategoryQb = this.expensesRepo
+      .createQueryBuilder('e')
+      .leftJoin('e.project', 'project')
+      .select('e.category', 'category')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('COALESCE(SUM(e.amount), 0)', 'total')
+      .where('e.date >= :from', { from: windowStart })
+      .groupBy('e.category')
+      .orderBy('SUM(e.amount)', 'DESC');
+    await this.scopeExpenses(expensesByCategoryQb, user);
+
+    // Cartera: monto aprobado en cotizaciones
+    const approvedQuotesQb = this.quotesRepo
+      .createQueryBuilder('q')
+      .select('COALESCE(SUM(q.total), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('q.status = :status', { status: QuoteStatus.APPROVED });
+    await this.scopeProjectClient(approvedQuotesQb, user);
+
+    // Cartera: cobrado (pagos completados, histórico)
+    const collectedPaymentsQb = this.paymentsRepo
+      .createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('p.status = :status', { status: PaymentStatus.COMPLETED });
+    await this.scopeProjectClient(collectedPaymentsQb, user);
+
+    // Cartera: pagos registrados pero pendientes de confirmar
+    const pendingPaymentsQb = this.paymentsRepo
+      .createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('p.status = :status', { status: PaymentStatus.PENDING });
+    await this.scopeProjectClient(pendingPaymentsQb, user);
+
     const [
       incomeRows,
       expenseRows,
@@ -184,108 +396,16 @@ export class ReportsService {
       collectedPayments,
       pendingPaymentsRow,
     ] = await Promise.all([
-      // Ingresos por mes (pagos completados)
-      this.paymentsRepo
-        .createQueryBuilder('p')
-        .select("to_char(p.date, 'YYYY-MM')", 'month')
-        .addSelect('COALESCE(SUM(p.amount), 0)', 'total')
-        .where('p.date >= :from AND p.status = :status', {
-          from: windowStart,
-          status: PaymentStatus.COMPLETED,
-        })
-        .groupBy("to_char(p.date, 'YYYY-MM')")
-        .getRawMany(),
-
-      // Gastos por mes
-      this.expensesRepo
-        .createQueryBuilder('e')
-        .select("to_char(e.date, 'YYYY-MM')", 'month')
-        .addSelect('COALESCE(SUM(e.amount), 0)', 'total')
-        .where('e.date >= :from', { from: windowStart })
-        .groupBy("to_char(e.date, 'YYYY-MM')")
-        .getRawMany(),
-
-      // Cotizaciones por estado (todas, para el embudo)
-      this.quotesRepo
-        .createQueryBuilder('q')
-        .select('q.status', 'status')
-        .addSelect('COUNT(*)', 'count')
-        .addSelect('COALESCE(SUM(q.total), 0)', 'total')
-        .groupBy('q.status')
-        .getRawMany(),
-
-      // Tiempo medio de respuesta del cliente (solo donde hay ambas marcas)
-      this.quotesRepo
-        .createQueryBuilder('q')
-        .select(
-          'AVG(EXTRACT(EPOCH FROM (q.decidedAt - q.sentAt)) / 86400)',
-          'avgDays',
-        )
-        .addSelect('COUNT(*)', 'count')
-        .where('q.sentAt IS NOT NULL AND q.decidedAt IS NOT NULL')
-        .getRawOne(),
-
-      // Cotizaciones enviadas esperando respuesta, con su antigüedad en días
-      this.quotesRepo
-        .createQueryBuilder('q')
-        .leftJoin('q.client', 'client')
-        .select('q.id', 'id')
-        .addSelect('q.number', 'number')
-        .addSelect('q.total', 'total')
-        .addSelect('q.reminderCount', 'reminderCount')
-        .addSelect('client.name', 'clientName')
-        .addSelect(
-          'GREATEST(0, DATE_PART(\'day\', now() - COALESCE(q.sentAt, q.createdAt)))',
-          'ageDays',
-        )
-        .where('q.status = :status', { status: QuoteStatus.SENT })
-        .orderBy('COALESCE(q.sentAt, q.createdAt)', 'ASC')
-        .getRawMany(),
-
-      // Proyectos: tabla cruzada tipo × estado
-      this.projectsRepo
-        .createQueryBuilder('p')
-        .select('p.type', 'type')
-        .addSelect('p.status', 'status')
-        .addSelect('COUNT(*)', 'count')
-        .groupBy('p.type')
-        .addGroupBy('p.status')
-        .getRawMany(),
-
-      // Gastos por categoría dentro de la ventana
-      this.expensesRepo
-        .createQueryBuilder('e')
-        .select('e.category', 'category')
-        .addSelect('COUNT(*)', 'count')
-        .addSelect('COALESCE(SUM(e.amount), 0)', 'total')
-        .where('e.date >= :from', { from: windowStart })
-        .groupBy('e.category')
-        .orderBy('SUM(e.amount)', 'DESC')
-        .getRawMany(),
-
-      // Cartera: monto aprobado en cotizaciones
-      this.quotesRepo
-        .createQueryBuilder('q')
-        .select('COALESCE(SUM(q.total), 0)', 'total')
-        .addSelect('COUNT(*)', 'count')
-        .where('q.status = :status', { status: QuoteStatus.APPROVED })
-        .getRawOne(),
-
-      // Cartera: cobrado (pagos completados, histórico)
-      this.paymentsRepo
-        .createQueryBuilder('p')
-        .select('COALESCE(SUM(p.amount), 0)', 'total')
-        .addSelect('COUNT(*)', 'count')
-        .where('p.status = :status', { status: PaymentStatus.COMPLETED })
-        .getRawOne(),
-
-      // Cartera: pagos registrados pero pendientes de confirmar
-      this.paymentsRepo
-        .createQueryBuilder('p')
-        .select('COALESCE(SUM(p.amount), 0)', 'total')
-        .addSelect('COUNT(*)', 'count')
-        .where('p.status = :status', { status: PaymentStatus.PENDING })
-        .getRawOne(),
+      incomeQb.getRawMany(),
+      expenseQb.getRawMany(),
+      quotesStatusQb.getRawMany(),
+      quotesResponseQb.getRawOne<{ avgDays: string; count: string }>(),
+      pendingQuotesQb.getRawMany(),
+      projectRowsQb.getRawMany(),
+      expensesByCategoryQb.getRawMany(),
+      approvedQuotesQb.getRawOne<{ total: string; count: string }>(),
+      collectedPaymentsQb.getRawOne<{ total: string; count: string }>(),
+      pendingPaymentsQb.getRawOne<{ total: string; count: string }>(),
     ]);
 
     // ── Ingresos vs gastos ────────────────────────────────────────────────
@@ -470,7 +590,11 @@ export class ReportsService {
     };
   }
 
-  async getProjectSummary(projectId: string) {
+  async getProjectSummary(projectId: string, user?: AccessSubject) {
+    // El acceso al proyecto lo garantiza el guard @ScopedResource('project');
+    // por defensa en profundidad se revalida aquí (404 si no procede).
+    await this.access.assertProjectAccess(user, projectId);
+
     const [project, tasksByStatus, expensesByCategory, expensesTotal, paymentsTotal] =
       await Promise.all([
         this.projectsRepo.findOne({
@@ -535,7 +659,11 @@ export class ReportsService {
     };
   }
 
-  async getClientBalance(clientId: string) {
+  async getClientBalance(clientId: string, user?: AccessSubject) {
+    // El acceso al cliente lo garantiza el guard @ScopedResource('client');
+    // se revalida aquí por defensa en profundidad.
+    await this.access.assertClientAccess(user, clientId);
+
     const [client, quotesByStatus, paymentsTotal, expensesTotal] = await Promise.all([
       this.clientsRepo.findOne({ where: { id: clientId } }),
 
@@ -590,72 +718,78 @@ export class ReportsService {
     };
   }
 
-  async getIncomeReport(from: string, to: string) {
+  async getIncomeReport(from: string, to: string, user?: AccessSubject) {
+    const byMethodQb = this.paymentsRepo
+      .createQueryBuilder('p')
+      .select('p.method', 'method')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('COALESCE(SUM(p.amount), 0)', 'total')
+      .where('p.date >= :from AND p.date <= :to AND p.status = :status', {
+        from, to, status: PaymentStatus.COMPLETED,
+      })
+      .groupBy('p.method');
+    await this.scopeProjectClient(byMethodQb, user);
+
+    const byProjectQb = this.paymentsRepo
+      .createQueryBuilder('p')
+      .leftJoin('p.project', 'project')
+      .leftJoin('p.client', 'client')
+      .select('p.id', 'id')
+      .addSelect('p.amount', 'amount')
+      .addSelect('p.date', 'date')
+      .addSelect('p.method', 'method')
+      .addSelect('project.name', 'projectName')
+      .addSelect('client.name', 'clientName')
+      .where('p.date >= :from AND p.date <= :to AND p.status = :status', {
+        from, to, status: PaymentStatus.COMPLETED,
+      })
+      .orderBy('p.date', 'DESC');
+    await this.scopeProjectClient(byProjectQb, user);
+
+    const totalQb = this.paymentsRepo
+      .createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('p.date >= :from AND p.date <= :to AND p.status = :status', {
+        from, to, status: PaymentStatus.COMPLETED,
+      });
+    await this.scopeProjectClient(totalQb, user);
+
+    const quotesApprovedQb = this.quotesRepo
+      .createQueryBuilder('q')
+      .select('COALESCE(SUM(q.total), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('q.status = :status', { status: QuoteStatus.APPROVED });
+    await this.scopeProjectClient(quotesApprovedQb, user);
+
+    const pendingPaymentsQb = this.paymentsRepo
+      .createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('p.status = :status', { status: PaymentStatus.PENDING });
+    await this.scopeProjectClient(pendingPaymentsQb, user);
+
     const [paymentsByMethod, paymentsByProject, paymentsTotal, quotesApproved, pendingPayments] =
       await Promise.all([
-        this.paymentsRepo
-          .createQueryBuilder('p')
-          .select('p.method', 'method')
-          .addSelect('COUNT(*)', 'count')
-          .addSelect('COALESCE(SUM(p.amount), 0)', 'total')
-          .where('p.date >= :from AND p.date <= :to AND p.status = :status', {
-            from, to, status: PaymentStatus.COMPLETED,
-          })
-          .groupBy('p.method')
-          .getRawMany(),
-
-        this.paymentsRepo
-          .createQueryBuilder('p')
-          .leftJoin('p.project', 'project')
-          .leftJoin('p.client', 'client')
-          .select('p.id', 'id')
-          .addSelect('p.amount', 'amount')
-          .addSelect('p.date', 'date')
-          .addSelect('p.method', 'method')
-          .addSelect('project.name', 'projectName')
-          .addSelect('client.name', 'clientName')
-          .where('p.date >= :from AND p.date <= :to AND p.status = :status', {
-            from, to, status: PaymentStatus.COMPLETED,
-          })
-          .orderBy('p.date', 'DESC')
-          .getRawMany(),
-
-        this.paymentsRepo
-          .createQueryBuilder('p')
-          .select('COALESCE(SUM(p.amount), 0)', 'total')
-          .addSelect('COUNT(*)', 'count')
-          .where('p.date >= :from AND p.date <= :to AND p.status = :status', {
-            from, to, status: PaymentStatus.COMPLETED,
-          })
-          .getRawOne(),
-
-        this.quotesRepo
-          .createQueryBuilder('q')
-          .select('COALESCE(SUM(q.total), 0)', 'total')
-          .addSelect('COUNT(*)', 'count')
-          .where('q.status = :status', { status: QuoteStatus.APPROVED })
-          .getRawOne(),
-
-        this.paymentsRepo
-          .createQueryBuilder('p')
-          .select('COALESCE(SUM(p.amount), 0)', 'total')
-          .addSelect('COUNT(*)', 'count')
-          .where('p.status = :status', { status: PaymentStatus.PENDING })
-          .getRawOne(),
+        byMethodQb.getRawMany(),
+        byProjectQb.getRawMany(),
+        totalQb.getRawOne<{ total: string; count: string }>(),
+        quotesApprovedQb.getRawOne<{ total: string; count: string }>(),
+        pendingPaymentsQb.getRawOne<{ total: string; count: string }>(),
       ]);
 
     return {
       period: { from, to },
       summary: {
-        total: parseFloat(paymentsTotal.total),
-        count: parseInt(paymentsTotal.count),
+        total: num(paymentsTotal?.total),
+        count: int(paymentsTotal?.count),
         quotesApproved: {
-          total: parseFloat(quotesApproved.total),
-          count: parseInt(quotesApproved.count),
+          total: num(quotesApproved?.total),
+          count: int(quotesApproved?.count),
         },
         pendingPayments: {
-          total: parseFloat(pendingPayments.total),
-          count: parseInt(pendingPayments.count),
+          total: num(pendingPayments?.total),
+          count: int(pendingPayments?.count),
         },
       },
       byMethod: paymentsByMethod.map((r) => ({
@@ -674,55 +808,63 @@ export class ReportsService {
     };
   }
 
-  async getExpensesReport(from: string, to: string) {
+  async getExpensesReport(from: string, to: string, user?: AccessSubject) {
+    const byCategoryQb = this.expensesRepo
+      .createQueryBuilder('e')
+      .leftJoin('e.project', 'project')
+      .select('e.category', 'category')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('COALESCE(SUM(e.amount), 0)', 'total')
+      .where('e.date >= :from AND e.date <= :to', { from, to })
+      .groupBy('e.category')
+      .orderBy('SUM(e.amount)', 'DESC');
+    await this.scopeExpenses(byCategoryQb, user);
+
+    const byProjectQb = this.expensesRepo
+      .createQueryBuilder('e')
+      .leftJoin('e.project', 'project')
+      .select('project.id', 'projectId')
+      .addSelect('project.name', 'projectName')
+      .addSelect('COALESCE(SUM(e.amount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('e.date >= :from AND e.date <= :to', { from, to })
+      .groupBy('project.id, project.name')
+      .orderBy('SUM(e.amount)', 'DESC');
+    await this.scopeExpenses(byProjectQb, user);
+
+    const totalQb = this.expensesRepo
+      .createQueryBuilder('e')
+      .leftJoin('e.project', 'project')
+      .select('COALESCE(SUM(e.amount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('e.date >= :from AND e.date <= :to', { from, to });
+    await this.scopeExpenses(totalQb, user);
+
+    const topSuppliersQb = this.expensesRepo
+      .createQueryBuilder('e')
+      .leftJoin('e.project', 'project')
+      .leftJoin('e.supplier', 'supplier')
+      .select('supplier.name', 'supplierName')
+      .addSelect('COALESCE(SUM(e.amount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('e.date >= :from AND e.date <= :to AND supplier.id IS NOT NULL', { from, to })
+      .groupBy('supplier.id, supplier.name')
+      .orderBy('SUM(e.amount)', 'DESC')
+      .limit(10);
+    await this.scopeExpenses(topSuppliersQb, user);
+
     const [byCategory, byProject, total, topSuppliers] = await Promise.all([
-      this.expensesRepo
-        .createQueryBuilder('e')
-        .select('e.category', 'category')
-        .addSelect('COUNT(*)', 'count')
-        .addSelect('COALESCE(SUM(e.amount), 0)', 'total')
-        .where('e.date >= :from AND e.date <= :to', { from, to })
-        .groupBy('e.category')
-        .orderBy('SUM(e.amount)', 'DESC')
-        .getRawMany(),
-
-      this.expensesRepo
-        .createQueryBuilder('e')
-        .leftJoin('e.project', 'project')
-        .select('project.id', 'projectId')
-        .addSelect('project.name', 'projectName')
-        .addSelect('COALESCE(SUM(e.amount), 0)', 'total')
-        .addSelect('COUNT(*)', 'count')
-        .where('e.date >= :from AND e.date <= :to', { from, to })
-        .groupBy('project.id, project.name')
-        .orderBy('SUM(e.amount)', 'DESC')
-        .getRawMany(),
-
-      this.expensesRepo
-        .createQueryBuilder('e')
-        .select('COALESCE(SUM(e.amount), 0)', 'total')
-        .addSelect('COUNT(*)', 'count')
-        .where('e.date >= :from AND e.date <= :to', { from, to })
-        .getRawOne(),
-
-      this.expensesRepo
-        .createQueryBuilder('e')
-        .leftJoin('e.supplier', 'supplier')
-        .select('supplier.name', 'supplierName')
-        .addSelect('COALESCE(SUM(e.amount), 0)', 'total')
-        .addSelect('COUNT(*)', 'count')
-        .where('e.date >= :from AND e.date <= :to AND supplier.id IS NOT NULL', { from, to })
-        .groupBy('supplier.id, supplier.name')
-        .orderBy('SUM(e.amount)', 'DESC')
-        .limit(10)
-        .getRawMany(),
+      byCategoryQb.getRawMany(),
+      byProjectQb.getRawMany(),
+      totalQb.getRawOne<{ total: string; count: string }>(),
+      topSuppliersQb.getRawMany(),
     ]);
 
     return {
       period: { from, to },
       summary: {
-        total: parseFloat(total.total),
-        count: parseInt(total.count),
+        total: num(total?.total),
+        count: int(total?.count),
       },
       byCategory: byCategory.map((r) => ({
         category: r.category,
@@ -743,58 +885,63 @@ export class ReportsService {
     };
   }
 
-  async getFichasReport(from: string, to: string) {
+  async getFichasReport(from: string, to: string, user?: AccessSubject) {
+    const byTypeQb = this.fichasRepo
+      .createQueryBuilder('f')
+      .select('f.type', 'type')
+      .addSelect('COUNT(*)', 'count')
+      .where('f.createdAt >= :from AND f.createdAt <= :to', { from, to: to + ' 23:59:59' })
+      .groupBy('f.type');
+    await this.scopeFichas(byTypeQb, user);
+
+    const byStatusQb = this.fichasRepo
+      .createQueryBuilder('f')
+      .select('f.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('f.createdAt >= :from AND f.createdAt <= :to', { from, to: to + ' 23:59:59' })
+      .groupBy('f.status');
+    await this.scopeFichas(byStatusQb, user);
+
+    const byTechnicianQb = this.fichasRepo
+      .createQueryBuilder('f')
+      .leftJoin('f.technician', 'user')
+      .select('user.id', 'userId')
+      .addSelect("CONCAT(user.firstName, ' ', user.lastName)", 'userName')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect(
+        `SUM(CASE WHEN f.status = '${FichaStatus.ENVIADA}' THEN 1 ELSE 0 END)`,
+        'enviadas',
+      )
+      .where('f.createdAt >= :from AND f.createdAt <= :to', { from, to: to + ' 23:59:59' })
+      .groupBy('user.id, user.firstName, user.lastName')
+      .orderBy('COUNT(*)', 'DESC');
+    await this.scopeFichas(byTechnicianQb, user);
+
+    const totalQb = this.fichasRepo
+      .createQueryBuilder('f')
+      .select('COUNT(*)', 'count')
+      .addSelect(
+        `SUM(CASE WHEN f.status = '${FichaStatus.ENVIADA}' THEN 1 ELSE 0 END)`,
+        'enviadas',
+      )
+      .where('f.createdAt >= :from AND f.createdAt <= :to', { from, to: to + ' 23:59:59' });
+    await this.scopeFichas(totalQb, user);
+
     const [byType, byStatus, byTechnician, total] = await Promise.all([
-      this.fichasRepo
-        .createQueryBuilder('f')
-        .select('f.type', 'type')
-        .addSelect('COUNT(*)', 'count')
-        .where('f.createdAt >= :from AND f.createdAt <= :to', { from, to: to + ' 23:59:59' })
-        .groupBy('f.type')
-        .getRawMany(),
-
-      this.fichasRepo
-        .createQueryBuilder('f')
-        .select('f.status', 'status')
-        .addSelect('COUNT(*)', 'count')
-        .where('f.createdAt >= :from AND f.createdAt <= :to', { from, to: to + ' 23:59:59' })
-        .groupBy('f.status')
-        .getRawMany(),
-
-      this.fichasRepo
-        .createQueryBuilder('f')
-        .leftJoin('f.technician', 'user')
-        .select('user.id', 'userId')
-        .addSelect("CONCAT(user.firstName, ' ', user.lastName)", 'userName')
-        .addSelect('COUNT(*)', 'count')
-        .addSelect(
-          `SUM(CASE WHEN f.status = '${FichaStatus.ENVIADA}' THEN 1 ELSE 0 END)`,
-          'enviadas',
-        )
-        .where('f.createdAt >= :from AND f.createdAt <= :to', { from, to: to + ' 23:59:59' })
-        .groupBy('user.id, user.firstName, user.lastName')
-        .orderBy('COUNT(*)', 'DESC')
-        .getRawMany(),
-
-      this.fichasRepo
-        .createQueryBuilder('f')
-        .select('COUNT(*)', 'count')
-        .addSelect(
-          `SUM(CASE WHEN f.status = '${FichaStatus.ENVIADA}' THEN 1 ELSE 0 END)`,
-          'enviadas',
-        )
-        .where('f.createdAt >= :from AND f.createdAt <= :to', { from, to: to + ' 23:59:59' })
-        .getRawOne(),
+      byTypeQb.getRawMany(),
+      byStatusQb.getRawMany(),
+      byTechnicianQb.getRawMany(),
+      totalQb.getRawOne<{ count: string; enviadas: string }>(),
     ]);
 
     return {
       period: { from, to },
       summary: {
-        total: parseInt(total.count),
-        enviadas: parseInt(total.enviadas),
+        total: int(total?.count),
+        enviadas: int(total?.enviadas),
         tasaEnvio:
-          parseInt(total.count) > 0
-            ? parseFloat(((parseInt(total.enviadas) / parseInt(total.count)) * 100).toFixed(1))
+          int(total?.count) > 0
+            ? parseFloat(((int(total?.enviadas) / int(total?.count)) * 100).toFixed(1))
             : 0,
       },
       byType: byType.map((r) => ({ type: r.type, count: parseInt(r.count) })),
