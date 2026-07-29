@@ -2,7 +2,7 @@
 
 **Empresa:** Soluciones Técnicas Profesionales (STP)  
 **Dominio principal:** stpsoluciones.com  
-**Servidor:** stp-server (Ubuntu 22.04.5 LTS) — IP local: 192.168.4.41 — VPN: 100.64.0.6  
+**Servidor:** stp-server (Ubuntu 22.04.5 LTS) — accesible por VPN (Headscale/Tailscale)  
 **Acceso:** Los servicios marcados con 🔒 requieren estar en la red Wi-Fi de la oficina o conectado al VPN (Headscale/Tailscale).
 
 ---
@@ -64,7 +64,7 @@
 
 | Campo | Detalle |
 |---|---|
-| **URL** | http://192.168.4.41:8091 |
+| **URL** | https://estructural.stpsoluciones.com |
 | **Acceso** | 🔒 VPN / Red local |
 | **Descripción** | Aplicación web de cálculo estructural bajo normativas dominicanas (NSRDom R-001), ACI 318-19, ACI 530-13 y ASCE 7-22. Diseñada para ingenieros estructurales. |
 
@@ -144,7 +144,7 @@
 |---|---|:---:|
 | Sitio Web | stpsoluciones.com | No |
 | ERP | erp.stpsoluciones.com | Sí |
-| EstrucCalc RD Pro | 192.168.4.41:8091 | Sí |
+| EstrucCalc RD Pro | estructural.stpsoluciones.com | Sí |
 | Nextcloud | cloud.stpsoluciones.com | Sí |
 | Vaultwarden | vault.stpsoluciones.com | Sí |
 | Uptime Kuma | status.stpsoluciones.com | Sí |

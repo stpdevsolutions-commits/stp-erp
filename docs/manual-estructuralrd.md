@@ -1,7 +1,7 @@
 # Manual de Usuario — EstrucCalc RD Pro
 
 **Aplicación:** EstrucCalc RD Pro  
-**URL:** http://192.168.4.41:8091  
+**URL:** https://estructural.stpsoluciones.com  
 **Acceso:** Red local de la oficina o VPN  
 **Normativas:** NSRDom R-001, ACI 318-19, ACI 530-13, ASCE 7-22  
 **Unidades:** kgf/cm², ton, cm, ton·m
@@ -10,7 +10,7 @@
 
 ## 1. Acceso
 
-1. Abre el navegador y entra a **http://192.168.4.41:8091**
+1. Abre el navegador y entra a **https://estructural.stpsoluciones.com**
 2. La aplicación carga directamente (no requiere usuario ni contraseña)
 3. En el menú lateral selecciona el módulo de cálculo que necesitas
 
