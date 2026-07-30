@@ -18,6 +18,10 @@ import { InventoryItem } from './inventory/entities/inventory-item.entity';
 import { AppSettings } from './settings/entities/app-settings.entity';
 import { ProjectMember } from './projects/entities/project-member.entity';
 import { ClientMember } from './clients/entities/client-member.entity';
+import { Unit } from './costs/entities/unit.entity';
+import { MaterialCategory } from './costs/entities/material-category.entity';
+import { Material } from './costs/entities/material.entity';
+import { MaterialPrice } from './costs/entities/material-price.entity';
 
 dotenv.config();
 
@@ -28,6 +32,7 @@ export const AppDataSource = new DataSource({
     User, Client, Project, Task, Quote, QuoteItem, Expense, Payment,
     Supplier, FileUpload, RefreshToken, Collaborator, Ficha, InventoryItem, AppSettings,
     ProjectMember, ClientMember,
+    Unit, MaterialCategory, Material, MaterialPrice,
   ],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
