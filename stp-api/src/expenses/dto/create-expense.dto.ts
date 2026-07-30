@@ -1,4 +1,14 @@
-import { IsString, IsOptional, IsEnum, IsUUID, IsNumber, IsDateString, MinLength, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsUUID,
+  IsNumber,
+  IsBoolean,
+  IsDateString,
+  MinLength,
+  Min,
+} from 'class-validator';
 import { ExpenseCategory } from '../entities/expense.entity';
 
 export class CreateExpenseDto {
@@ -13,12 +23,42 @@ export class CreateExpenseDto {
   @IsEnum(ExpenseCategory)
   category?: ExpenseCategory;
 
+  /** Opcional si se manda el desglose `quantity` + `unitPrice`: el servidor lo calcula. */
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
-  amount: number;
+  amount?: number;
 
   @IsDateString()
   date: string;
+
+  /**
+   * Desglose opcional. `quantity` y `unitPrice` van juntos o no van; si van, el
+   * servidor recalcula `amount`. Con `materialId` además se deriva un precio real de
+   * compra en el módulo de costos.
+   */
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0.0001)
+  quantity?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  unitPrice?: number;
+
+  @IsOptional()
+  @IsUUID()
+  unitId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  materialId?: string;
+
+  /** Si el unitario ya trae el ITBIS dentro. */
+  @IsOptional()
+  @IsBoolean()
+  itbisIncluded?: boolean;
 
   @IsOptional()
   @IsUUID()

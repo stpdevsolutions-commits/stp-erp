@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, LessThanOrEqual, MoreThanOrEqual, Between } from 'typeorm';
-import { MaterialPrice, PriceCurrency } from './entities/material-price.entity';
+import { MaterialPrice, PriceCurrency, PriceSource } from './entities/material-price.entity';
 import { Material } from './entities/material.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { CreateMaterialPriceDto } from './dto/create-material-price.dto';
@@ -18,6 +18,22 @@ import {
   currentPriceBySupplier,
   PriceSummary,
 } from './price-selection';
+import { yieldsPrice, derivedPriceChanged, DerivedPriceSnapshot } from './expense-price';
+
+/** Datos de un gasto necesarios para derivar su precio, sin acoplar a la entidad Expense. */
+export interface ExpenseDerivedPriceInput {
+  expenseId: string;
+  materialId?: string | null;
+  quantity?: number | null;
+  unitPrice?: number | null;
+  itbisIncluded?: boolean;
+  supplierId?: string | null;
+  /** Fecha del gasto (ISO). */
+  date: string;
+  registeredById?: string;
+  /** Descripción del gasto, para dejar rastro en las notas del precio. */
+  reference?: string;
+}
 
 export interface SupplierPriceRow {
   supplierId: string | null;
@@ -168,6 +184,100 @@ export class MaterialPricesService {
     price.voidedById = voidedById;
     price.voidReason = dto.reason;
     return this.pricesRepository.save(price);
+  }
+
+  /**
+   * Mantiene sincronizado el precio derivado de un gasto (`source = 'expense'`).
+   *
+   * Respeta el append-only: no edita nada. Si el gasto cambió, ANULA el precio derivado
+   * anterior y crea el nuevo; si el gasto dejó de dar precio (se le quitó el material o
+   * el desglose), solo anula. Es idempotente — llamarlo dos veces con el mismo gasto no
+   * duplica nada, porque compara antes de tocar.
+   */
+  async syncFromExpense(input: ExpenseDerivedPriceInput): Promise<void> {
+    const existing = await this.pricesRepository.findOne({
+      where: { expenseId: input.expenseId, voidedAt: IsNull() },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!yieldsPrice(input)) {
+      if (existing) {
+        await this.voidInternal(
+          existing,
+          'El gasto dejó de indicar material o desglose de cantidad y unitario',
+          input.registeredById,
+        );
+      }
+      return;
+    }
+
+    const next: DerivedPriceSnapshot = {
+      materialId: input.materialId!,
+      unitPrice: input.unitPrice!,
+      date: input.date.slice(0, 10),
+      supplierId: input.supplierId ?? null,
+      itbisIncluded: input.itbisIncluded ?? false,
+    };
+
+    const previous: DerivedPriceSnapshot | null = existing
+      ? {
+          materialId: existing.materialId,
+          unitPrice: existing.price,
+          date: existing.date,
+          supplierId: existing.supplierId ?? null,
+          itbisIncluded: existing.itbisIncluded,
+        }
+      : null;
+
+    if (!derivedPriceChanged(previous, next)) return;
+
+    if (existing) {
+      await this.voidInternal(existing, 'Reemplazado al actualizar el gasto', input.registeredById);
+    }
+
+    const price = this.pricesRepository.create({
+      materialId: next.materialId,
+      supplierId: input.supplierId ?? undefined,
+      price: next.unitPrice,
+      currency: PriceCurrency.DOP,
+      itbisIncluded: next.itbisIncluded,
+      itbisRate: 18,
+      discountPct: 0,
+      netUnitPrice: computeNetUnitPrice({
+        price: next.unitPrice,
+        currency: PriceCurrency.DOP,
+        itbisIncluded: next.itbisIncluded,
+        itbisRate: 18,
+      }),
+      date: next.date,
+      source: PriceSource.EXPENSE,
+      expenseId: input.expenseId,
+      registeredById: input.registeredById,
+      notes: input.reference ? `Derivado del gasto: ${input.reference}` : 'Derivado de un gasto',
+    });
+
+    await this.pricesRepository.save(price);
+  }
+
+  /** Anula los precios derivados de un gasto que se borró. La fila no desaparece. */
+  async voidByExpense(expenseId: string, voidedById?: string): Promise<void> {
+    const prices = await this.pricesRepository.find({
+      where: { expenseId, voidedAt: IsNull() },
+    });
+    for (const price of prices) {
+      await this.voidInternal(price, 'El gasto de origen fue eliminado', voidedById);
+    }
+  }
+
+  private async voidInternal(
+    price: MaterialPrice,
+    reason: string,
+    voidedById?: string,
+  ): Promise<void> {
+    price.voidedAt = new Date();
+    if (voidedById) price.voidedById = voidedById;
+    price.voidReason = reason;
+    await this.pricesRepository.save(price);
   }
 
   private async assertMaterialExists(id: string): Promise<void> {

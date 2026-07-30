@@ -20,6 +20,10 @@ import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { QueryExpensesDto } from './dto/query-expenses.dto';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
+import { MaterialPricesService } from '../costs/material-prices.service';
+import { Material } from '../costs/entities/material.entity';
+import { Unit } from '../costs/entities/unit.entity';
+import { resolveExpenseAmount } from '../costs/expense-price';
 
 @Injectable()
 export class ExpensesService {
@@ -34,15 +38,24 @@ export class ExpensesService {
     private readonly suppliersRepository: Repository<Supplier>,
     @InjectRepository(FileUpload)
     private readonly fileRepo: Repository<FileUpload>,
+    @InjectRepository(Material)
+    private readonly materialsRepository: Repository<Material>,
+    @InjectRepository(Unit)
+    private readonly unitsRepository: Repository<Unit>,
     private readonly settingsService: SettingsService,
     private readonly access: AccessControlService,
+    private readonly materialPrices: MaterialPricesService,
   ) {}
 
   async create(dto: CreateExpenseDto, createdById: string): Promise<Expense> {
     await this.assertProjectExists(dto.projectId);
     if (dto.supplierId) await this.assertSupplierExists(dto.supplierId);
-    const expense = this.expensesRepository.create({ ...dto, createdById });
+    const unitId = await this.resolveCostFields(dto.materialId, dto.unitId);
+    const amount = this.computeAmount(dto);
+
+    const expense = this.expensesRepository.create({ ...dto, unitId, amount, createdById });
     const saved = await this.expensesRepository.save(expense);
+    await this.syncDerivedPrice(saved, createdById);
     const result = await this.findOne(saved.id);
     await this.savePdfForExpense(result).catch((err: Error) =>
       this.logger.error(`PDF generation failed for expense ${result.id}: ${err.message}`),
@@ -58,6 +71,8 @@ export class ExpensesService {
       .leftJoinAndSelect('expense.project', 'project')
       .leftJoinAndSelect('expense.supplier', 'supplier')
       .leftJoinAndSelect('expense.createdBy', 'createdBy')
+      .leftJoinAndSelect('expense.material', 'material')
+      .leftJoinAndSelect('expense.unit', 'unit')
       .orderBy('expense.date', 'DESC')
       .addOrderBy('expense.createdAt', 'DESC')
       .skip((page - 1) * limit)
@@ -80,7 +95,13 @@ export class ExpensesService {
   async findOne(id: string): Promise<Expense> {
     const expense = await this.expensesRepository.findOne({
       where: { id },
-      relations: { project: { client: true }, supplier: true, createdBy: true },
+      relations: {
+        project: { client: true },
+        supplier: true,
+        createdBy: true,
+        material: true,
+        unit: true,
+      },
     });
     if (!expense) throw new NotFoundException('Expense not found');
     return expense;
@@ -100,7 +121,14 @@ export class ExpensesService {
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
     Object.assign(expense, defined);
+
+    // Se valida y recalcula sobre el estado YA fusionado: un PATCH que solo cambia
+    // unitPrice tiene que recalcular el importe con la cantidad que ya estaba guardada.
+    expense.unitId = await this.resolveCostFields(expense.materialId, expense.unitId);
+    expense.amount = this.computeAmount(expense);
+
     await this.expensesRepository.save(expense);
+    await this.syncDerivedPrice(expense, expense.createdById);
     const updated = await this.findOne(id);
     await this.savePdfForExpense(updated).catch((err: Error) =>
       this.logger.error(`PDF regeneration failed for expense ${id}: ${err.message}`),
@@ -110,6 +138,10 @@ export class ExpensesService {
 
   async remove(id: string): Promise<void> {
     const expense = await this.findOne(id);
+    // Antes de borrar: el precio derivado se ANULA (queda en el historial con motivo),
+    // no se borra. La FK es SET NULL, así que sin esto quedaría un precio huérfano
+    // indistinguible de uno bueno.
+    await this.materialPrices.voidByExpense(expense.id, expense.createdById);
     await this.expensesRepository.remove(expense);
   }
 
@@ -124,6 +156,72 @@ export class ExpensesService {
       .where('expense.projectId = :projectId', { projectId })
       .getRawOne();
     return parseFloat(sum ?? '0');
+  }
+
+  /** Importe autoritativo: si hay desglose manda cantidad × unitario. */
+  private computeAmount(input: {
+    amount?: number;
+    quantity?: number;
+    unitPrice?: number;
+  }): number {
+    try {
+      return resolveExpenseAmount(input).amount;
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
+    }
+  }
+
+  /**
+   * Valida material y unidad, y devuelve la unidad efectiva. Si hay material y no se
+   * indicó unidad, hereda la del material. Si se indicó una distinta se rechaza: un
+   * precio de RD$725/quintal guardado como RD$725/kg corrompe el historial en silencio.
+   */
+  private async resolveCostFields(materialId?: string, unitId?: string): Promise<string> {
+    if (unitId) {
+      const unitExists = await this.unitsRepository.existsBy({ id: unitId });
+      if (!unitExists) throw new BadRequestException(`La unidad ${unitId} no existe`);
+    }
+    if (!materialId) return unitId as string;
+
+    const material = await this.materialsRepository.findOne({
+      where: { id: materialId },
+      select: { id: true, code: true, unitId: true },
+    });
+    if (!material) throw new BadRequestException(`El material ${materialId} no existe`);
+
+    if (!unitId) return material.unitId;
+    if (unitId !== material.unitId) {
+      throw new BadRequestException(
+        `La unidad del gasto no coincide con la del material ${material.code}. ` +
+          `Usa la unidad del material o quita el material del gasto.`,
+      );
+    }
+    return unitId;
+  }
+
+  /**
+   * Alimenta la base de precios desde el gasto. Fire-and-forget con try/catch como el
+   * resto de efectos secundarios del módulo (ver notificaciones): que falle la derivación
+   * de un precio no puede tumbar el registro del gasto, que es el dato contable.
+   */
+  private async syncDerivedPrice(expense: Expense, registeredById?: string): Promise<void> {
+    try {
+      await this.materialPrices.syncFromExpense({
+        expenseId: expense.id,
+        materialId: expense.materialId,
+        quantity: expense.quantity,
+        unitPrice: expense.unitPrice,
+        itbisIncluded: expense.itbisIncluded,
+        supplierId: expense.supplierId,
+        date: expense.date,
+        registeredById,
+        reference: expense.description,
+      });
+    } catch (err) {
+      this.logger.error(
+        `No se pudo derivar el precio del gasto ${expense.id}: ${(err as Error).message}`,
+      );
+    }
   }
 
   private async assertProjectExists(projectId: string): Promise<void> {

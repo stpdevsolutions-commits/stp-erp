@@ -1,5 +1,6 @@
-﻿﻿import { api, pageError } from '@/lib/api'
-import type { Expense, Project, Supplier, PaginatedResponse } from '@/lib/types'
+﻿﻿import Link from 'next/link'
+import { api, pageError } from '@/lib/api'
+import type { Expense, Project, Supplier, PaginatedResponse, Material } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -44,6 +45,7 @@ export default async function GastosPage({
   let gastosRes: PaginatedResponse<Expense> = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
   let suppliers: Supplier[] = []
+  let materials: Material[] = []
   let error: string | null = null
 
   try {
@@ -58,6 +60,13 @@ export default async function GastosPage({
   } catch (e) {
     error = pageError(e, 'Error al cargar gastos')
   }
+
+  // El catálogo de materiales es opcional para esta pantalla: si falla, el formulario
+  // sigue sirviendo para registrar gastos, solo sin desglose por material.
+  materials = await api
+    .get<PaginatedResponse<Material>>('/costs/materials?limit=300&isActive=true')
+    .then((r) => r.data)
+    .catch(() => [] as Material[])
 
   const gastos = gastosRes.data
   const totalMonto = gastos.reduce((sum, g) => sum + g.amount, 0)
@@ -75,7 +84,7 @@ export default async function GastosPage({
         </div>
         <div className="flex gap-2">
           <ExportExcelButton href={`/api/export/gastos?${q.toString()}`} label="Exportar Excel" />
-          <NuevoGastoDialog projects={projects} suppliers={suppliers} />
+          <NuevoGastoDialog projects={projects} suppliers={suppliers} materials={materials} />
         </div>
       </div>
 
@@ -131,7 +140,26 @@ export default async function GastosPage({
                 ) : (
                   gastos.map((g) => (
                     <TableRow key={g.id}>
-                      <TableCell className="font-medium">{g.description}</TableCell>
+                      <TableCell className="font-medium">
+                        {g.description}
+                        {g.quantity != null && g.unitPrice != null && (
+                          <span className="text-muted-foreground block text-xs font-normal">
+                            {g.quantity} {g.unit?.code ?? ''} × {DOP.format(g.unitPrice)}
+                            {g.itbisIncluded && ' (ITBIS incl.)'}
+                            {g.material && (
+                              <>
+                                {' · '}
+                                <Link
+                                  href={`/dashboard/costos/materiales/${g.material.id}`}
+                                  className="hover:underline underline-offset-4"
+                                >
+                                  {g.material.code}
+                                </Link>
+                              </>
+                            )}
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {g.project ? (
                           <div>
@@ -151,7 +179,7 @@ export default async function GastosPage({
                         {new Date(g.date).toLocaleDateString('es-DO')}
                       </TableCell>
                       <TableCell>
-                        <GastoActions gasto={g} projects={projects} suppliers={suppliers} />
+                        <GastoActions gasto={g} projects={projects} suppliers={suppliers} materials={materials} />
                       </TableCell>
                     </TableRow>
                   ))

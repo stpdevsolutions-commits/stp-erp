@@ -142,6 +142,14 @@ export interface Expense {
   supplier?: Pick<Supplier, 'id' | 'name'>
   notes?: string
   createdAt: string
+  /** Desglose opcional; con `materialId` alimenta la base de precios. */
+  quantity?: number
+  unitPrice?: number
+  unitId?: string
+  unit?: Unit
+  materialId?: string
+  material?: Pick<Material, 'id' | 'code' | 'name'>
+  itbisIncluded?: boolean
 }
 
 export type PaymentMethod = 'cash' | 'transfer' | 'check' | 'card' | 'other'
@@ -334,4 +342,112 @@ export interface FichasReport {
   byType: { type: FichaType; count: number }[]
   byStatus: { status: FichaStatus; count: number }[]
   byTechnician: { userId: string; name: string; total: number; enviadas: number }[]
+}
+
+// ─── Módulo Costos ────────────────────────────────────────────────────────────
+
+export type UnitKind = 'count' | 'length' | 'area' | 'volume' | 'mass' | 'time' | 'other'
+
+export interface Unit {
+  id: string
+  code: string
+  name: string
+  kind: UnitKind
+  baseUnitId?: string
+  factor?: number
+  isActive: boolean
+}
+
+export interface MaterialCategory {
+  id: string
+  code: string
+  name: string
+  description?: string
+  parentId?: string
+  isActive: boolean
+}
+
+/** Resumen de precios que devuelve la API con `withPrices=true`. */
+export interface PriceSummary {
+  count: number
+  current: number | null
+  currentDate: string | null
+  min: number | null
+  max: number | null
+  avg: number | null
+  /** Variación % del vigente contra el anterior. */
+  changePct: number | null
+  /** Días desde la fecha del precio vigente. Alto = precio viejo. */
+  ageDays: number | null
+}
+
+export interface Material {
+  id: string
+  code: string
+  name: string
+  normalizedName: string
+  description?: string
+  categoryId?: string
+  category?: MaterialCategory
+  unitId: string
+  unit?: Unit
+  brand?: string
+  model?: string
+  barcode?: string
+  specs?: Record<string, unknown>
+  notes?: string
+  isActive: boolean
+  createdAt: string
+  priceSummary?: PriceSummary
+}
+
+export type PriceCurrency = 'DOP' | 'USD'
+export type PriceRegion =
+  | 'santo_domingo'
+  | 'santiago_cibao'
+  | 'este_punta_cana'
+  | 'norte'
+  | 'sur'
+  | 'otra'
+export type PriceSource = 'manual' | 'supplier_quote' | 'expense' | 'import' | 'external_ref'
+
+export interface MaterialPrice {
+  id: string
+  materialId: string
+  supplierId?: string
+  supplier?: Pick<Supplier, 'id' | 'name'>
+  /** Precio tal como se recibió, en su moneda y con sus impuestos. */
+  price: number
+  currency: PriceCurrency
+  exchangeRate?: number
+  itbisIncluded: boolean
+  itbisRate: number
+  discountPct: number
+  /** Comparable: DOP, con descuento, sin ITBIS. Es el que se debe graficar. */
+  netUnitPrice: number
+  minQuantity?: number
+  region: PriceRegion
+  date: string
+  leadTimeDays?: number
+  source: PriceSource
+  documentId?: string
+  expenseId?: string
+  notes?: string
+  registeredById?: string
+  voidedAt?: string
+  voidedById?: string
+  voidReason?: string
+  createdAt: string
+}
+
+export interface MaterialPriceReport {
+  material: { id: string; code: string; name: string; unit: string | null }
+  summary: PriceSummary
+  bySupplier: {
+    supplierId: string | null
+    supplierName: string | null
+    netUnitPrice: number
+    date: string
+    leadTimeDays: number | null
+  }[]
 }

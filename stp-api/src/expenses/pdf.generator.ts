@@ -121,6 +121,21 @@ export function generateExpensePdf(expense: Expense, outputPath: string, company
       y += doc.heightOfString(expense.notes, { width: WIDTH }) + 16;
     }
 
+    // ── Desglose cantidad × unitario (solo si el gasto lo trae) ────────────
+    if (expense.quantity != null && expense.unitPrice != null) {
+      const unitCode = expense.unit?.code ?? '';
+      const qty = `${expense.quantity} ${unitCode}`.trim();
+      const detail =
+        `${qty} × ${money(expense.unitPrice)}` +
+        (expense.itbisIncluded ? ' (ITBIS incluido)' : '') +
+        (expense.material ? `  ·  ${expense.material.code} ${expense.material.name}` : '');
+
+      doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(9).text('DESGLOSE', LEFT, y);
+      y += 13;
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9).text(detail, LEFT, y, { width: WIDTH });
+      y += doc.heightOfString(detail, { width: WIDTH }) + 16;
+    }
+
     // ── Amount ─────────────────────────────────────────────────────────────
     const tLabelX = LEFT + 310;
     const tLabelW = 120;

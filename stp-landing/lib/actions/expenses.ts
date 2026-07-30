@@ -13,10 +13,17 @@ export interface CreateExpenseInput {
   projectId: string
   description: string
   category?: string
-  amount: number
+  /** Opcional si se manda el desglose: el servidor calcula cantidad × unitario. */
+  amount?: number
   date: string
   supplierId?: string
   notes?: string
+  /** Desglose que alimenta la base de precios del módulo de Costos. */
+  quantity?: number
+  unitPrice?: number
+  unitId?: string
+  materialId?: string
+  itbisIncluded?: boolean
 }
 
 export interface UpdateExpenseInput {
@@ -27,6 +34,11 @@ export interface UpdateExpenseInput {
   date?: string
   supplierId?: string | null
   notes?: string | null
+  quantity?: number | null
+  unitPrice?: number | null
+  unitId?: string | null
+  materialId?: string | null
+  itbisIncluded?: boolean
 }
 
 export async function createExpense(input: CreateExpenseInput): Promise<ActionResult> {
@@ -42,6 +54,8 @@ export async function createExpense(input: CreateExpenseInput): Promise<ActionRe
 
   revalidatePath('/dashboard/gastos')
   revalidatePath('/dashboard')
+  // Un gasto con material y desglose crea o anula un precio derivado.
+  revalidatePath('/dashboard/costos/materiales')
   return { ok: true }
 }
 
@@ -62,6 +76,8 @@ export async function updateExpense(id: string, input: UpdateExpenseInput): Prom
 
   revalidatePath('/dashboard/gastos')
   revalidatePath('/dashboard')
+  // Un gasto con material y desglose crea o anula un precio derivado.
+  revalidatePath('/dashboard/costos/materiales')
   return { ok: true }
 }
 
@@ -77,5 +93,7 @@ export async function deleteExpense(id: string): Promise<ActionResult> {
 
   revalidatePath('/dashboard/gastos')
   revalidatePath('/dashboard')
+  // Un gasto con material y desglose crea o anula un precio derivado.
+  revalidatePath('/dashboard/costos/materiales')
   return { ok: true }
 }

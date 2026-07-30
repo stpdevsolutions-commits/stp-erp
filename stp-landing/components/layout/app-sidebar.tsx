@@ -21,6 +21,7 @@ import {
   HardHat,
   Settings,
   ClipboardList,
+  Calculator,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -44,6 +45,7 @@ const navItems = [
   { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/dashboard/proveedores', label: 'Proveedores', icon: Truck },
   { href: '/dashboard/inventario', label: 'Inventario', icon: Package },
+  { href: '/dashboard/costos/materiales', label: 'Costos', icon: Calculator },
   { href: '/dashboard/colaboradores', label: 'Colaboradores', icon: HardHat },
   { href: '/dashboard/fichas', label: 'Fichas de campo', icon: ClipboardList },
   { href: '/dashboard/archivos', label: 'Archivos', icon: FolderOpen },

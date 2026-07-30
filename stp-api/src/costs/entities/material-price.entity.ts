@@ -129,6 +129,16 @@ export class MaterialPrice {
   @Column({ type: 'uuid', nullable: true })
   documentId: string;
 
+  /**
+   * Gasto del que se derivó este precio (`source = 'expense'`). Permite que editar el
+   * gasto anule su precio derivado y cree el nuevo en vez de duplicarlos.
+   * ON DELETE SET NULL: si el gasto se borra el precio derivado se ANULA (lo hace el
+   * service), pero la fila nunca desaparece.
+   */
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  expenseId: string;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 
