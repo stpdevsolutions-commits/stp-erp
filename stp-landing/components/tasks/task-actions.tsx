@@ -30,8 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Project, Task, User } from '@/lib/types'
+import type { Collaborator, Project, Task, User } from '@/lib/types'
 import { updateTask, deleteTask } from '@/lib/actions/tasks'
+import {
+  AsignadoSelect,
+  SIN_ASIGNAR,
+  asignacionValue,
+  parseAsignacion,
+} from '@/components/tasks/asignado-select'
 
 // ── Zod schema ────────────────────────────────────────────────────────────────
 
@@ -42,7 +48,8 @@ const editSchema = z.object({
   status: z.enum(['pending', 'in_progress', 'review', 'done', 'cancelled']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   dueDate: z.string().optional(),
-  assignedToId: z.string().optional(),
+  /** Valor combinado del selector: `col:<id>`, `user:<id>` o SIN_ASIGNAR. */
+  asignado: z.string().optional(),
 })
 
 type EditFormValues = z.infer<typeof editSchema>
@@ -67,12 +74,14 @@ const PRIORITY_LABELS = {
 function EditDialog({
   tarea,
   projects,
+  collaborators,
   users,
   open,
   onOpenChange,
 }: {
   tarea: Task
   projects: Project[]
+  collaborators: Collaborator[]
   users: User[]
   open: boolean
   onOpenChange: (o: boolean) => void
@@ -94,17 +103,15 @@ function EditDialog({
       status: tarea.status,
       priority: tarea.priority,
       dueDate: tarea.dueDate ? tarea.dueDate.slice(0, 10) : '',
-      assignedToId: tarea.assignedTo?.id ?? '',
+      asignado: asignacionValue({
+        collaboratorId: tarea.collaborator?.id ?? tarea.collaboratorId,
+        assignedToId: tarea.assignedTo?.id,
+      }),
     },
   })
 
   const projectId = watch('projectId')
-  const assignedToId = watch('assignedToId')
   const selectedProjectName = projects.find((p) => p.id === projectId)?.name
-  const selectedUser = users.find((u) => u.id === assignedToId)
-  const selectedUserName = selectedUser
-    ? `${selectedUser.firstName} ${selectedUser.lastName}`
-    : undefined
 
   function handleClose() {
     setServerError(null)
@@ -113,6 +120,9 @@ function EditDialog({
 
   async function onSubmit(data: EditFormValues) {
     setServerError(null)
+    // Se mandan SIEMPRE las dos columnas: asignar a un colaborador tiene que
+    // limpiar el usuario anterior y al revés, si no quedarían las dos puestas.
+    const asignacion = parseAsignacion(data.asignado)
     const result = await updateTask(tarea.id, {
       title: data.title,
       projectId: data.projectId,
@@ -120,7 +130,8 @@ function EditDialog({
       status: data.status,
       priority: data.priority,
       dueDate: data.dueDate || null,
-      assignedToId: data.assignedToId || null,
+      assignedToId: asignacion.assignedToId,
+      collaboratorId: asignacion.collaboratorId,
     })
     if (!result.ok) {
       setServerError(result.error ?? 'Error desconocido')
@@ -220,23 +231,12 @@ function EditDialog({
 
             <div className="space-y-1.5">
               <Label>Asignado a</Label>
-              <Select
-                value={watch('assignedToId') ?? ''}
-                onValueChange={(v) => setValue('assignedToId', v ?? '')}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sin asignar">
-                    {selectedUserName}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.firstName} {u.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <AsignadoSelect
+                value={watch('asignado') ?? SIN_ASIGNAR}
+                onValueChange={(v) => setValue('asignado', v)}
+                collaborators={collaborators}
+                users={users}
+              />
             </div>
           </div>
 
@@ -330,10 +330,12 @@ function DeleteDialog({
 export function TaskActions({
   tarea,
   projects,
+  collaborators,
   users,
 }: {
   tarea: Task
   projects: Project[]
+  collaborators: Collaborator[]
   users: User[]
 }) {
   const [editOpen, setEditOpen] = useState(false)
@@ -362,6 +364,7 @@ export function TaskActions({
       <EditDialog
         tarea={tarea}
         projects={projects}
+        collaborators={collaborators}
         users={users}
         open={editOpen}
         onOpenChange={setEditOpen}

@@ -13,6 +13,7 @@ import { MaterialCategory } from './entities/material-category.entity';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { QueryMaterialsDto } from './dto/query-materials.dto';
+import { loadForUpdate } from '../common/load-for-update';
 import { normalizeMaterialName, summarizePrices, PriceSummary } from './price-selection';
 
 export type MaterialWithSummary = Material & { priceSummary?: PriceSummary };
@@ -121,15 +122,23 @@ export class MaterialsService {
     const defined = Object.fromEntries(
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
-    Object.assign(material, defined);
+    // Sin relaciones: el objeto `unit`/`category` cargado pisaría la columna FK
+    // y el cambio de unidad o categoría no se guardaría (ver loadForUpdate).
+    const target = await loadForUpdate(
+      this.materialsRepository,
+      id,
+      'Material no encontrado',
+    );
+    Object.assign(target, defined);
 
     // El nombre canónico se deriva del nombre: nunca se acepta del cliente.
     if (dto.name !== undefined) {
-      material.normalizedName = normalizeMaterialName(dto.name);
-      await this.assertNotDuplicate(material.normalizedName, material.brand, id);
+      target.normalizedName = normalizeMaterialName(dto.name);
+      await this.assertNotDuplicate(target.normalizedName, target.brand, id);
     }
 
-    return this.materialsRepository.save(material);
+    await this.materialsRepository.save(target);
+    return this.findOne(id);
   }
 
   /**

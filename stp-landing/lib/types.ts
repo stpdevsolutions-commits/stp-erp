@@ -55,6 +55,9 @@ export interface Task {
   projectId: string
   project?: Pick<Project, 'id' | 'name' | 'code'>
   assignedTo?: Pick<AuthUser, 'id' | 'firstName' | 'lastName'>
+  /** Colaborador (personal de campo, sin cuenta de usuario) que ejecuta la tarea. */
+  collaboratorId?: string
+  collaborator?: Pick<Collaborator, 'id' | 'firstName' | 'lastName' | 'position'>
   createdAt: string
 }
 
@@ -450,4 +453,44 @@ export interface MaterialPriceReport {
     date: string
     leadTimeDays: number | null
   }[]
+}
+
+// ── Nómina ────────────────────────────────────────────────────────────────────
+
+export type PayrollStatus = 'pending' | 'paid' | 'cancelled'
+export type PayrollMethod = 'cash' | 'transfer' | 'check' | 'other'
+
+export interface PayrollEntry {
+  id: string
+  number: string
+  collaboratorId: string
+  collaborator?: Pick<Collaborator, 'id' | 'firstName' | 'lastName' | 'position' | 'cedula'>
+  projectId?: string
+  project?: Pick<Project, 'id' | 'name' | 'code'>
+  periodStart: string
+  periodEnd: string
+  daysWorked?: number
+  dailyRate?: number
+  overtimeAmount: number
+  bonuses: number
+  deductions: number
+  /** Calculados por el servidor: días × tarifa + extras + bonos, menos descuentos. */
+  grossAmount: number
+  netAmount: number
+  status: PayrollStatus
+  method: PayrollMethod
+  paymentDate?: string
+  reference?: string
+  notes?: string
+  /** Gasto de mano de obra generado al marcar el pago como pagado. */
+  expenseId?: string
+  createdAt: string
+}
+
+export interface PayrollSummary {
+  pendingCount: number
+  pendingAmount: number
+  paidThisMonth: number
+  paidThisMonthCount: number
+  paidThisYear: number
 }

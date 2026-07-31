@@ -46,6 +46,7 @@ ERP para **Soluciones Técnicas Profesionales (STP)**, empresa dominicana de ele
         ├── health/           ← GET /health (TypeORM ping)
         ├── files/            ← uploads multer (PDF/JPG/PNG/WEBP, 10MB)
         ├── collaborators/    ← empleados/técnicos (cédula, tarifa diaria)
+        ├── payroll/          ← nómina: pagos a colaboradores (MANAGER+), imputa mano de obra a Gastos
         ├── fichas/           ← fichas técnicas de campo + generación PDF
         ├── inventory/        ← materiales, equipos, herramientas
         ├── settings/         ← configuración empresa (logo, nombre, términos)
@@ -141,7 +142,7 @@ Jerarquía en `RolesGuard`: ADMIN (rango 3) > MANAGER (rango 2) > USER (rango 1)
 2. **Users** — CRUD + roles (ADMIN/MANAGER/USER)
 3. **Clients** — clientes con tipo (persona/empresa), RNC
 4. **Projects** — código auto PRJ-YYYY-NNN, tipos (electrical/mechanical/construction/maintenance)
-5. **Tasks** — completedAt automático al pasar a `done`
+5. **Tasks** — completedAt automático al pasar a `done`. Se asignan a un **usuario** (`assignedToId`, da visibilidad RBAC) o a un **colaborador** (`collaboratorId`, personal de campo sin cuenta)
 6. **Quotes** — COT-YYYY-NNN, items, subtotal → ITBIS 18% → total, lock al aprobar
 7. **Expenses** — categorías, FK a Supplier opcional
 8. **Payments** — método, estado, FK a client/project/quote
@@ -155,7 +156,8 @@ Jerarquía en `RolesGuard`: ADMIN (rango 3) > MANAGER (rango 2) > USER (rango 1)
 16. **Inventory** — materiales, equipos, herramientas con categorías y SKU
 17. **Settings** — configuración empresa (logo, nombre, términos y condiciones)
 18. **Notifications** — emails via Resend (cotizaciones enviadas/aprobadas, tareas vencidas)
-19. **Scheduler** — cron diario 8am: alerta cotizaciones a 3 días de vencer, tareas vencidas; 9am: recordatorio al cliente de cotizaciones `sent` sin respuesta (a partir de 3 días, máx. 2 por envío)
+19. **Payroll (Nómina)** — pagos a colaboradores por período (NOM-YYYY-NNN): días × tarifa + extras + bonos − descuentos; el servidor calcula bruto y neto. Al marcarse `paid` con proyecto, genera/actualiza un gasto de categoría `labor` (el importe imputado es el **bruto**); al dejar de estarlo o al borrarse, el gasto se elimina. **Módulo MANAGER+ completo, también en lectura** (son sueldos).
+20. **Scheduler** — cron diario 8am: alerta cotizaciones a 3 días de vencer, tareas vencidas; 9am: recordatorio al cliente de cotizaciones `sent` sin respuesta (a partir de 3 días, máx. 2 por envío)
 
 ## Módulo Fichas — contexto adicional
 Las fichas son el módulo central de la **app móvil** (Expo/React Native). Los técnicos crean fichas en campo, las llenan con datos estructurados (JSONB por tipo), adjuntan fotos y firma, y las envían (`POST /fichas/:id/submit`). El servidor genera un PDF (`GET /fichas/:id/pdf`).

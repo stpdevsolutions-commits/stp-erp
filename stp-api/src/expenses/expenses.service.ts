@@ -24,6 +24,7 @@ import { MaterialPricesService } from '../costs/material-prices.service';
 import { Material } from '../costs/entities/material.entity';
 import { Unit } from '../costs/entities/unit.entity';
 import { resolveExpenseAmount } from '../costs/expense-price';
+import { loadForUpdate } from '../common/load-for-update';
 
 @Injectable()
 export class ExpensesService {
@@ -108,7 +109,13 @@ export class ExpensesService {
   }
 
   async update(id: string, dto: UpdateExpenseDto): Promise<Expense> {
-    const expense = await this.findOne(id);
+    // Sin relaciones: el objeto `project`/`supplier` cargado pisaría la columna FK
+    // y el cambio de proyecto o proveedor no se guardaría (ver loadForUpdate).
+    const expense = await loadForUpdate(
+      this.expensesRepository,
+      id,
+      'Expense not found',
+    );
 
     if (dto.projectId && dto.projectId !== expense.projectId) {
       await this.assertProjectExists(dto.projectId);

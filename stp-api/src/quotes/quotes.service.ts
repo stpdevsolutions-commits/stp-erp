@@ -25,6 +25,7 @@ import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { CreateQuoteItemDto } from './dto/create-quote-item.dto';
 import { UpdateQuoteItemDto } from './dto/update-quote-item.dto';
 import { QueryQuotesDto } from './dto/query-quotes.dto';
+import { loadForUpdate } from '../common/load-for-update';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UserRole } from '../users/entities/user.entity';
 import { SettingsService } from '../settings/settings.service';
@@ -424,12 +425,15 @@ export class QuotesService implements OnModuleInit {
     const defined = Object.fromEntries(
       Object.entries(headerDto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
-    Object.assign(quote, defined);
+    // Sin relaciones: el objeto `client`/`project` cargado pisaría la columna FK
+    // y el cambio de cliente o proyecto no se guardaría (ver loadForUpdate).
+    const target = await loadForUpdate(this.quotesRepository, id, 'Quote not found');
+    Object.assign(target, defined);
     if (dto.status === QuoteStatus.SENT && previousStatus !== QuoteStatus.SENT) {
-      quote.sentAt = new Date();
-      quote.reminderCount = 0;
+      target.sentAt = new Date();
+      target.reminderCount = 0;
     }
-    await this.quotesRepository.save(quote);
+    await this.quotesRepository.save(target);
 
     if (itemsDto !== undefined) {
       await this.itemsRepository.delete({ quoteId: id });

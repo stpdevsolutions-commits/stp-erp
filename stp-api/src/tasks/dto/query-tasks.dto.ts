@@ -24,6 +24,10 @@ export class QueryTasksDto {
   assignedToId?: string;
 
   @IsOptional()
+  @IsUUID()
+  collaboratorId?: string;
+
+  @IsOptional()
   @Transform(({ value }) => parseInt(value) || 1)
   page?: number = 1;
 

@@ -18,6 +18,7 @@ import { generatePaymentPdf } from './pdf.generator';
 import { SettingsService } from '../settings/settings.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
+import { loadForUpdate } from '../common/load-for-update';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
 import { PaymentStatus } from './entities/payment.entity';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -125,7 +126,13 @@ export class PaymentsService {
   }
 
   async update(id: string, dto: UpdatePaymentDto): Promise<Payment> {
-    const payment = await this.findOne(id);
+    // Sin relaciones: el objeto `client`/`project`/`quote` cargado pisaría la
+    // columna FK y el cambio no se guardaría (ver loadForUpdate).
+    const payment = await loadForUpdate(
+      this.paymentsRepository,
+      id,
+      'Payment not found',
+    );
 
     if (dto.clientId && dto.clientId !== payment.clientId) {
       await this.assertClientExists(dto.clientId);

@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { User } from '../../users/entities/user.entity';
+import { Collaborator } from '../../collaborators/entities/collaborator.entity';
 
 export enum TaskStatus {
   PENDING = 'pending',
@@ -60,6 +61,19 @@ export class Task {
 
   @Column({ type: 'uuid', nullable: true })
   assignedToId: string;
+
+  /**
+   * Asignación al personal de campo. Un colaborador es un empleado SIN cuenta de
+   * usuario, así que no puede ir en `assignedToId` (FK a `users`). Ambas columnas
+   * conviven: `assignedToId` es quien responde por la tarea dentro del sistema
+   * (y da la visibilidad RBAC), `collaboratorId` es quién la ejecuta en obra.
+   */
+  @ManyToOne(() => Collaborator, { nullable: true, onDelete: 'SET NULL', eager: false })
+  @JoinColumn({ name: 'collaboratorId' })
+  collaborator: Collaborator;
+
+  @Column({ type: 'uuid', nullable: true })
+  collaboratorId: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL', eager: false })
   @JoinColumn({ name: 'createdById' })

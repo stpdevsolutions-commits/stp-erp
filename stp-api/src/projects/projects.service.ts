@@ -11,6 +11,7 @@ import { User } from '../users/entities/user.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { QueryProjectsDto } from './dto/query-projects.dto';
+import { loadForUpdate } from '../common/load-for-update';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
 
@@ -86,8 +87,16 @@ export class ProjectsService {
     const defined = Object.fromEntries(
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
-    Object.assign(project, defined);
-    return this.projectsRepository.save(project);
+    // Sin relaciones: el objeto `client`/`assignedTo` cargado pisaría la columna
+    // FK y el cambio de cliente o responsable no se guardaría (ver loadForUpdate).
+    const target = await loadForUpdate(
+      this.projectsRepository,
+      id,
+      'Project not found',
+    );
+    Object.assign(target, defined);
+    await this.projectsRepository.save(target);
+    return this.findOne(id);
   }
 
   async remove(id: string): Promise<void> {

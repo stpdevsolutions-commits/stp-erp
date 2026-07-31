@@ -24,8 +24,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Project, User } from '@/lib/types'
+import type { Collaborator, Project, User } from '@/lib/types'
 import { createTask } from '@/lib/actions/tasks'
+import {
+  AsignadoSelect,
+  SIN_ASIGNAR,
+  parseAsignacion,
+} from '@/components/tasks/asignado-select'
 
 const schema = z.object({
   title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
@@ -34,7 +39,8 @@ const schema = z.object({
   status: z.enum(['pending', 'in_progress', 'review', 'done', 'cancelled']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   dueDate: z.string().optional(),
-  assignedToId: z.string().optional(),
+  /** Valor combinado del selector: `col:<id>`, `user:<id>` o SIN_ASIGNAR. */
+  asignado: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -56,9 +62,11 @@ const PRIORITY_LABELS = {
 
 export function NuevaTareaDialog({
   projects,
+  collaborators,
   users,
 }: {
   projects: Project[]
+  collaborators: Collaborator[]
   users: User[]
 }) {
   const [open, setOpen] = useState(false)
@@ -73,19 +81,15 @@ export function NuevaTareaDialog({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { status: 'pending', priority: 'medium' },
+    defaultValues: { status: 'pending', priority: 'medium', asignado: SIN_ASIGNAR },
   })
 
   const projectId = watch('projectId')
-  const assignedToId = watch('assignedToId')
   const selectedProjectName = projects.find((p) => p.id === projectId)?.name
-  const selectedUser = users.find((u) => u.id === assignedToId)
-  const selectedUserName = selectedUser
-    ? `${selectedUser.firstName} ${selectedUser.lastName}`
-    : undefined
 
   async function onSubmit(data: FormValues) {
     setServerError(null)
+    const asignacion = parseAsignacion(data.asignado)
     const result = await createTask({
       title: data.title,
       projectId: data.projectId,
@@ -93,7 +97,8 @@ export function NuevaTareaDialog({
       status: data.status,
       priority: data.priority,
       dueDate: data.dueDate || undefined,
-      assignedToId: data.assignedToId || undefined,
+      assignedToId: asignacion.assignedToId ?? undefined,
+      collaboratorId: asignacion.collaboratorId ?? undefined,
     })
     if (!result.ok) {
       setServerError(result.error ?? 'Error desconocido')
@@ -208,23 +213,12 @@ export function NuevaTareaDialog({
 
             <div className="space-y-1.5">
               <Label>Asignado a</Label>
-              <Select
-                value={watch('assignedToId') ?? ''}
-                onValueChange={(v) => setValue('assignedToId', v ?? '')}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sin asignar">
-                  {selectedUserName}
-                </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.firstName} {u.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <AsignadoSelect
+                value={watch('asignado') ?? SIN_ASIGNAR}
+                onValueChange={(v) => setValue('asignado', v)}
+                collaborators={collaborators}
+                users={users}
+              />
             </div>
           </div>
 

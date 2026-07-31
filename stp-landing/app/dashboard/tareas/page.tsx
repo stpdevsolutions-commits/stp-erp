@@ -1,5 +1,5 @@
 ﻿﻿import { api, pageError } from '@/lib/api'
-import type { Project, Task, User, PaginatedResponse } from '@/lib/types'
+import type { Collaborator, Project, Task, User, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -63,17 +63,29 @@ export default async function TareasPage({
 
   let tareasRes: PaginatedResponse<Task> = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
+  let collaborators: Collaborator[] = []
   let users: User[] = []
   let error: string | null = null
 
+  const empty = { data: [], total: 0, page: 1, limit: 0 }
+
   try {
-    const [tr, proyRes, usersRes] = await Promise.all([
+    // Una tarea se asigna a un colaborador (personal de campo) o a un usuario del
+    // sistema. `/users` es ADMIN-only: para MANAGER y USER devuelve 403, así que va
+    // con su propio catch — antes tumbaba la carga entera de la página.
+    const [tr, proyRes, colabRes, usersRes] = await Promise.all([
       api.get<PaginatedResponse<Task>>(`/tasks?${q.toString()}`),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
-      api.get<PaginatedResponse<User>>('/users?limit=200'),
+      api
+        .get<PaginatedResponse<Collaborator>>('/collaborators?limit=200&status=active')
+        .catch(() => empty as PaginatedResponse<Collaborator>),
+      api
+        .get<PaginatedResponse<User>>('/users?limit=200')
+        .catch(() => empty as PaginatedResponse<User>),
     ])
     tareasRes = tr
     projects = proyRes.data
+    collaborators = colabRes.data
     users = usersRes.data
   } catch (e) {
     error = pageError(e, 'Error al cargar tareas')
@@ -92,7 +104,7 @@ export default async function TareasPage({
           <h1 className="text-2xl font-bold tracking-tight">Tareas</h1>
           <p className="text-muted-foreground text-sm">Seguimiento de tareas por proyecto</p>
         </div>
-        <NuevaTareaDialog projects={projects} users={users} />
+        <NuevaTareaDialog projects={projects} collaborators={collaborators} users={users} />
       </div>
 
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
@@ -172,10 +184,19 @@ export default async function TareasPage({
                         {t.dueDate ? new Date(t.dueDate).toLocaleDateString('es-DO') : '—'}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {t.assignedTo ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}` : '—'}
+                        {t.collaborator
+                          ? `${t.collaborator.firstName} ${t.collaborator.lastName}`
+                          : t.assignedTo
+                            ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}`
+                            : '—'}
                       </TableCell>
                       <TableCell>
-                        <TaskActions tarea={t} projects={projects} users={users} />
+                        <TaskActions
+                          tarea={t}
+                          projects={projects}
+                          collaborators={collaborators}
+                          users={users}
+                        />
                       </TableCell>
                     </TableRow>
                   ))

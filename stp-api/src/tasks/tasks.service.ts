@@ -8,12 +8,14 @@ import { Repository } from 'typeorm';
 import { Task, TaskStatus } from './entities/task.entity';
 import { Project } from '../projects/entities/project.entity';
 import { User } from '../users/entities/user.entity';
+import { Collaborator } from '../collaborators/entities/collaborator.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { QueryTasksDto } from './dto/query-tasks.dto';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
 import { taskResourceScope } from './task-access';
+import { loadForUpdate } from '../common/load-for-update';
 
 @Injectable()
 export class TasksService {
@@ -24,6 +26,8 @@ export class TasksService {
     private readonly projectsRepository: Repository<Project>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(Collaborator)
+    private readonly collaboratorsRepository: Repository<Collaborator>,
     private readonly access: AccessControlService,
   ) {}
 
@@ -32,6 +36,8 @@ export class TasksService {
     // @ScopedResource({ kind: 'project', param: 'projectId', in: 'body' }).
     await this.assertProjectExists(dto.projectId);
     if (dto.assignedToId) await this.assertUserExists(dto.assignedToId);
+    if (dto.collaboratorId)
+      await this.assertCollaboratorExists(dto.collaboratorId);
 
     const task = this.tasksRepository.create({ ...dto, createdById });
     return this.tasksRepository.save(task);
@@ -44,6 +50,7 @@ export class TasksService {
       priority,
       projectId,
       assignedToId,
+      collaboratorId,
       page = 1,
       limit = 20,
     } = query;
@@ -52,6 +59,7 @@ export class TasksService {
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.project', 'project')
       .leftJoinAndSelect('task.assignedTo', 'assignedTo')
+      .leftJoinAndSelect('task.collaborator', 'collaborator')
       .orderBy('task.priority', 'DESC')
       .addOrderBy('task.dueDate', 'ASC', 'NULLS LAST')
       .skip((page - 1) * limit)
@@ -65,6 +73,8 @@ export class TasksService {
     if (projectId) qb.andWhere('task.projectId = :projectId', { projectId });
     if (assignedToId)
       qb.andWhere('task.assignedToId = :assignedToId', { assignedToId });
+    if (collaboratorId)
+      qb.andWhere('task.collaboratorId = :collaboratorId', { collaboratorId });
 
     await this.applyTaskScope(qb, user);
 
@@ -75,7 +85,12 @@ export class TasksService {
   async findOne(id: string, user?: AccessSubject): Promise<Task> {
     const task = await this.tasksRepository.findOne({
       where: { id },
-      relations: { project: true, assignedTo: true, createdBy: true },
+      relations: {
+        project: true,
+        assignedTo: true,
+        collaborator: true,
+        createdBy: true,
+      },
     });
     if (!task) throw new NotFoundException('Task not found');
     await this.assertTaskAccess(task, user);
@@ -98,21 +113,29 @@ export class TasksService {
     if (dto.assignedToId && dto.assignedToId !== task.assignedToId) {
       await this.assertUserExists(dto.assignedToId);
     }
+    if (dto.collaboratorId && dto.collaboratorId !== task.collaboratorId) {
+      await this.assertCollaboratorExists(dto.collaboratorId);
+    }
 
     const defined = Object.fromEntries(
       Object.entries(dto as Record<string, unknown>).filter(
         ([, v]) => v !== undefined,
       ),
     );
-    Object.assign(task, defined);
 
-    if (dto.status === TaskStatus.DONE && !task.completedAt) {
-      task.completedAt = new Date().toISOString().split('T')[0];
+    // Sobre entidad sin relaciones: si no, el objeto `assignedTo`/`collaborator`
+    // cargado pisa la columna FK y la reasignación se pierde (ver loadForUpdate).
+    const target = await loadForUpdate(this.tasksRepository, id, 'Task not found');
+    Object.assign(target, defined);
+
+    if (dto.status === TaskStatus.DONE && !target.completedAt) {
+      target.completedAt = new Date().toISOString().split('T')[0];
     } else if (dto.status !== undefined && dto.status !== TaskStatus.DONE) {
-      task.completedAt = null as unknown as string;
+      target.completedAt = null as unknown as string;
     }
 
-    return this.tasksRepository.save(task);
+    await this.tasksRepository.save(target);
+    return this.findOne(id, user);
   }
 
   async remove(id: string, user?: AccessSubject): Promise<void> {
@@ -189,5 +212,10 @@ export class TasksService {
   private async assertUserExists(userId: string): Promise<void> {
     const exists = await this.usersRepository.existsBy({ id: userId });
     if (!exists) throw new BadRequestException(`User ${userId} not found`);
+  }
+
+  private async assertCollaboratorExists(id: string): Promise<void> {
+    const exists = await this.collaboratorsRepository.existsBy({ id });
+    if (!exists) throw new BadRequestException(`Collaborator ${id} not found`);
   }
 }

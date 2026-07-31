@@ -36,6 +36,11 @@ export class CreateTaskDto {
   @IsUUID()
   assignedToId?: string;
 
+  /** Colaborador (empleado sin cuenta) que ejecuta la tarea. */
+  @IsOptional()
+  @IsUUID()
+  collaboratorId?: string;
+
   @IsOptional()
   @IsDateString()
   dueDate?: string;

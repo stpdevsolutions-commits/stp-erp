@@ -42,10 +42,12 @@ import { ProjectMember } from './projects/entities/project-member.entity';
 import { ClientMember } from './clients/entities/client-member.entity';
 import { AccessModule } from './common/access/access.module';
 import { CostsModule } from './costs/costs.module';
+import { PayrollModule } from './payroll/payroll.module';
 import { Unit } from './costs/entities/unit.entity';
 import { MaterialCategory } from './costs/entities/material-category.entity';
 import { Material } from './costs/entities/material.entity';
 import { MaterialPrice } from './costs/entities/material-price.entity';
+import { PayrollEntry } from './payroll/entities/payroll-entry.entity';
 
 @Module({
   imports: [
@@ -56,7 +58,7 @@ import { MaterialPrice } from './costs/entities/material-price.entity';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, PayrollEntry],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',
@@ -84,6 +86,7 @@ import { MaterialPrice } from './costs/entities/material-price.entity';
     FichasModule,
     SchedulerModule,
     CostsModule,
+    PayrollModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -17,6 +17,7 @@ export interface CreateTaskInput {
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   dueDate?: string
   assignedToId?: string
+  collaboratorId?: string
 }
 
 export interface UpdateTaskInput {
@@ -27,6 +28,7 @@ export interface UpdateTaskInput {
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   dueDate?: string | null
   assignedToId?: string | null
+  collaboratorId?: string | null
 }
 
 export async function createTask(input: CreateTaskInput): Promise<ActionResult> {

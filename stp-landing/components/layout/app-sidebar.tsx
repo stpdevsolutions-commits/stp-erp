@@ -22,6 +22,7 @@ import {
   Settings,
   ClipboardList,
   Calculator,
+  Wallet,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -52,6 +53,8 @@ const navItems = [
 ]
 
 const adminItems = [
+  // Nómina expone sueldos: el módulo entero es MANAGER+ también en lectura.
+  { href: '/dashboard/nomina', label: 'Nómina', icon: Wallet, minRole: 'MANAGER' },
   { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3, minRole: 'MANAGER' },
   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog, minRole: 'ADMIN' },
   { href: '/dashboard/configuracion', label: 'Configuración', icon: Settings, minRole: 'ADMIN' },

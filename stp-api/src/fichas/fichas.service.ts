@@ -13,6 +13,7 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { CreateFichaDto } from './dto/create-ficha.dto';
 import { UpdateFichaDto } from './dto/update-ficha.dto';
 import { QueryFichasDto } from './dto/query-fichas.dto';
+import { loadForUpdate } from '../common/load-for-update';
 
 @Injectable()
 export class FichasService {
@@ -90,9 +91,13 @@ export class FichasService {
     const defined = Object.fromEntries(
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
-    Object.assign(ficha, defined);
+    // Sin relaciones: el objeto `project`/`technician` cargado pisaría la columna
+    // FK y el cambio de proyecto no se guardaría (ver loadForUpdate).
+    const target = await loadForUpdate(this.fichasRepo, id, 'Ficha no encontrada');
+    Object.assign(target, defined);
 
-    return this.fichasRepo.save(ficha);
+    await this.fichasRepo.save(target);
+    return this.findOne(id, currentUser);
   }
 
   async submit(id: string, currentUser: User): Promise<Ficha> {
