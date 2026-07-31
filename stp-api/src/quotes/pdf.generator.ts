@@ -2,6 +2,7 @@ import { createWriteStream } from 'fs';
 import PDFDocument from 'pdfkit';
 import type { Quote } from './entities/quote.entity';
 import { findLogoPath } from '../common/logo.utils';
+import { rowsToTree, type QuoteTreeRow, type QuoteRowLike } from './quote-tree';
 import {
   drawDocumentHeader, CONTENT_Y,
   DARK_BLUE, TEAL, MID_GRAY, DARK_TEXT, BORDER_GRAY, LEFT, RIGHT, WIDTH,
@@ -9,6 +10,9 @@ import {
 import type { CompanyData } from '../common/company';
 
 // ── Additional palette ─────────────────────────────────────────────────────
+type QuoteItemLike = QuoteRowLike;
+type QuoteTreeNode = QuoteTreeRow<QuoteRowLike>;
+
 const TABLE_HDR_BG = '#dbeafe';
 const SECTION_BG   = '#f1f5f9';
 const INFO_BG      = '#f8fafc';
@@ -154,95 +158,151 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
     }
     y += 8;
 
-    // ── Sections ───────────────────────────────────────────────────────────
-    const items = quote.items ?? [];
-    const sectionNames = [...new Set(items.map((i) => i.sectionName ?? ''))];
+    // ── Partidas (árbol) ───────────────────────────────────────────────────
+    // Las partidas se anidan sin profundidad fija: "Baño" → "Piso" → líneas.
+    // Se recorre el árbol en orden de lectura; cada grupo abre su cabecera y
+    // cierra con su subtotal, y las líneas se sangran según su nivel.
+    const tree = rowsToTree(quote.items ?? []);
 
-    let sIdx = 0;
-    for (const sectionName of sectionNames) {
-      const sectionItems = items.filter((i) => (i.sectionName ?? '') === sectionName);
-      sIdx++;
+    const INDENT_STEP = 10;
 
-      y = checkBreak(y, 70);
-
-      // Section header bar
-      const sLabel = sectionName
-        ? `PARTIDA ${sIdx}: ${sectionName.toUpperCase()}`
-        : `PARTIDA ${sIdx}`;
-      doc.rect(LEFT, y, WIDTH, 18).fill(SECTION_BG);
-      doc.rect(LEFT, y, 4,     18).fill(TEAL);
-      doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(8.5)
-        .text(sLabel, LEFT + 8, y + 5, { width: WIDTH - 16, lineBreak: false });
-      y += 20;
-
-      // Table header row
-      doc.rect(LEFT, y, WIDTH, 17).fill(TABLE_HDR_BG);
+    /** Cabecera de tabla; se repite tras cada salto de página. */
+    const drawTableHeader = (yy: number): number => {
+      doc.rect(LEFT, yy, WIDTH, 17).fill(TABLE_HDR_BG);
       doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(7.5);
-      doc.text('Descripción',  C.desc.x + 3,  y + 5, { width: C.desc.w - 6,  lineBreak: false });
-      doc.text('Cant.',        C.qty.x,        y + 5, { width: C.qty.w,        align: 'right', lineBreak: false });
-      doc.text('Unidad',       C.unit.x + 2,   y + 5, { width: C.unit.w - 2,  lineBreak: false });
-      doc.text('Precio Unit.', C.price.x,      y + 5, { width: C.price.w,     align: 'right', lineBreak: false });
-      doc.text('Desc.%',       C.disc.x,       y + 5, { width: C.disc.w,      align: 'right', lineBreak: false });
+      doc.text('Descripción',  C.desc.x + 3,  yy + 5, { width: C.desc.w - 6,  lineBreak: false });
+      doc.text('Cant.',        C.qty.x,        yy + 5, { width: C.qty.w,        align: 'right', lineBreak: false });
+      doc.text('Unidad',       C.unit.x + 2,   yy + 5, { width: C.unit.w - 2,  lineBreak: false });
+      doc.text('Precio Unit.', C.price.x,      yy + 5, { width: C.price.w,     align: 'right', lineBreak: false });
+      doc.text('Desc.%',       C.disc.x,       yy + 5, { width: C.disc.w,      align: 'right', lineBreak: false });
       if (C.itbis) {
-        doc.text(`ITBIS (${quote.taxRate}%)`, C.itbis.x, y + 5, { width: C.itbis.w, align: 'right', lineBreak: false });
+        doc.text(`ITBIS (${quote.taxRate}%)`, C.itbis.x, yy + 5, { width: C.itbis.w, align: 'right', lineBreak: false });
       }
-      doc.text('Total', C.total.x, y + 5, { width: C.total.w, align: 'right', lineBreak: false });
-      y += 19;
+      doc.text('Total', C.total.x, yy + 5, { width: C.total.w, align: 'right', lineBreak: false });
+      return yy + 19;
+    };
 
-      // Item rows
-      for (const item of sectionItems) {
-        const disc   = Number(item.discountPct ?? 0);
-        const iTotal = Number(item.total ?? item.quantity * item.unitPrice * (1 - disc / 100));
-        const iITBIS = showITBIS ? iTotal * ((quote.taxRate ?? 0) / 100) : 0;
+    /** Fila de una línea (hoja del árbol). */
+    const drawItemRow = (item: QuoteItemLike, depth: number): void => {
+      const indent = Math.min(depth, 4) * INDENT_STEP;
+      const disc   = Number(item.discountPct ?? 0);
+      const iTotal = Number(item.total ?? 0);
+      const iITBIS = showITBIS ? iTotal * ((quote.taxRate ?? 0) / 100) : 0;
+      const descW  = C.desc.w - 6 - indent;
 
-        const descH = doc.font('Helvetica').fontSize(8.5)
-          .heightOfString(item.description, { width: C.desc.w - 6 });
-        const rowH  = Math.max(descH + 8, 20);
+      const descH = doc.font('Helvetica').fontSize(8.5)
+        .heightOfString(item.description, { width: descW });
+      const rowH  = Math.max(descH + 8, 20);
 
-        y = checkBreak(y, rowH + 6);
+      y = checkBreak(y, rowH + 6);
+      if (y === CONTENT_Y) y = drawTableHeader(y);
 
-        // If we just added a page, re-draw the table header
-        if (y === CONTENT_Y) {
-          doc.rect(LEFT, y, WIDTH, 17).fill(TABLE_HDR_BG);
-          doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(7.5);
-          doc.text('Descripción',  C.desc.x + 3,  y + 5, { width: C.desc.w - 6,  lineBreak: false });
-          doc.text('Cant.',        C.qty.x,        y + 5, { width: C.qty.w,        align: 'right', lineBreak: false });
-          doc.text('Unidad',       C.unit.x + 2,   y + 5, { width: C.unit.w - 2,  lineBreak: false });
-          doc.text('Precio Unit.', C.price.x,      y + 5, { width: C.price.w,     align: 'right', lineBreak: false });
-          doc.text('Desc.%',       C.disc.x,       y + 5, { width: C.disc.w,      align: 'right', lineBreak: false });
-          if (C.itbis) {
-            doc.text(`ITBIS (${quote.taxRate}%)`, C.itbis.x, y + 5, { width: C.itbis.w, align: 'right', lineBreak: false });
-          }
-          doc.text('Total', C.total.x, y + 5, { width: C.total.w, align: 'right', lineBreak: false });
-          y += 19;
-        }
+      const midY = y + rowH / 2 - 5;
 
-        const midY = y + rowH / 2 - 5;
-
-        doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8.5)
-          .text(item.description, C.desc.x + 3, y + 4, { width: C.desc.w - 6 });
-        doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8.5)
-          .text(String(item.quantity), C.qty.x, midY, { width: C.qty.w, align: 'right', lineBreak: false });
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8.5)
+        .text(item.description, C.desc.x + 3 + indent, y + 4, { width: descW });
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8.5)
+        .text(String(item.quantity), C.qty.x, midY, { width: C.qty.w, align: 'right', lineBreak: false });
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8)
+        .text(item.unit ?? '—', C.unit.x + 2, midY, { width: C.unit.w - 2, lineBreak: false });
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8.5)
+        .text(money(item.unitPrice), C.price.x, midY, { width: C.price.w, align: 'right', lineBreak: false });
+      doc.fillColor(disc > 0 ? TEAL : MID_GRAY).font('Helvetica').fontSize(8)
+        .text(disc > 0 ? `${disc}%` : '—', C.disc.x, midY, { width: C.disc.w, align: 'right', lineBreak: false });
+      if (C.itbis) {
         doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8)
-          .text(item.unit ?? '—', C.unit.x + 2, midY, { width: C.unit.w - 2, lineBreak: false });
-        doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8.5)
-          .text(money(item.unitPrice), C.price.x, midY, { width: C.price.w, align: 'right', lineBreak: false });
-        doc.fillColor(disc > 0 ? TEAL : MID_GRAY).font('Helvetica').fontSize(8)
-          .text(disc > 0 ? `${disc}%` : '—', C.disc.x, midY, { width: C.disc.w, align: 'right', lineBreak: false });
-        if (C.itbis) {
-          doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8)
-            .text(money(iITBIS), C.itbis.x, midY, { width: C.itbis.w, align: 'right', lineBreak: false });
-        }
-        doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(8.5)
-          .text(money(iTotal), C.total.x, midY, { width: C.total.w, align: 'right', lineBreak: false });
+          .text(money(iITBIS), C.itbis.x, midY, { width: C.itbis.w, align: 'right', lineBreak: false });
+      }
+      doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(8.5)
+        .text(money(iTotal), C.total.x, midY, { width: C.total.w, align: 'right', lineBreak: false });
 
-        y += rowH;
-        doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.3).stroke();
-        y += 2;
+      y += rowH;
+      doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.3).stroke();
+      y += 2;
+    };
+
+    /** Línea de subtotal al cerrar un grupo. Se alinea con la columna Total. */
+    const drawSubtotal = (label: string, amount: number, depth: number): void => {
+      y = checkBreak(y, 18);
+      const indent = Math.min(depth, 4) * INDENT_STEP;
+      const bold = depth === 0;
+      doc.fillColor(bold ? DARK_BLUE : MID_GRAY)
+        .font(bold ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(bold ? 8.5 : 8)
+        .text(label, C.desc.x + 3 + indent, y + 3, {
+          width: C.price.x - C.desc.x - indent - 6,
+          lineBreak: false,
+        });
+      doc.fillColor(bold ? DARK_BLUE : DARK_TEXT)
+        .font('Helvetica-Bold')
+        .fontSize(bold ? 8.5 : 8)
+        .text(money(amount), C.total.x, y + 3, {
+          width: C.total.w,
+          align: 'right',
+          lineBreak: false,
+        });
+      y += 16;
+    };
+
+    /**
+     * Dibuja un grupo y todo lo que cuelga de él. El nivel 0 lleva la barra de
+     * PARTIDA con la cabecera de tabla; los niveles interiores, un título más
+     * discreto. Al cerrar, su subtotal.
+     */
+    const drawGroup = (node: QuoteTreeNode, headerDrawn: boolean): void => {
+      const { row, label, depth, children } = node;
+      const isTop = depth === 0;
+
+      y = checkBreak(y, isTop ? 70 : 40);
+
+      if (isTop) {
+        const sLabel = `PARTIDA ${label}: ${row.description.toUpperCase()}`;
+        doc.rect(LEFT, y, WIDTH, 18).fill(SECTION_BG);
+        doc.rect(LEFT, y, 4,     18).fill(TEAL);
+        doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(8.5)
+          .text(sLabel, LEFT + 8, y + 5, { width: WIDTH - 16, lineBreak: false });
+        y += 20;
+        y = drawTableHeader(y);
+      } else {
+        const indent = Math.min(depth, 4) * INDENT_STEP;
+        doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(8)
+          .text(`${label}  ${row.description.toUpperCase()}`, C.desc.x + 3 + indent, y + 3, {
+            width: WIDTH - indent - 6,
+            lineBreak: false,
+          });
+        y += 15;
       }
 
-      y += 10;
+      for (const child of children) {
+        if (child.children.length > 0) drawGroup(child, true);
+        else drawItemRow(child.row, child.depth);
+      }
+
+      drawSubtotal(
+        isTop ? `TOTAL PARTIDA ${label}` : `Subtotal ${row.description}`,
+        Number(row.total ?? 0),
+        depth,
+      );
+      y += isTop ? 10 : 4;
+    };
+
+    // Una línea suelta en la raíz (sin partida) se dibuja bajo su propia cabecera.
+    let looseHeaderDrawn = false;
+    for (const node of tree) {
+      if (node.children.length > 0) {
+        looseHeaderDrawn = false;
+        drawGroup(node, false);
+      } else {
+        if (!looseHeaderDrawn) {
+          y = checkBreak(y, 60);
+          y = drawTableHeader(y);
+          looseHeaderDrawn = true;
+        }
+        drawItemRow(node.row, 0);
+      }
     }
+    if (looseHeaderDrawn) y += 10;
+
 
     // ── Totals ─────────────────────────────────────────────────────────────
     y = checkBreak(y, 80);

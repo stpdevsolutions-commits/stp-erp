@@ -32,6 +32,14 @@ import {
 } from '@/components/ui/select'
 import type { Client, Project, Quote } from '@/lib/types'
 import { updateQuote, deleteQuote, sendQuoteEmail } from '@/lib/actions/quotes'
+import { PartidasEditor } from '@/components/quotes/partidas-editor'
+import {
+  type EditorNode,
+  editorTreeFromQuote,
+  toPayload,
+  treeSubtotal,
+  validateTree,
+} from '@/lib/quote-tree'
 import {
   IndirectCostsSection,
   defaultIndirectRows,
@@ -56,37 +64,6 @@ type Section = {
   id: string
   name: string
   items: ItemRow[]
-}
-
-function genId() { return Math.random().toString(36).slice(2, 9) }
-function makeItem(): ItemRow {
-  return { id: genId(), description: '', unit: '', quantity: '1', unitPrice: '', discountPct: '' }
-}
-function makeSection(label: string): Section {
-  return { id: genId(), name: label, items: [makeItem()] }
-}
-
-function sectionsFromQuote(quote: Quote): Section[] {
-  if (!quote.items?.length) return [makeSection('Partida 1')]
-  const nameOrder: string[] = []
-  const map = new Map<string, ItemRow[]>()
-  for (const item of quote.items) {
-    const key = item.sectionName ?? ''
-    if (!map.has(key)) { map.set(key, []); nameOrder.push(key) }
-    map.get(key)!.push({
-      id: genId(),
-      description: item.description,
-      unit: item.unit ?? '',
-      quantity: String(item.quantity),
-      unitPrice: String(item.unitPrice),
-      discountPct: item.discountPct ? String(item.discountPct) : '',
-    })
-  }
-  return nameOrder.map((name, i) => ({
-    id: genId(),
-    name: name || `Partida ${i + 1}`,
-    items: map.get(name)!,
-  }))
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -160,7 +137,7 @@ function EditDialog({
   const [indirectRows, setIndirectRows] = useState<IndirectRow[]>(() =>
     hasIndirect ? rowsFromIndirect(existingIndirect!) : defaultIndirectRows(),
   )
-  const [sections, setSections] = useState<Section[]>(() => sectionsFromQuote(cotizacion))
+  const [nodes, setNodes] = useState<EditorNode[]>(() => editorTreeFromQuote(cotizacion))
 
   const {
     register,
@@ -187,50 +164,9 @@ function EditDialog({
   const selectedClient = clients.find((c) => c.id === clientId)
   const selectedProject = filteredProjects.find((p) => p.id === projectId)
 
-  // ── Section mutations ───────────────────────────────────────────────────
-
-  const addSection = useCallback(() => {
-    setSections((prev) => [...prev, makeSection(`Partida ${prev.length + 1}`)])
-  }, [])
-  const removeSection = useCallback((id: string) => {
-    setSections((prev) => prev.filter((s) => s.id !== id))
-  }, [])
-  const renameSection = useCallback((id: string, name: string) => {
-    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, name } : s)))
-  }, [])
-  const addItem = useCallback((sectionId: string) => {
-    setSections((prev) => prev.map((s) => s.id === sectionId ? { ...s, items: [...s.items, makeItem()] } : s))
-  }, [])
-  const removeItem = useCallback((sectionId: string, itemId: string) => {
-    setSections((prev) =>
-      prev.map((s) => {
-        if (s.id !== sectionId) return s
-        if (s.items.length <= 1) return s
-        return { ...s, items: s.items.filter((i) => i.id !== itemId) }
-      }),
-    )
-  }, [])
-  const updateItem = useCallback(
-    (sectionId: string, itemId: string, field: keyof Omit<ItemRow, 'id'>, value: string) => {
-      setSections((prev) =>
-        prev.map((s) => {
-          if (s.id !== sectionId) return s
-          return { ...s, items: s.items.map((i) => (i.id === itemId ? { ...i, [field]: value } : i)) }
-        }),
-      )
-    },
-    [],
-  )
-
   // ── Totals ──────────────────────────────────────────────────────────────
 
-  const allItems = sections.flatMap((s) => s.items)
-  const subtotal = allItems.reduce((sum, item) => {
-    const qty = parseFloat(item.quantity) || 0
-    const price = parseFloat(item.unitPrice) || 0
-    const disc = parseFloat(item.discountPct || '0') || 0
-    return sum + qty * price * (1 - disc / 100)
-  }, 0)
+  const subtotal = treeSubtotal(nodes)
   const indirectCalc = computeIndirect(subtotal, indirectRows)
   const itbis = useIndirect ? indirectCalc.itbis : applyITBIS ? subtotal * ITBIS_RATE : 0
   const total = useIndirect ? indirectCalc.total : subtotal + itbis
@@ -245,34 +181,11 @@ function EditDialog({
     setItemsError(null)
     setServerError(null)
 
-    for (const section of sections) {
-      for (const item of section.items) {
-        if (!item.description.trim()) {
-          setItemsError('Todos los ítems necesitan descripción')
-          return
-        }
-        if (!item.quantity || parseFloat(item.quantity) <= 0) {
-          setItemsError('Cantidad debe ser mayor a 0')
-          return
-        }
-        if (item.unitPrice === '' || parseFloat(item.unitPrice) < 0) {
-          setItemsError('Precio unitario inválido')
-          return
-        }
-      }
+    const problem = validateTree(nodes)
+    if (problem) {
+      setItemsError(problem)
+      return
     }
-
-    const flatItems = sections.flatMap((section, si) =>
-      section.items.map((item, ii) => ({
-        description: item.description,
-        unit: item.unit || undefined,
-        quantity: parseFloat(item.quantity),
-        unitPrice: parseFloat(item.unitPrice),
-        discountPct: parseFloat(item.discountPct || '0') || 0,
-        sectionName: section.name || `Partida ${si + 1}`,
-        sortOrder: si * 1000 + ii,
-      })),
-    )
 
     const result = await updateQuote(cotizacion.id, {
       title: data.title,
@@ -283,7 +196,7 @@ function EditDialog({
       notes: data.notes || null,
       terms: data.terms || null,
       taxRate: useIndirect ? 0 : applyITBIS ? 18 : 0,
-      items: flatItems,
+      items: toPayload(nodes),
       indirectCosts: useIndirect ? indirectToPayload(indirectRows) : null,
     })
     if (!result.ok) {
@@ -381,28 +294,7 @@ function EditDialog({
             </div>
           </div>
 
-          {/* Partidas / Sections */}
-          <div className="space-y-3">
-            <Label>Partidas e ítems</Label>
-            {sections.map((section, si) => (
-              <EditSectionBlock
-                key={section.id}
-                section={section}
-                sectionIndex={si}
-                applyITBIS={applyITBIS}
-                canDelete={sections.length > 1}
-                onRename={renameSection}
-                onAddItem={addItem}
-                onRemoveSection={removeSection}
-                onRemoveItem={removeItem}
-                onUpdateItem={updateItem}
-              />
-            ))}
-            <Button type="button" variant="outline" size="sm" className="w-full" onClick={addSection}>
-              <FolderPlus className="size-4 mr-1.5" />
-              Agregar partida
-            </Button>
-          </div>
+          <PartidasEditor nodes={nodes} onChange={setNodes} />
 
           {itemsError && (
             <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{itemsError}</p>
@@ -478,148 +370,6 @@ function EditDialog({
 }
 
 // ── Reusable section block for edit dialog ────────────────────────────────────
-
-function EditSectionBlock({
-  section,
-  sectionIndex,
-  applyITBIS,
-  canDelete,
-  onRename,
-  onAddItem,
-  onRemoveSection,
-  onRemoveItem,
-  onUpdateItem,
-}: {
-  section: Section
-  sectionIndex: number
-  applyITBIS: boolean
-  canDelete: boolean
-  onRename: (id: string, name: string) => void
-  onAddItem: (id: string) => void
-  onRemoveSection: (id: string) => void
-  onRemoveItem: (sectionId: string, itemId: string) => void
-  onUpdateItem: (sectionId: string, itemId: string, field: keyof Omit<ItemRow, 'id'>, value: string) => void
-}) {
-  return (
-    <div className="border rounded-lg overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 bg-muted/60 border-b">
-        <span className="text-xs font-medium text-muted-foreground shrink-0">Partida</span>
-        <Input
-          value={section.name}
-          onChange={(e) => onRename(section.id, e.target.value)}
-          className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 px-1 bg-transparent flex-1"
-          placeholder={`Partida ${sectionIndex + 1}`}
-        />
-        <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => onAddItem(section.id)}>
-          <Plus className="size-3.5 mr-1" />
-          Ítem
-        </Button>
-        <Button
-          type="button" variant="ghost" size="icon-sm"
-          onClick={() => onRemoveSection(section.id)}
-          disabled={!canDelete}
-          className="text-destructive hover:text-destructive shrink-0"
-        >
-          <Trash2 className="size-3.5" />
-        </Button>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[780px]">
-          <thead className="bg-muted/30">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
-              <th className="px-2 py-2 text-left font-medium text-muted-foreground w-28">Unidad</th>
-              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-16">Cant.</th>
-              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Precio unit.</th>
-              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-16">Desc.%</th>
-              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Total</th>
-              {applyITBIS && (
-                <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">ITBIS</th>
-              )}
-              <th className="w-9" />
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {section.items.map((item) => {
-              const qty = parseFloat(item.quantity) || 0
-              const price = parseFloat(item.unitPrice) || 0
-              const disc = parseFloat(item.discountPct || '0') || 0
-              const rowTotal = qty * price * (1 - disc / 100)
-              const rowItbis = applyITBIS ? rowTotal * ITBIS_RATE : 0
-
-              return (
-                <tr key={item.id}>
-                  <td className="px-3 py-1.5">
-                    <Input
-                      value={item.description}
-                      onChange={(e) => onUpdateItem(section.id, item.id, 'description', e.target.value)}
-                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-sm"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Select
-                      value={item.unit || '__none__'}
-                      onValueChange={(v) => onUpdateItem(section.id, item.id, 'unit', !v || v === '__none__' ? '' : v)}
-                    >
-                      <SelectTrigger className="h-8 text-xs border-0 shadow-none focus:ring-0 px-0">
-                        <SelectValue placeholder="—" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">—</SelectItem>
-                        {UNITS.map((u) => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      type="number" min="0.01" step="0.01"
-                      value={item.quantity}
-                      onChange={(e) => onUpdateItem(section.id, item.id, 'quantity', e.target.value)}
-                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      type="number" min="0" step="0.01"
-                      value={item.unitPrice}
-                      onChange={(e) => onUpdateItem(section.id, item.id, 'unitPrice', e.target.value)}
-                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      type="number" min="0" max="100" step="0.01"
-                      value={item.discountPct}
-                      onChange={(e) => onUpdateItem(section.id, item.id, 'discountPct', e.target.value)}
-                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
-                      placeholder="0"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums">{DOP.format(rowTotal)}</td>
-                  {applyITBIS && (
-                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">
-                      {DOP.format(rowItbis)}
-                    </td>
-                  )}
-                  <td className="px-1 py-1.5">
-                    <Button
-                      type="button" variant="ghost" size="icon-sm"
-                      onClick={() => onRemoveItem(section.id, item.id)}
-                      disabled={section.items.length === 1}
-                    >
-                      <Trash2 className="size-3.5 text-destructive" />
-                    </Button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
 
 // ── Delete dialog ─────────────────────────────────────────────────────────────
 

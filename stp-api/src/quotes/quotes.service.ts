@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { join, relative } from 'path';
 import { mkdirSync, statSync, existsSync, unlink } from 'fs';
 import { Quote, QuoteStatus, IndirectCost, QuoteRevisionSummary } from './entities/quote.entity';
@@ -31,6 +31,38 @@ import { UserRole } from '../users/entities/user.entity';
 import { SettingsService } from '../settings/settings.service';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
+import {
+  normalizeTree,
+  directSubtotal,
+  lineTotal,
+  rowsToTree,
+  flattenTree,
+  countNodes,
+  treeDepth,
+  MAX_TREE_DEPTH,
+  MAX_TREE_NODES,
+  type QuoteNode,
+  type QuoteNodeInput,
+} from './quote-tree';
+
+/** Convierte las filas ya guardadas de una cotización en el árbol de entrada (para clonar). */
+function rowsToNodeInputs(rows: QuoteItem[]): QuoteNodeInput[] {
+  const toInput = (node: {
+    row: QuoteItem;
+    children: { row: QuoteItem; children: unknown[] }[];
+  }): QuoteNodeInput => ({
+    kind: node.row.kind ?? 'item',
+    description: node.row.description,
+    quantity: node.row.quantity,
+    unit: node.row.unit,
+    unitPrice: node.row.unitPrice,
+    discountPct: node.row.discountPct,
+    children: node.children.map((c) =>
+      toInput(c as { row: QuoteItem; children: { row: QuoteItem; children: unknown[] }[] }),
+    ),
+  });
+  return rowsToTree(rows).map((n) => toInput(n));
+}
 
 export type QuoteDecisionResult =
   | { kind: 'success'; status: QuoteStatus.APPROVED | QuoteStatus.REJECTED; quoteNumber: string }
@@ -294,15 +326,7 @@ export class QuotesService implements OnModuleInit {
     const saved = await this.quotesRepository.save(quote);
 
     if (itemDtos?.length) {
-      const items = itemDtos.map((d, idx) =>
-        this.itemsRepository.create({
-          ...d,
-          quoteId: saved.id,
-          total: parseFloat((d.quantity * d.unitPrice * (1 - (d.discountPct ?? 0) / 100)).toFixed(2)),
-          sortOrder: d.sortOrder ?? idx,
-        }),
-      );
-      await this.itemsRepository.save(items);
+      await this.persistTree(saved.id, itemDtos);
       await this.recalculate(saved.id);
     } else if (dto.indirectCosts) {
       await this.recalculate(saved.id);
@@ -436,18 +460,10 @@ export class QuotesService implements OnModuleInit {
     await this.quotesRepository.save(target);
 
     if (itemsDto !== undefined) {
+      // Se reemplaza el árbol entero. El borrado va de hojas a raíz para no
+      // depender del CASCADE mientras se reconstruye.
       await this.itemsRepository.delete({ quoteId: id });
-      if (itemsDto.length > 0) {
-        const newItems = itemsDto.map((d, idx) =>
-          this.itemsRepository.create({
-            ...d,
-            quoteId: id,
-            total: parseFloat((d.quantity * d.unitPrice * (1 - (d.discountPct ?? 0) / 100)).toFixed(2)),
-            sortOrder: d.sortOrder ?? idx,
-          }),
-        );
-        await this.itemsRepository.save(newItems);
-      }
+      if (itemsDto.length > 0) await this.persistTree(id, itemsDto);
       await this.recalculate(id);
     } else if (
       dto.taxRate !== undefined ||
@@ -634,21 +650,10 @@ export class QuotesService implements OnModuleInit {
     });
     const saved = await this.quotesRepository.save(revision);
 
+    // Clonar el árbol conservando la jerarquía: se reconstruye desde las filas
+    // de la original y se vuelve a persistir como árbol nuevo (ids nuevos).
     if (origin.items?.length) {
-      const items = origin.items.map((it) =>
-        this.itemsRepository.create({
-          quoteId: saved.id,
-          description: it.description,
-          unit: it.unit,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          discountPct: it.discountPct,
-          total: it.total,
-          sectionName: it.sectionName,
-          sortOrder: it.sortOrder,
-        }),
-      );
-      await this.itemsRepository.save(items);
+      await this.persistTree(saved.id, rowsToNodeInputs(origin.items));
     }
     await this.recalculate(saved.id);
 
@@ -671,14 +676,39 @@ export class QuotesService implements OnModuleInit {
     const quote = await this.findOne(quoteId);
     this.assertEditable(quote, userRole);
 
-    const count = await this.itemsRepository.countBy({ quoteId });
-    const item = this.itemsRepository.create({
-      ...dto,
+    const { parentId, children, ...node } = dto;
+    if (parentId) {
+      const parent = await this.itemsRepository.findOne({
+        where: { id: parentId, quoteId },
+      });
+      if (!parent) throw new BadRequestException('La partida padre no existe');
+    }
+
+    // Se añade al final de sus hermanos, respetando el árbol.
+    const siblings = await this.itemsRepository.countBy({
       quoteId,
-      total: parseFloat((dto.quantity * dto.unitPrice * (1 - (dto.discountPct ?? 0) / 100)).toFixed(2)),
-      sortOrder: dto.sortOrder ?? count,
+      parentId: parentId ?? IsNull(),
     });
-    await this.itemsRepository.save(item);
+    const [normalized] = normalizeTree([{ ...node, children }]);
+    this.assertTreeLimits([normalized]);
+
+    const created = await this.itemsRepository.save(
+      this.itemsRepository.create({
+        quoteId,
+        parentId: parentId ?? undefined,
+        kind: normalized.kind,
+        description: normalized.description,
+        unit: normalized.unit ?? undefined,
+        quantity: normalized.quantity,
+        unitPrice: normalized.unitPrice,
+        discountPct: normalized.discountPct,
+        total: normalized.total,
+        sortOrder: siblings,
+      }),
+    );
+    if (normalized.children.length > 0) {
+      await this.persistChildren(quoteId, created.id, normalized.children);
+    }
     await this.recalculate(quoteId);
     const result = await this.findOne(quoteId);
     await this.savePdfForQuote(result).catch((err: Error) =>
@@ -698,7 +728,9 @@ export class QuotesService implements OnModuleInit {
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
     Object.assign(item, defined);
-    item.total = parseFloat((item.quantity * item.unitPrice * (1 - (item.discountPct ?? 0) / 100)).toFixed(2));
+    // El total de un grupo lo fija recalculate() sumando sus hijos; el de una
+    // línea sale de su propia cantidad y precio.
+    if (item.kind !== 'group') item.total = lineTotal(item);
     await this.itemsRepository.save(item);
     await this.recalculate(quoteId);
     const result = await this.findOne(quoteId);
@@ -762,14 +794,136 @@ export class QuotesService implements OnModuleInit {
     return { costs: computed, taxAmount: this.round2(taxAmount), total };
   }
 
+  // ── Árbol de partidas ─────────────────────────────────────────────────────
+
+  /**
+   * Guarda un árbol de partidas completo. Se insertan los padres antes que los
+   * hijos porque el `parentId` necesita el id ya generado.
+   *
+   * Los totales salen SIEMPRE de `normalizeTree`: el de una línea es
+   * cantidad × unitario − descuento y el de un grupo es la suma de sus
+   * descendientes, así que un cliente no puede mandar un total que no cuadre.
+   */
+  private async persistTree(
+    quoteId: string,
+    input: QuoteNodeInput[],
+  ): Promise<void> {
+    const tree = normalizeTree(input);
+    this.assertTreeLimits(tree);
+
+    await this.persistChildren(quoteId, null, tree);
+  }
+
+  /** Inserta un nivel del árbol y baja recursivamente. `startOrder` permite añadir al final. */
+  private async persistChildren(
+    quoteId: string,
+    parentId: string | null,
+    nodes: QuoteNode[],
+    startOrder = 0,
+  ): Promise<void> {
+    for (const [index, node] of nodes.entries()) {
+      const row = await this.itemsRepository.save(
+        this.itemsRepository.create({
+          quoteId,
+          parentId: parentId ?? undefined,
+          kind: node.kind,
+          description: node.description,
+          unit: node.unit ?? undefined,
+          quantity: node.quantity,
+          unitPrice: node.unitPrice,
+          discountPct: node.discountPct,
+          total: node.total,
+          sortOrder: startOrder + index,
+        }),
+      );
+      if (node.children.length > 0) {
+        await this.persistChildren(quoteId, row.id, node.children);
+      }
+    }
+  }
+
+  /**
+   * Una línea suelta necesita cantidad y precio; un grupo no. Se comprueba aquí
+   * y no en el DTO porque solo después de normalizar se sabe qué es cada nodo
+   * (un nodo con hijos es grupo aunque llegue marcado como línea).
+   */
+  private assertTreeLimits(tree: QuoteNode[]): void {
+    if (countNodes(tree) > MAX_TREE_NODES) {
+      throw new BadRequestException(
+        `Una cotización admite como máximo ${MAX_TREE_NODES} partidas y líneas`,
+      );
+    }
+    if (treeDepth(tree) > MAX_TREE_DEPTH) {
+      throw new BadRequestException(
+        `Las partidas no pueden anidarse más de ${MAX_TREE_DEPTH} niveles`,
+      );
+    }
+
+    const check = (nodes: QuoteNode[]): void => {
+      for (const node of nodes) {
+        if (node.kind === 'item') {
+          if (!(node.quantity > 0)) {
+            throw new BadRequestException(
+              `La línea "${node.description}" necesita una cantidad mayor que 0`,
+            );
+          }
+          if (node.unitPrice < 0) {
+            throw new BadRequestException(
+              `La línea "${node.description}" tiene un precio unitario inválido`,
+            );
+          }
+        }
+        check(node.children);
+      }
+    };
+    check(tree);
+  }
+
+  /**
+   * Recalcula el total de cada grupo a partir de sus descendientes y devuelve el
+   * subtotal de la cotización, que suma SOLO las hojas (sumar también los grupos
+   * contaría cada línea dos veces).
+   */
+  private async recomputeTreeTotals(quoteId: string): Promise<number> {
+    const rows = await this.itemsRepository.findBy({ quoteId });
+    if (rows.length === 0) return 0;
+
+    const tree = rowsToTree(rows);
+    let leafSubtotal = 0;
+
+    const visit = (node: (typeof tree)[number]): number => {
+      if (node.children.length === 0) {
+        const total =
+          node.row.kind === 'group' ? 0 : this.round2(Number(node.row.total));
+        if (node.row.kind !== 'group') leafSubtotal = this.round2(leafSubtotal + total);
+        return total;
+      }
+      const total = this.round2(
+        node.children.reduce((sum, child) => sum + visit(child), 0),
+      );
+      if (Number(node.row.total) !== total) {
+        node.row.total = total;
+        node.row.kind = 'group';
+      }
+      return total;
+    };
+
+    for (const node of tree) visit(node);
+
+    // Un nodo con hijos es grupo por definición: se persiste por si llegó como línea.
+    const dirty = flattenTree(tree)
+      .filter((n) => n.children.length > 0)
+      .map((n) => n.row);
+    if (dirty.length > 0) await this.itemsRepository.save(dirty);
+
+    return leafSubtotal;
+  }
+
   private async recalculate(quoteId: string): Promise<void> {
-    const [quote, items] = await Promise.all([
-      this.quotesRepository.findOneBy({ id: quoteId }),
-      this.itemsRepository.findBy({ quoteId }),
-    ]);
+    const quote = await this.quotesRepository.findOneBy({ id: quoteId });
     if (!quote) return;
 
-    const subtotal = this.round2(items.reduce((sum, i) => sum + Number(i.total), 0));
+    const subtotal = await this.recomputeTreeTotals(quoteId);
     const base = Math.max(0, this.round2(subtotal - Number(quote.discount ?? 0)));
 
     if (Array.isArray(quote.indirectCosts)) {

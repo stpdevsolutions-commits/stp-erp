@@ -26,12 +26,9 @@ export class UpdateQuoteItemDto {
   @Max(100)
   discountPct?: number;
 
+  /** Orden ENTRE HERMANOS (dentro de la misma partida), no global. */
   @IsOptional()
   @IsNumber()
   @Min(0)
   sortOrder?: number;
-
-  @IsOptional()
-  @IsString()
-  sectionName?: string;
 }

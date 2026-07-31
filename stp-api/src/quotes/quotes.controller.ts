@@ -21,6 +21,7 @@ import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { CreateQuoteItemDto } from './dto/create-quote-item.dto';
 import { UpdateQuoteItemDto } from './dto/update-quote-item.dto';
 import { QueryQuotesDto } from './dto/query-quotes.dto';
+import { rowsToTree, flattenTree, ancestorPath } from './quote-tree';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -55,6 +56,7 @@ interface QuoteItemRow {
   quoteNumber: string;
   clientName: string;
   sectionName: string;
+  numbering: string;
   description: string;
   unit: string;
   quantity: number;
@@ -139,22 +141,26 @@ export class QuotesController {
       totalsLabel: 'TOTAL',
     });
 
-    const itemRows: QuoteItemRow[] = data.flatMap((q) =>
-      (q.items ?? [])
-        .slice()
-        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-        .map((i) => ({
+    // Solo las HOJAS del árbol de partidas: incluir también los grupos duplicaría
+    // los importes y rompería la fila TOTAL de la hoja. La jerarquía se conserva
+    // en la columna "Partida" como ruta ("Baño > Piso").
+    const itemRows: QuoteItemRow[] = data.flatMap((q) => {
+      const tree = rowsToTree(q.items ?? []);
+      return flattenTree(tree)
+        .filter((n) => n.children.length === 0 && n.row.kind !== 'group')
+        .map((n) => ({
           quoteNumber: q.number ?? '',
           clientName: q.client?.name ?? '',
-          sectionName: i.sectionName ?? '',
-          description: i.description ?? '',
-          unit: i.unit ?? '',
-          quantity: i.quantity ?? 0,
-          unitPrice: i.unitPrice ?? 0,
-          discountPct: i.discountPct ?? 0,
-          total: i.total ?? 0,
-        })),
-    );
+          sectionName: ancestorPath(tree, n.row.id),
+          numbering: n.label,
+          description: n.row.description ?? '',
+          unit: n.row.unit ?? '',
+          quantity: n.row.quantity ?? 0,
+          unitPrice: n.row.unitPrice ?? 0,
+          discountPct: n.row.discountPct ?? 0,
+          total: n.row.total ?? 0,
+        }));
+    });
 
     addReportSheet<QuoteItemRow>(workbook, {
       sheetName: 'Detalle de ítems',
@@ -163,7 +169,8 @@ export class QuotesController {
       columns: [
         { header: 'Cotización', value: (r) => r.quoteNumber },
         { header: 'Cliente', value: (r) => r.clientName },
-        { header: 'Partida', value: (r) => r.sectionName },
+        { header: 'Nº', value: (r) => r.numbering },
+        { header: 'Partida', value: (r) => r.sectionName, width: 32 },
         { header: 'Descripción', value: (r) => r.description, width: 50 },
         { header: 'Unidad', value: (r) => r.unit },
         { header: 'Cantidad', value: (r) => r.quantity, type: 'number' },

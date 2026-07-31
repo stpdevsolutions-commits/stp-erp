@@ -143,7 +143,7 @@ Jerarquía en `RolesGuard`: ADMIN (rango 3) > MANAGER (rango 2) > USER (rango 1)
 3. **Clients** — clientes con tipo (persona/empresa), RNC
 4. **Projects** — código auto PRJ-YYYY-NNN, tipos (electrical/mechanical/construction/maintenance)
 5. **Tasks** — completedAt automático al pasar a `done`. Se asignan a un **usuario** (`assignedToId`, da visibilidad RBAC) o a un **colaborador** (`collaboratorId`, personal de campo sin cuenta)
-6. **Quotes** — COT-YYYY-NNN, items, subtotal → ITBIS 18% → total, lock al aprobar
+6. **Quotes** — COT-YYYY-NNN, subtotal → ITBIS 18% → total, lock al aprobar. Las partidas son un **árbol** (`quote_items.parentId` + `kind`): una partida se divide en subpartidas sin profundidad fija (máx. 8 niveles, 500 nodos) — "Baño" → "Piso" → líneas. El total de un grupo es la suma de sus descendientes y el subtotal de la cotización suma **solo las hojas**; lo calcula siempre el servidor (`quotes/quote-tree.ts`)
 7. **Expenses** — categorías, FK a Supplier opcional
 8. **Payments** — método, estado, FK a client/project/quote
 9. **Suppliers** — proveedores

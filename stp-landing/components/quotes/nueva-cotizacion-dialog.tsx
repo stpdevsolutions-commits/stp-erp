@@ -26,6 +26,14 @@ import {
 } from '@/components/ui/select'
 import type { Client, Project } from '@/lib/types'
 import { createQuote } from '@/lib/actions/quotes'
+import { PartidasEditor } from '@/components/quotes/partidas-editor'
+import {
+  type EditorNode,
+  makeGroup,
+  toPayload,
+  treeSubtotal,
+  validateTree,
+} from '@/lib/quote-tree'
 import {
   IndirectCostsSection,
   defaultIndirectRows,
@@ -34,32 +42,6 @@ import {
   type IndirectRow,
 } from '@/components/quotes/indirect-costs'
 
-// ── Section / Item types (local state, not persisted to form) ─────────────────
-
-type ItemRow = {
-  id: string
-  description: string
-  unit: string
-  quantity: string
-  unitPrice: string
-  discountPct: string
-}
-
-type Section = {
-  id: string
-  name: string
-  items: ItemRow[]
-}
-
-function genId() {
-  return Math.random().toString(36).slice(2, 9)
-}
-function makeItem(): ItemRow {
-  return { id: genId(), description: '', unit: '', quantity: '1', unitPrice: '', discountPct: '' }
-}
-function makeSection(label: string): Section {
-  return { id: genId(), name: label, items: [makeItem()] }
-}
 
 // ── Header schema (sections/items managed separately with useState) ───────────
 
@@ -124,7 +106,7 @@ export function NuevaCotizacionDialog({
   const [applyITBIS, setApplyITBIS] = useState(true)
   const [useIndirect, setUseIndirect] = useState(true)
   const [indirectRows, setIndirectRows] = useState<IndirectRow[]>(() => defaultIndirectRows())
-  const [sections, setSections] = useState<Section[]>(() => [makeSection('Partida 1')])
+  const [nodes, setNodes] = useState<EditorNode[]>(() => [makeGroup('Partida 1')])
 
   const {
     register,
@@ -144,57 +126,9 @@ export function NuevaCotizacionDialog({
   const selectedClient = clients.find((c) => c.id === clientId)
   const selectedProject = filteredProjects.find((p) => p.id === projectId)
 
-  // ── Section mutations ─────────────────────────────────────────────────────
-
-  const addSection = useCallback(() => {
-    setSections((prev) => [...prev, makeSection(`Partida ${prev.length + 1}`)])
-  }, [])
-
-  const removeSection = useCallback((sectionId: string) => {
-    setSections((prev) => prev.filter((s) => s.id !== sectionId))
-  }, [])
-
-  const renameSection = useCallback((sectionId: string, name: string) => {
-    setSections((prev) => prev.map((s) => (s.id === sectionId ? { ...s, name } : s)))
-  }, [])
-
-  const addItem = useCallback((sectionId: string) => {
-    setSections((prev) =>
-      prev.map((s) => (s.id === sectionId ? { ...s, items: [...s.items, makeItem()] } : s)),
-    )
-  }, [])
-
-  const removeItem = useCallback((sectionId: string, itemId: string) => {
-    setSections((prev) =>
-      prev.map((s) => {
-        if (s.id !== sectionId) return s
-        if (s.items.length <= 1) return s
-        return { ...s, items: s.items.filter((i) => i.id !== itemId) }
-      }),
-    )
-  }, [])
-
-  const updateItem = useCallback(
-    (sectionId: string, itemId: string, field: keyof Omit<ItemRow, 'id'>, value: string) => {
-      setSections((prev) =>
-        prev.map((s) => {
-          if (s.id !== sectionId) return s
-          return { ...s, items: s.items.map((i) => (i.id === itemId ? { ...i, [field]: value } : i)) }
-        }),
-      )
-    },
-    [],
-  )
-
   // ── Computed totals ───────────────────────────────────────────────────────
 
-  const allItems = sections.flatMap((s) => s.items)
-  const subtotal = allItems.reduce((sum, item) => {
-    const qty = parseFloat(item.quantity) || 0
-    const price = parseFloat(item.unitPrice) || 0
-    const disc = parseFloat(item.discountPct || '0') || 0
-    return sum + qty * price * (1 - disc / 100)
-  }, 0)
+  const subtotal = treeSubtotal(nodes)
   const indirectCalc = computeIndirect(subtotal, indirectRows)
   const itbis = useIndirect ? indirectCalc.itbis : applyITBIS ? subtotal * ITBIS_RATE : 0
   const total = useIndirect ? indirectCalc.total : subtotal + itbis
@@ -203,7 +137,7 @@ export function NuevaCotizacionDialog({
 
   function handleClose() {
     setOpen(false)
-    setSections([makeSection('Partida 1')])
+    setNodes([makeGroup('Partida 1')])
     reset({ status: 'draft', terms: defaultTerms })
     setServerError(null)
     setItemsError(null)
@@ -216,39 +150,11 @@ export function NuevaCotizacionDialog({
     setItemsError(null)
     setServerError(null)
 
-    const allRows = sections.flatMap((s) => s.items)
-    if (allRows.length === 0) {
-      setItemsError('Agrega al menos un ítem')
+    const problem = validateTree(nodes)
+    if (problem) {
+      setItemsError(problem)
       return
     }
-    for (const section of sections) {
-      for (const item of section.items) {
-        if (!item.description.trim()) {
-          setItemsError('Todos los ítems necesitan descripción')
-          return
-        }
-        if (!item.quantity || parseFloat(item.quantity) <= 0) {
-          setItemsError('Cantidad debe ser mayor a 0')
-          return
-        }
-        if (item.unitPrice === '' || parseFloat(item.unitPrice) < 0) {
-          setItemsError('Precio unitario inválido')
-          return
-        }
-      }
-    }
-
-    const flatItems = sections.flatMap((section, si) =>
-      section.items.map((item, ii) => ({
-        description: item.description,
-        unit: item.unit || undefined,
-        quantity: parseFloat(item.quantity),
-        unitPrice: parseFloat(item.unitPrice),
-        discountPct: parseFloat(item.discountPct || '0') || 0,
-        sectionName: section.name || `Partida ${si + 1}`,
-        sortOrder: si * 1000 + ii,
-      })),
-    )
 
     const result = await createQuote({
       title: headerData.title,
@@ -259,7 +165,7 @@ export function NuevaCotizacionDialog({
       notes: headerData.notes || undefined,
       terms: headerData.terms || undefined,
       taxRate: useIndirect ? 0 : applyITBIS ? 18 : 0,
-      items: flatItems,
+      items: toPayload(nodes),
       ...(useIndirect ? { indirectCosts: indirectToPayload(indirectRows) } : {}),
     })
 
@@ -377,32 +283,7 @@ export function NuevaCotizacionDialog({
             </div>
           </div>
 
-          {/* Partidas / Sections */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Partidas e ítems <span className="text-destructive">*</span></Label>
-            </div>
-
-            {sections.map((section, si) => (
-              <SectionBlock
-                key={section.id}
-                section={section}
-                sectionIndex={si}
-                applyITBIS={applyITBIS}
-                canDelete={sections.length > 1}
-                onRename={renameSection}
-                onAddItem={addItem}
-                onRemoveSection={removeSection}
-                onRemoveItem={removeItem}
-                onUpdateItem={updateItem}
-              />
-            ))}
-
-            <Button type="button" variant="outline" size="sm" className="w-full" onClick={addSection}>
-              <FolderPlus className="size-4 mr-1.5" />
-              Agregar partida
-            </Button>
-          </div>
+          <PartidasEditor nodes={nodes} onChange={setNodes} />
 
           {itemsError && (
             <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{itemsError}</p>
@@ -477,153 +358,3 @@ export function NuevaCotizacionDialog({
   )
 }
 
-// ── Shared SectionBlock ───────────────────────────────────────────────────────
-
-function SectionBlock({
-  section,
-  sectionIndex,
-  applyITBIS,
-  canDelete,
-  onRename,
-  onAddItem,
-  onRemoveSection,
-  onRemoveItem,
-  onUpdateItem,
-}: {
-  section: Section
-  sectionIndex: number
-  applyITBIS: boolean
-  canDelete: boolean
-  onRename: (id: string, name: string) => void
-  onAddItem: (id: string) => void
-  onRemoveSection: (id: string) => void
-  onRemoveItem: (sectionId: string, itemId: string) => void
-  onUpdateItem: (sectionId: string, itemId: string, field: keyof Omit<ItemRow, 'id'>, value: string) => void
-}) {
-  return (
-    <div className="border rounded-lg overflow-hidden">
-      {/* Section header */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-muted/60 border-b">
-        <span className="text-xs font-medium text-muted-foreground shrink-0">Partida</span>
-        <Input
-          value={section.name}
-          onChange={(e) => onRename(section.id, e.target.value)}
-          className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 px-1 bg-transparent flex-1"
-          placeholder={`Partida ${sectionIndex + 1}`}
-        />
-        <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => onAddItem(section.id)}>
-          <Plus className="size-3.5 mr-1" />
-          Ítem
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => onRemoveSection(section.id)}
-          disabled={!canDelete}
-          className="text-destructive hover:text-destructive shrink-0"
-        >
-          <Trash2 className="size-3.5" />
-        </Button>
-      </div>
-
-      {/* Items table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[780px]">
-          <thead className="bg-muted/30">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
-              <th className="px-2 py-2 text-left font-medium text-muted-foreground w-28">Unidad</th>
-              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-16">Cant.</th>
-              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Precio unit.</th>
-              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-16">Desc.%</th>
-              <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">Total</th>
-              {applyITBIS && (
-                <th className="px-2 py-2 text-right font-medium text-muted-foreground w-28">ITBIS</th>
-              )}
-              <th className="w-9" />
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {section.items.map((item) => {
-              const qty = parseFloat(item.quantity) || 0
-              const price = parseFloat(item.unitPrice) || 0
-              const disc = parseFloat(item.discountPct || '0') || 0
-              const rowTotal = qty * price * (1 - disc / 100)
-              const rowItbis = applyITBIS ? rowTotal * ITBIS_RATE : 0
-
-              return (
-                <tr key={item.id}>
-                  <td className="px-3 py-1.5">
-                    <Input
-                      value={item.description}
-                      onChange={(e) => onUpdateItem(section.id, item.id, 'description', e.target.value)}
-                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-sm"
-                      placeholder="Descripción del ítem"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Select
-                      value={item.unit || '__none__'}
-                      onValueChange={(v) => onUpdateItem(section.id, item.id, 'unit', !v || v === '__none__' ? '' : v)}
-                    >
-                      <SelectTrigger className="h-8 text-xs border-0 shadow-none focus:ring-0 px-0">
-                        <SelectValue placeholder="—" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">—</SelectItem>
-                        {UNITS.map((u) => (
-                          <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      type="number" min="0.01" step="0.01"
-                      value={item.quantity}
-                      onChange={(e) => onUpdateItem(section.id, item.id, 'quantity', e.target.value)}
-                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      type="number" min="0" step="0.01"
-                      value={item.unitPrice}
-                      onChange={(e) => onUpdateItem(section.id, item.id, 'unitPrice', e.target.value)}
-                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      type="number" min="0" max="100" step="0.01"
-                      value={item.discountPct}
-                      onChange={(e) => onUpdateItem(section.id, item.id, 'discountPct', e.target.value)}
-                      className="h-8 border-0 shadow-none focus-visible:ring-0 px-0 text-right text-sm"
-                      placeholder="0"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums">{DOP.format(rowTotal)}</td>
-                  {applyITBIS && (
-                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">
-                      {DOP.format(rowItbis)}
-                    </td>
-                  )}
-                  <td className="px-1 py-1.5">
-                    <Button
-                      type="button" variant="ghost" size="icon-sm"
-                      onClick={() => onRemoveItem(section.id, item.id)}
-                      disabled={section.items.length === 1}
-                    >
-                      <Trash2 className="size-3.5 text-destructive" />
-                    </Button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}

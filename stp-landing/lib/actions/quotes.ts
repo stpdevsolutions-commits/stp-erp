@@ -9,14 +9,19 @@ export interface ActionResult {
   error?: string
 }
 
+/**
+ * Nodo del árbol de partidas. Recursivo: una partida (`kind: 'group'`) lleva sus
+ * subpartidas o líneas en `children` y no tiene cantidad ni precio propios; el
+ * servidor calcula su total sumando lo que cuelga de ella.
+ */
 export interface QuoteItemInput {
+  kind?: 'group' | 'item'
   description: string
   unit?: string
-  quantity: number
-  unitPrice: number
+  quantity?: number
+  unitPrice?: number
   discountPct?: number
-  sectionName?: string
-  sortOrder?: number
+  children?: QuoteItemInput[]
 }
 
 export interface IndirectCostInput {

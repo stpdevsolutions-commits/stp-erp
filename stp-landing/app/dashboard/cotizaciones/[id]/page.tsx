@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import type { Quote, User, Client, Project, PaginatedResponse } from '@/lib/types'
+import { itemsToTree, flattenTree } from '@/lib/quote-tree'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -85,13 +86,9 @@ export default async function CotizacionDetallePage({
     ? revisionSummaries.find((r) => r.id === quote.supersededById)
     : undefined
 
-  // Group items by section
-  const sections: Map<string, typeof quote.items> = new Map()
-  for (const item of quote.items ?? []) {
-    const key = item.sectionName ?? 'Sin sección'
-    if (!sections.has(key)) sections.set(key, [])
-    sections.get(key)!.push(item)
-  }
+  // Las partidas se anidan sin profundidad fija; el árbol se reconstruye desde
+  // las filas planas (parentId + sortOrder) y se pinta aplanado con sangría.
+  const itemTree = itemsToTree(quote.items)
 
   return (
     <div className="space-y-6">
@@ -320,58 +317,100 @@ export default async function CotizacionDetallePage({
         </Card>
       )}
 
-      {/* Items by section */}
-      {sections.size > 0 && (
+      {/* Partidas (árbol) */}
+      {itemTree.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-base font-semibold">Partidas e ítems</h2>
-          {Array.from(sections.entries()).map(([sectionName, items]) => (
-            <Card key={sectionName}>
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-semibold">{sectionName}</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Descripción</TableHead>
-                        <TableHead className="w-24">Unidad</TableHead>
-                        <TableHead className="text-right w-20">Cant.</TableHead>
-                        <TableHead className="text-right w-32">Precio unit.</TableHead>
-                        <TableHead className="text-right w-20">Desc.%</TableHead>
-                        <TableHead className="text-right w-32">Total</TableHead>
-                        {quote.taxRate > 0 && (
-                          <TableHead className="text-right w-32">ITBIS</TableHead>
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item) => {
-                        const rowItbis = quote.taxRate > 0 ? item.total * (quote.taxRate / 100) : 0
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Nº</TableHead>
+                      <TableHead>Descripción</TableHead>
+                      <TableHead className="w-24">Unidad</TableHead>
+                      <TableHead className="text-right w-20">Cant.</TableHead>
+                      <TableHead className="text-right w-32">Precio unit.</TableHead>
+                      <TableHead className="text-right w-20">Desc.%</TableHead>
+                      <TableHead className="text-right w-32">Total</TableHead>
+                      {quote.taxRate > 0 && (
+                        <TableHead className="text-right w-32">ITBIS</TableHead>
+                      )}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {flattenTree(itemTree).map(({ item, label, depth, children }) => {
+                      const isGroup = children.length > 0 || item.kind === 'group'
+                      const rowItbis =
+                        !isGroup && quote.taxRate > 0 ? item.total * (quote.taxRate / 100) : 0
+                      // La sangría comunica la jerarquía; el nivel 0 va resaltado.
+                      const indent = Math.min(depth, 4) * 16
+
+                      if (isGroup) {
                         return (
-                          <TableRow key={item.id}>
-                            <TableCell className="text-sm">{item.description}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground">{item.unit ?? '—'}</TableCell>
-                            <TableCell className="text-right tabular-nums text-sm">{item.quantity}</TableCell>
-                            <TableCell className="text-right tabular-nums text-sm">{DOP.format(item.unitPrice)}</TableCell>
-                            <TableCell className="text-right tabular-nums text-sm">
-                              {item.discountPct ? `${item.discountPct}%` : '—'}
+                          <TableRow
+                            key={item.id}
+                            className={depth === 0 ? 'bg-primary/5' : 'bg-muted/40'}
+                          >
+                            <TableCell className="text-xs tabular-nums text-muted-foreground">
+                              {label}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums text-sm font-medium">{DOP.format(item.total)}</TableCell>
-                            {quote.taxRate > 0 && (
-                              <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
-                                {DOP.format(rowItbis)}
-                              </TableCell>
-                            )}
+                            <TableCell
+                              colSpan={quote.taxRate > 0 ? 5 : 4}
+                              className={
+                                depth === 0
+                                  ? 'text-sm font-semibold'
+                                  : 'text-sm font-medium text-muted-foreground'
+                              }
+                              style={{ paddingLeft: indent + 12 }}
+                            >
+                              {item.description}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums text-sm font-semibold">
+                              {DOP.format(item.total)}
+                            </TableCell>
+                            {quote.taxRate > 0 && <TableCell />}
                           </TableRow>
                         )
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                      }
+
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell className="text-xs tabular-nums text-muted-foreground">
+                            {label}
+                          </TableCell>
+                          <TableCell className="text-sm" style={{ paddingLeft: indent + 12 }}>
+                            {item.description}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {item.unit ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-sm">
+                            {item.quantity}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-sm">
+                            {DOP.format(item.unitPrice)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-sm">
+                            {item.discountPct ? `${item.discountPct}%` : '—'}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-sm font-medium">
+                            {DOP.format(item.total)}
+                          </TableCell>
+                          {quote.taxRate > 0 && (
+                            <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
+                              {DOP.format(rowItbis)}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

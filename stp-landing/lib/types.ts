@@ -68,8 +68,16 @@ export interface QuoteItem {
   unit?: string
   unitPrice: number
   discountPct?: number
+  /** Línea = cantidad × unitario − descuento; partida = suma de sus descendientes. */
   total: number
-  sectionName?: string
+  /**
+   * Árbol de partidas: `group` agrupa (sin cantidad ni precio propios) e `item`
+   * es la línea. `parentId` null = está en la raíz; `sortOrder` ordena entre
+   * hermanos, no globalmente. Ver `lib/quote-tree.ts`.
+   */
+  kind?: 'group' | 'item'
+  parentId?: string | null
+  sortOrder?: number
 }
 
 export interface QuoteRevisionSummary {
