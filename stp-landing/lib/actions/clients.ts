@@ -22,7 +22,12 @@ export interface ActionResult {
   error?: string
 }
 
-export async function createClient(input: CreateClientInput): Promise<ActionResult> {
+/** Igual que `ActionResult`, más el cliente recién creado (para dejarlo seleccionado). */
+export interface CreateClientResult extends ActionResult {
+  client?: { id: string; name: string }
+}
+
+export async function createClient(input: CreateClientInput): Promise<CreateClientResult> {
   // Strip empty strings so API doesn't receive "" for optional fields
   const body = Object.fromEntries(
     Object.entries(input).filter(([, v]) => v !== '' && v !== undefined),
@@ -38,8 +43,12 @@ export async function createClient(input: CreateClientInput): Promise<ActionResu
     return { ok: false, error: apiError(err, 'Error al crear el cliente') }
   }
 
+  // Se devuelve el cliente creado para poder dejarlo ya seleccionado en quien
+  // llamó (p. ej. el formulario de cotización, que lo necesita al vuelo).
+  const client = (await res.json().catch(() => null)) as { id: string; name: string } | null
+
   revalidatePath('/dashboard/clientes')
-  return { ok: true }
+  return { ok: true, client: client ?? undefined }
 }
 
 export interface UpdateClientInput {

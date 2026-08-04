@@ -1,5 +1,26 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, BadRequestException, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  BadRequestException,
+  UseGuards,
+  Res,
+} from '@nestjs/common';
+import type { Response } from 'express';
 import { ReportsService } from './reports.service';
+import { SettingsService } from '../settings/settings.service';
+import { sendWorkbook } from '../common/excel-report';
+import { docToPdf, docToWorkbook } from './report-export';
+import {
+  buildClientDoc,
+  buildExpensesDoc,
+  buildFichasDoc,
+  buildIncomeDoc,
+  buildProjectDoc,
+  type ExportDoc,
+} from './report-tables';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
 import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
@@ -33,7 +54,35 @@ function parseDateRange(from?: string, to?: string): { from: string; to: string 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, ResourceAccessGuard)
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly settingsService: SettingsService,
+  ) {}
+
+  /**
+   * Envía un reporte ya construido en el formato pedido.
+   *
+   * El PDF va `inline` (se abre en el visor, listo para imprimir) y el Excel como
+   * descarga: un .xlsx en el visor del navegador no sirve de nada.
+   */
+  private async enviar(res: Response, doc: ExportDoc, formato: 'pdf' | 'xlsx'): Promise<void> {
+    if (formato === 'xlsx') {
+      await sendWorkbook(res, docToWorkbook(doc), doc.filename);
+      return;
+    }
+    const company = await this.settingsService.getCompanyData();
+    const buffer = await docToPdf(doc, company);
+    const filename = `${doc.filename}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Length', String(buffer.length));
+    res.end(buffer);
+  }
+
+  private parseFormato(valor?: string): 'pdf' | 'xlsx' {
+    if (valor === 'pdf' || valor === 'xlsx') return valor;
+    throw new BadRequestException('El formato debe ser "pdf" o "xlsx"');
+  }
 
   @Get('dashboard')
   getDashboard(@CurrentUser() user: AuthUser) {
@@ -92,5 +141,73 @@ export class ReportsController {
   @ScopedResource('client')
   getClientBalance(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.reportsService.getClientBalance(id, user);
+  }
+
+  // ── Exportación ──────────────────────────────────────────────────────────
+  // Cada reporte se exporta con los MISMOS filtros con los que se está viendo,
+  // reusando el método que ya lo calcula: el archivo no puede decir algo distinto
+  // de lo que hay en pantalla.
+
+  @Get('income/export')
+  async exportIncome(
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+    @Query('format') format?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<void> {
+    const range = parseDateRange(from, to);
+    const report = await this.reportsService.getIncomeReport(range.from, range.to, user);
+    await this.enviar(res, buildIncomeDoc(report), this.parseFormato(format));
+  }
+
+  @Get('expenses/export')
+  async exportExpenses(
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+    @Query('format') format?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<void> {
+    const range = parseDateRange(from, to);
+    const report = await this.reportsService.getExpensesReport(range.from, range.to, user);
+    await this.enviar(res, buildExpensesDoc(report), this.parseFormato(format));
+  }
+
+  @Get('fichas/export')
+  async exportFichas(
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+    @Query('format') format?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<void> {
+    const range = parseDateRange(from, to);
+    const report = await this.reportsService.getFichasReport(range.from, range.to, user);
+    await this.enviar(res, buildFichasDoc(report), this.parseFormato(format));
+  }
+
+  @Get('projects/:id/export')
+  @ScopedResource('project')
+  async exportProject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+    @Query('format') format?: string,
+  ): Promise<void> {
+    const report = await this.reportsService.getProjectSummary(id, user);
+    await this.enviar(res, buildProjectDoc(report), this.parseFormato(format));
+  }
+
+  @Get('clients/:id/export')
+  @ScopedResource('client')
+  async exportClient(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+    @Query('format') format?: string,
+  ): Promise<void> {
+    const report = await this.reportsService.getClientBalance(id, user);
+    await this.enviar(res, buildClientDoc(report), this.parseFormato(format));
   }
 }

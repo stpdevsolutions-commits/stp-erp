@@ -18,6 +18,8 @@ import { CreatePayrollEntryDto } from './dto/create-payroll-entry.dto';
 import { UpdatePayrollEntryDto } from './dto/update-payroll-entry.dto';
 import { QueryPayrollDto } from './dto/query-payroll.dto';
 import { computePayrollAmounts } from './payroll-amounts';
+import { SettingsService } from '../settings/settings.service';
+import { generatePayrollReceiptPdf } from './pdf.generator';
 
 @Injectable()
 export class PayrollService {
@@ -31,7 +33,20 @@ export class PayrollService {
     @InjectRepository(Project)
     private readonly projectsRepository: Repository<Project>,
     private readonly expensesService: ExpensesService,
+    private readonly settingsService: SettingsService,
   ) {}
+
+  /**
+   * Recibo de pago en PDF, para imprimir y firmar. Se genera al vuelo con los
+   * datos actuales del pago en vez de guardarse: el recibo es un papel que se
+   * imprime, no un documento del que haya que conservar versiones.
+   */
+  async generateReceipt(id: string): Promise<{ buffer: Buffer; filename: string }> {
+    const entry = await this.findOne(id);
+    const company = await this.settingsService.getCompanyData();
+    const buffer = await generatePayrollReceiptPdf(entry, company);
+    return { buffer, filename: `${entry.number}.pdf` };
+  }
 
   async create(
     dto: CreatePayrollEntryDto,

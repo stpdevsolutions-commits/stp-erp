@@ -10,9 +10,14 @@ import { Ficha } from '../fichas/entities/ficha.entity';
 import { Collaborator } from '../collaborators/entities/collaborator.entity';
 import { ReportsService } from './reports.service';
 import { ReportsController } from './reports.controller';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Client, Project, Task, Quote, Expense, Payment, Ficha, Collaborator])],
+  imports: [
+    TypeOrmModule.forFeature([Client, Project, Task, Quote, Expense, Payment, Ficha, Collaborator]),
+    // Datos de la empresa para encabezar los reportes exportados a PDF.
+    SettingsModule,
+  ],
   providers: [ReportsService],
   controllers: [ReportsController],
 })

@@ -6,6 +6,7 @@ import { Project } from '../projects/entities/project.entity';
 import { PayrollService } from './payroll.service';
 import { PayrollController } from './payroll.controller';
 import { ExpensesModule } from '../expenses/expenses.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -13,6 +14,8 @@ import { ExpensesModule } from '../expenses/expenses.module';
     // Para imputar la mano de obra como gasto del proyecto. La dependencia va en
     // un solo sentido (nómina → gastos), así que no hay ciclo de módulos.
     ExpensesModule,
+    // Los datos de la empresa (nombre, RNC, logo) que encabezan el recibo.
+    SettingsModule,
   ],
   providers: [PayrollService],
   controllers: [PayrollController],

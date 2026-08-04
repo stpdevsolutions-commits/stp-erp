@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { MoreHorizontal, Pencil, Trash2, CheckCircle2 } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, CheckCircle2, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -84,6 +84,14 @@ export function PagoNominaActions({
               Marcar como pagado
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem
+            render={
+              <a href={`/api/nomina/${entry.id}/recibo`} target="_blank" rel="noopener noreferrer" />
+            }
+          >
+            <Printer className="size-4" />
+            Imprimir recibo
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <Pencil className="size-4" />
             Editar

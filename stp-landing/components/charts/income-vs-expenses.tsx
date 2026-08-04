@@ -87,7 +87,13 @@ export function IncomeVsExpenses({
         </span>
       </div>
 
-      <div className="flex gap-2">
+      {/*
+        `pt-2`: la etiqueta más alta del eje Y se centra sobre su línea con
+        -translate-y-1/2, así que la mitad de su altura sobresale por encima del
+        área de 180px. Sin este respiro se montaba sobre la lectura de arriba
+        (era el choque de "Acumulado 6 meses" con el RD$ 100K del eje).
+      */}
+      <div className="flex gap-2 pt-2">
         {/* Eje Y con números limpios */}
         <div
           className="relative w-14 shrink-0 text-[10px] tabular-nums text-muted-foreground"

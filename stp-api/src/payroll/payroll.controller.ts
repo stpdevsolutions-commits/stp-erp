@@ -11,7 +11,9 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { PayrollService } from './payroll.service';
 import { CreatePayrollEntryDto } from './dto/create-payroll-entry.dto';
 import { UpdatePayrollEntryDto } from './dto/update-payroll-entry.dto';
@@ -58,6 +60,15 @@ export class PayrollController {
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.payrollService.findOne(id);
+  }
+
+  /** Recibo para imprimir y firmar. `inline` para que el navegador lo previsualice. */
+  @Get(':id/recibo')
+  async recibo(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const { buffer, filename } = await this.payrollService.generateReceipt(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.send(buffer);
   }
 
   @Patch(':id')

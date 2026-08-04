@@ -6,7 +6,56 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+/**
+ * Recorre el árbol de children buscando `SelectItem` y quedándose con su
+ * `value` → contenido. Recursivo porque los items casi nunca son hijos directos:
+ * cuelgan de `SelectContent`, de un `.map()` o de un fragmento.
+ */
+function collectItems(
+  node: React.ReactNode,
+  acc: { value: unknown; label: React.ReactNode }[],
+): void {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return
+    const props = child.props as { value?: unknown; children?: React.ReactNode }
+    if (child.type === SelectItem) {
+      acc.push({ value: props.value, label: props.children })
+      return
+    }
+    if (props.children) collectItems(props.children, acc)
+  })
+}
+
+/**
+ * Select con las etiquetas ya resueltas.
+ *
+ * Base UI necesita saber qué texto corresponde a cada valor para pintar el
+ * trigger; sin eso `Select.Value` muestra el valor crudo —"pending" donde la
+ * lista decía "Pendiente"—, que es lo que se veía en todos los módulos. En vez
+ * de arreglarlo en cada uno de los ~44 formularios, se deduce aquí una sola vez
+ * a partir de los propios `SelectItem`: la etiqueta del trigger pasa a ser, por
+ * construcción, la misma que la de la opción elegida.
+ *
+ * Un `items` explícito gana, por si algún día hace falta un caso raro.
+ */
+function Select<Value>({
+  items,
+  children,
+  ...props
+}: SelectPrimitive.Root.Props<Value>) {
+  const derived = React.useMemo(() => {
+    if (items) return items
+    const acc: { value: unknown; label: React.ReactNode }[] = []
+    collectItems(children, acc)
+    return acc.length > 0 ? acc : undefined
+  }, [items, children])
+
+  return (
+    <SelectPrimitive.Root items={derived} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

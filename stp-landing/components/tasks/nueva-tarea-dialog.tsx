@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { BuscadorSelect } from '@/components/ui/buscador-select'
 import type { Collaborator, Project, User } from '@/lib/types'
 import { createTask } from '@/lib/actions/tasks'
 import {
@@ -71,6 +72,11 @@ export function NuevaTareaDialog({
 }) {
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  /**
+   * El cliente no viaja al servidor: la tarea cuelga del proyecto. Está aquí solo
+   * para acotar la lista de proyectos, que es lo que pesa cuando hay muchos.
+   */
+  const [clienteId, setClienteId] = useState('')
 
   const {
     register,
@@ -85,7 +91,36 @@ export function NuevaTareaDialog({
   })
 
   const projectId = watch('projectId')
-  const selectedProjectName = projects.find((p) => p.id === projectId)?.name
+
+  /**
+   * Los clientes salen de los propios proyectos en vez de pedirse aparte: un
+   * cliente sin proyectos no puede recibir una tarea, así que ofrecerlo solo
+   * llevaría a un callejón sin salida.
+   */
+  const clientes = useMemo(() => {
+    const porId = new Map<string, string>()
+    for (const p of projects) {
+      if (p.client) porId.set(p.client.id, p.client.name)
+    }
+    return [...porId.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+  }, [projects])
+
+  const proyectosVisibles = useMemo(
+    () => (clienteId ? projects.filter((p) => p.clientId === clienteId) : projects),
+    [projects, clienteId],
+  )
+
+  const opcionesProyecto = useMemo(
+    () =>
+      proyectosVisibles.map((p) => ({
+        value: p.id,
+        label: p.name,
+        hint: clienteId ? p.code : `${p.code} · ${p.client?.name ?? 'sin cliente'}`,
+      })),
+    [proyectosVisibles, clienteId],
+  )
 
   async function onSubmit(data: FormValues) {
     setServerError(null)
@@ -105,6 +140,7 @@ export function NuevaTareaDialog({
       return
     }
     reset()
+    setClienteId('')
     setOpen(false)
   }
 
@@ -115,6 +151,7 @@ export function NuevaTareaDialog({
         setOpen(o)
         if (!o) {
           reset()
+          setClienteId('')
           setServerError(null)
         }
       }}
@@ -140,26 +177,38 @@ export function NuevaTareaDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>
+            <Label htmlFor="cliente">Cliente</Label>
+            <BuscadorSelect
+              id="cliente"
+              opciones={clientes}
+              value={clienteId}
+              placeholder="Todos los clientes"
+              vacio="Ningún cliente coincide"
+              onValueChange={(v) => {
+                setClienteId(v)
+                // El proyecto elegido puede ser de otro cliente: se limpia para no
+                // guardar en silencio una tarea en el proyecto equivocado.
+                const actual = projects.find((p) => p.id === projectId)
+                if (v && actual && actual.clientId !== v) setValue('projectId', '')
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Opcional. Solo sirve para acortar la lista de proyectos.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="proyecto">
               Proyecto <span className="text-destructive">*</span>
             </Label>
-            <Select
-              value={watch('projectId') ?? ''}
-              onValueChange={(v) => v && setValue('projectId', v)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleccionar proyecto">
-                  {selectedProjectName}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.code} — {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <BuscadorSelect
+              id="proyecto"
+              opciones={opcionesProyecto}
+              value={projectId ?? ''}
+              placeholder="Buscar proyecto por nombre o código"
+              vacio={clienteId ? 'Este cliente no tiene proyectos' : 'Ningún proyecto coincide'}
+              onValueChange={(v) => setValue('projectId', v, { shouldValidate: true })}
+            />
             {errors.projectId && (
               <p className="text-xs text-destructive">{errors.projectId.message}</p>
             )}

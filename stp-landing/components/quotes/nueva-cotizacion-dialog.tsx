@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Trash2, FolderPlus } from 'lucide-react'
+import { Plus, Trash2, FolderPlus, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -27,6 +27,8 @@ import {
 import type { Acu, Client, Project } from '@/lib/types'
 import { createQuote } from '@/lib/actions/quotes'
 import { PartidasEditor } from '@/components/quotes/partidas-editor'
+import { BuscadorSelect } from '@/components/ui/buscador-select'
+import { NuevoClienteDialog } from '@/components/clients/nuevo-cliente-dialog'
 import {
   type EditorNode,
   makeGroup,
@@ -125,8 +127,24 @@ export function NuevaCotizacionDialog({
 
   const clientId = watch('clientId')
   const projectId = watch('projectId')
+
+  /**
+   * Clientes dados de alta desde este mismo formulario. Van aparte de `clients`
+   * (que lo sirve el servidor) para poder ofrecerlos al instante sin recargar la
+   * página, que borraría la cotización a medio escribir.
+   */
+  const [clientesNuevos, setClientesNuevos] = useState<{ id: string; name: string }[]>([])
+
+  const opcionesCliente = useMemo(() => {
+    // Se deduplica por id: cuando la página se refresque, el cliente recién creado
+    // llegará también en `clients` y aparecería dos veces.
+    const porId = new Map<string, string>()
+    for (const c of [...clients, ...clientesNuevos]) porId.set(c.id, c.name)
+    return [...porId.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+  }, [clients, clientesNuevos])
   const filteredProjects = projects.filter((p) => p.clientId === clientId)
-  const selectedClient = clients.find((c) => c.id === clientId)
   const selectedProject = filteredProjects.find((p) => p.id === projectId)
 
   // ── Computed totals ───────────────────────────────────────────────────────
@@ -212,19 +230,46 @@ export function NuevaCotizacionDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label>
-                Cliente <span className="text-destructive">*</span>
-              </Label>
-              <Select value={clientId ?? ''} onValueChange={(v) => { setValue('clientId', v ?? ''); setValue('projectId', undefined) }}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Seleccionar cliente">{selectedClient?.name}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="cliente">
+                  Cliente <span className="text-destructive">*</span>
+                </Label>
+                {/*
+                  Alta de cliente sin salir de aquí: antes había que abandonar la
+                  cotización a medias, crear el cliente y volver a empezar.
+                */}
+                <NuevoClienteDialog
+                  trigger={
+                    <DialogTrigger
+                      render={
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                        />
+                      }
+                    >
+                      <UserPlus className="mr-1 inline size-3" />
+                      Nuevo cliente
+                    </DialogTrigger>
+                  }
+                  onCreated={(c) => {
+                    setClientesNuevos((prev) => [...prev, c])
+                    setValue('clientId', c.id, { shouldValidate: true })
+                    setValue('projectId', undefined)
+                  }}
+                />
+              </div>
+              <BuscadorSelect
+                id="cliente"
+                opciones={opcionesCliente}
+                value={clientId ?? ''}
+                placeholder="Buscar cliente por nombre"
+                vacio="Ningún cliente coincide"
+                onValueChange={(v) => {
+                  setValue('clientId', v, { shouldValidate: true })
+                  setValue('projectId', undefined)
+                }}
+              />
               {errors.clientId && <p className="text-xs text-destructive">{errors.clientId.message}</p>}
             </div>
 

@@ -44,7 +44,18 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-export function NuevoClienteDialog() {
+/**
+ * Alta de cliente. Se usa suelto en el módulo de Clientes y también incrustado en
+ * otros formularios (cotizaciones), donde hace falta un disparador propio y saber
+ * qué cliente se creó para dejarlo seleccionado sin recargar ni perder lo escrito.
+ */
+export function NuevoClienteDialog({
+  trigger,
+  onCreated,
+}: {
+  trigger?: React.ReactNode
+  onCreated?: (client: { id: string; name: string }) => void
+} = {}) {
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -67,16 +78,19 @@ export function NuevoClienteDialog() {
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    if (result.client) onCreated?.(result.client)
     reset()
     setOpen(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { reset(); setServerError(null) } }}>
-      <DialogTrigger render={<Button size="sm" />}>
-        <Plus className="size-4 mr-1" />
-        Nuevo cliente
-      </DialogTrigger>
+      {trigger ?? (
+        <DialogTrigger render={<Button size="sm" />}>
+          <Plus className="size-4 mr-1" />
+          Nuevo cliente
+        </DialogTrigger>
+      )}
 
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>

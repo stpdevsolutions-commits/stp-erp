@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select'
 import type { Collaborator, PayrollEntry, Project } from '@/lib/types'
 import type { PayrollInput } from '@/lib/actions/payroll'
+import { calcularJornada, describirJornada } from '@/lib/jornada'
 
 const SIN_PROYECTO = '__none__'
 
@@ -152,6 +153,20 @@ export function PagoNominaForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collaboratorId])
 
+  const jornada = calcularJornada(values.periodStart, values.periodEnd)
+
+  /**
+   * El período propone los días: L-V completos, sábado medio, domingo fuera
+   * (se paga como extra). Se recalcula cada vez que cambian las fechas, incluso
+   * si ya había un número escrito: si alguien corrige el período, el dato viejo
+   * es justamente el que no hay que conservar. Queda editable para ausencias.
+   */
+  useEffect(() => {
+    if (!jornada) return
+    setValue('daysWorked', String(jornada.dias))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.periodStart, values.periodEnd])
+
   return (
     <form
       onSubmit={handleSubmit(async (data) => onSubmit(toInput(data)))}
@@ -229,6 +244,13 @@ export function PagoNominaForm({
           {errors.periodEnd && <p className="text-xs text-destructive">{errors.periodEnd.message}</p>}
         </div>
       </div>
+
+      {jornada && (
+        <p className="text-xs text-muted-foreground">
+          Según el período: <strong className="text-foreground">{jornada.dias}</strong> días ·{' '}
+          {describirJornada(jornada)}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="space-y-1.5">

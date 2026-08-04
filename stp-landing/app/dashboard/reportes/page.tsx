@@ -26,6 +26,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ReporteNav } from '@/components/reports/reporte-nav'
+import { ExportarReporte } from '@/components/reports/exportar-reporte'
 import { BarChart3, AlertCircle } from 'lucide-react'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -713,14 +714,22 @@ export default async function ReportesPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <BarChart3 className="size-6" />
-          Reportes
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Análisis de proyectos, clientes, ingresos, gastos y fichas
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <BarChart3 className="size-6" />
+            Reportes
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Análisis de proyectos, clientes, ingresos, gastos y fichas
+          </p>
+        </div>
+        {/* Solo se ofrece exportar lo que efectivamente hay en pantalla. */}
+        {projectReport && <ExportarReporte tipo="proyecto" id={proyecto} />}
+        {clientReport && <ExportarReporte tipo="cliente" id={cliente} />}
+        {incomeReport && <ExportarReporte tipo="ingresos" from={from} to={to} />}
+        {expensesReport && <ExportarReporte tipo="gastos" from={from} to={to} />}
+        {fichasReport && <ExportarReporte tipo="fichas" from={from} to={to} />}
       </div>
 
       <ReporteNav

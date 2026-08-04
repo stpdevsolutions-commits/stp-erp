@@ -37,6 +37,9 @@ import { ExpensesByCategory } from '@/components/charts/expenses-by-category'
 import { ReceivablesMeter } from '@/components/charts/receivables-meter'
 import { PendingActions } from '@/components/charts/pending-actions'
 
+/** Enlace dentro de una celda: se subraya al pasar por encima, no siempre. */
+const CELL_LINK = 'underline-offset-4 hover:underline focus:outline-none focus-visible:underline'
+
 const PRIORITY_VARIANTS: Record<Task['priority'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
   low: 'outline',
   medium: 'secondary',
@@ -238,8 +241,11 @@ export default async function DashboardPage() {
       {/* Dos columnas: proyectos activos + tareas prioritarias */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-base">Proyectos en curso</CardTitle>
+            <Link href="/dashboard/proyectos" className={`text-sm text-muted-foreground ${CELL_LINK}`}>
+              Ver todos
+            </Link>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             {activeProjects.length === 0 ? (
@@ -255,11 +261,25 @@ export default async function DashboardPage() {
                 </TableHeader>
                 <TableBody>
                   {activeProjects.slice(0, 6).map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-mono text-sm py-2">{p.code}</TableCell>
-                      <TableCell className="font-medium py-2">{p.name}</TableCell>
+                    <TableRow key={p.id} className="hover:bg-accent/40">
+                      <TableCell className="font-mono text-sm py-2">
+                        <Link href={`/dashboard/proyectos/${p.id}`} className={CELL_LINK}>
+                          {p.code}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="font-medium py-2">
+                        <Link href={`/dashboard/proyectos/${p.id}`} className={CELL_LINK}>
+                          {p.name}
+                        </Link>
+                      </TableCell>
                       <TableCell className="text-muted-foreground text-sm py-2">
-                        {p.client?.name ?? '—'}
+                        {p.client ? (
+                          <Link href={`/dashboard/clientes/${p.client.id}`} className={CELL_LINK}>
+                            {p.client.name}
+                          </Link>
+                        ) : (
+                          '—'
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -278,6 +298,12 @@ export default async function DashboardPage() {
                 {tareasVencidas} vencidas
               </Badge>
             )}
+            <Link
+              href="/dashboard/tareas"
+              className={`text-sm text-muted-foreground ${tareasVencidas > 0 ? '' : 'ml-auto'} ${CELL_LINK}`}
+            >
+              Ver todas
+            </Link>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             {urgentTasks.length === 0 ? (
@@ -295,11 +321,17 @@ export default async function DashboardPage() {
                   {urgentTasks.map((t) => {
                     const overdue = t.dueDate && new Date(t.dueDate) < today
                     return (
-                      <TableRow key={t.id}>
+                      <TableRow key={t.id} className="hover:bg-accent/40">
                         <TableCell className="py-2">
+                          {/* Las tareas no tienen página propia: el enlace útil es su proyecto. */}
                           <div className="font-medium text-sm">{t.title}</div>
                           {t.project && (
-                            <div className="text-xs text-muted-foreground">{t.project.code}</div>
+                            <Link
+                              href={`/dashboard/proyectos/${t.project.id}`}
+                              className={`text-xs text-muted-foreground ${CELL_LINK}`}
+                            >
+                              {t.project.code}
+                            </Link>
                           )}
                         </TableCell>
                         <TableCell className="py-2">
@@ -328,8 +360,11 @@ export default async function DashboardPage() {
 
       {/* Últimas cotizaciones */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base">Últimas cotizaciones</CardTitle>
+          <Link href="/dashboard/cotizaciones" className={`text-sm text-muted-foreground ${CELL_LINK}`}>
+            Ver todas
+          </Link>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           {recentQuotes.length === 0 ? (
@@ -347,11 +382,25 @@ export default async function DashboardPage() {
               </TableHeader>
               <TableBody>
                 {recentQuotes.map((q) => (
-                  <TableRow key={q.id}>
-                    <TableCell className="font-mono text-sm py-2">{q.number}</TableCell>
-                    <TableCell className="font-medium py-2">{q.title}</TableCell>
+                  <TableRow key={q.id} className="hover:bg-accent/40">
+                    <TableCell className="font-mono text-sm py-2">
+                      <Link href={`/dashboard/cotizaciones/${q.id}`} className={CELL_LINK}>
+                        {q.number}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="font-medium py-2">
+                      <Link href={`/dashboard/cotizaciones/${q.id}`} className={CELL_LINK}>
+                        {q.title}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-muted-foreground text-sm py-2">
-                      {q.client?.name ?? '—'}
+                      {q.client ? (
+                        <Link href={`/dashboard/clientes/${q.client.id}`} className={CELL_LINK}>
+                          {q.client.name}
+                        </Link>
+                      ) : (
+                        '—'
+                      )}
                     </TableCell>
                     <TableCell className="py-2">
                       <Badge className={QUOTE_STATUS_BADGE[q.status]}>
