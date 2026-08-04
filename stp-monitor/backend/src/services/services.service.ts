@@ -40,7 +40,13 @@ const DEFAULT_SERVICES: ServiceDef[] = [
 export class ServicesService implements OnModuleInit {
   private readonly logger = new Logger(ServicesService.name);
   private latestStatuses = new Map<string, ServiceStatus>();
+  /** Último estado *confirmado* (ya alertado o recuperado de la BD) por servicio. */
   private previousStatuses = new Map<string, string>();
+  /** Chequeos fallidos consecutivos por servicio, para no alertar por un blip. */
+  private failureCounts = new Map<string, number>();
+
+  /** Fallos seguidos antes de dar un servicio por caído (1 chequeo = 1 minuto). */
+  private static readonly DOWN_THRESHOLD = 2;
 
   constructor(
     @InjectRepository(ServiceCheck)
@@ -50,7 +56,26 @@ export class ServicesService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    await this.restorePreviousStatuses();
     setTimeout(() => this.checkAll(), 2000);
+  }
+
+  /**
+   * Rehidrata el último estado conocido de cada servicio desde `service_checks`.
+   *
+   * Sin esto el Map arranca vacío tras cada reinicio y la primera transición no
+   * se alertaba nunca: cuando el server volvía de un apagón, Vigía anotaba la API
+   * como caída en silencio y al minuto siguiente mandaba solo "Recuperado".
+   */
+  private async restorePreviousStatuses() {
+    for (const svc of DEFAULT_SERVICES) {
+      const last = await this.checksRepo.findOne({
+        where: { serviceId: svc.id },
+        order: { checkedAt: 'DESC' },
+      });
+      if (last) this.previousStatuses.set(svc.id, last.status);
+    }
+    this.logger.log(`Estado previo restaurado para ${this.previousStatuses.size} servicios`);
   }
 
   private async checkHttp(url: string): Promise<{ status: 'up' | 'down'; latency: number | null }> {
@@ -81,6 +106,44 @@ export class ServicesService implements OnModuleInit {
       socket.on('error', () => resolve({ status: 'down', latency: null }));
       socket.on('timeout', () => { socket.destroy(); resolve({ status: 'down', latency: null }); });
     });
+  }
+
+  /**
+   * Registra la alerta y la manda por Telegram **y** email.
+   *
+   * `allSettled` a propósito: antes solo salía por Telegram y una excepción de
+   * ese canal se llevaba por delante el aviso entero. Ahora si un canal falla,
+   * el otro sale igual.
+   */
+  private async emitAlert(svc: ServiceDef, type: 'down' | 'up', latency: number | null) {
+    const hora = new Date().toLocaleString('es-DO');
+    const caido = type === 'down';
+
+    const msg = caido
+      ? `🔴 <b>Servicio Caído</b>\n📌 <b>Servicio:</b> ${svc.name}\n⏰ <b>Hora:</b> ${hora}\n🌐 <b>URL:</b> ${svc.url}`
+      : `✅ <b>Servicio Recuperado</b>\n📌 <b>Servicio:</b> ${svc.name}\n⏰ <b>Hora:</b> ${hora}\n⏱️ <b>Latencia:</b> ${latency ?? '-'}ms`;
+
+    await this.alerts.createAlert(
+      svc.id,
+      svc.name,
+      type,
+      `${svc.name} está ${caido ? 'caído' : 'recuperado'}`,
+    );
+
+    const asunto = caido ? `🔴 ${svc.name} está caído` : `✅ ${svc.name} se recuperó`;
+    const results = await Promise.allSettled([
+      this.notifications.sendTelegram(msg),
+      this.notifications.sendEmail(asunto, msg.replace(/\n/g, '<br>')),
+    ]);
+
+    const canales = ['Telegram', 'email'];
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        this.logger.error(`No se pudo alertar por ${canales[i]}: ${r.reason}`);
+      }
+    });
+
+    this.logger.warn(`${svc.name} → ${type}`);
   }
 
   private async calcUptime(serviceId: string): Promise<number> {
@@ -122,18 +185,25 @@ export class ServicesService implements OnModuleInit {
     this.latestStatuses.set(svc.id, status);
 
     const prev = this.previousStatuses.get(svc.id);
-    if (prev && prev !== result.status) {
-      const type = result.status === 'down' ? 'down' : 'up';
-      const msg =
-        type === 'down'
-          ? `🔴 <b>Servicio Caído</b>\n📌 <b>Servicio:</b> ${svc.name}\n⏰ <b>Hora:</b> ${new Date().toLocaleString('es-DO')}\n🌐 <b>URL:</b> ${svc.url}`
-          : `✅ <b>Servicio Recuperado</b>\n📌 <b>Servicio:</b> ${svc.name}\n⏰ <b>Hora:</b> ${new Date().toLocaleString('es-DO')}\n⏱️ <b>Latencia:</b> ${result.latency ?? '-'}ms`;
 
-      await this.alerts.createAlert(svc.id, svc.name, type, `${svc.name} está ${type === 'down' ? 'caído' : 'recuperado'}`);
-      await this.notifications.sendTelegram(msg);
-      this.logger.warn(`${svc.name} → ${result.status}`);
+    if (result.status === 'down') {
+      const fails = (this.failureCounts.get(svc.id) ?? 0) + 1;
+      this.failureCounts.set(svc.id, fails);
+
+      // Se alerta al cruzar el umbral y solo si no se había dado ya por caído.
+      // Con prev === undefined (sin historial) también entra: es justo el caso
+      // que antes se perdía.
+      if (fails >= ServicesService.DOWN_THRESHOLD && prev !== 'down') {
+        await this.emitAlert(svc, 'down', result.latency);
+        this.previousStatuses.set(svc.id, 'down');
+      }
+    } else {
+      this.failureCounts.set(svc.id, 0);
+      if (prev === 'down') {
+        await this.emitAlert(svc, 'up', result.latency);
+      }
+      this.previousStatuses.set(svc.id, 'up');
     }
-    this.previousStatuses.set(svc.id, result.status);
   }
 
   getStatuses(): ServiceStatus[] {

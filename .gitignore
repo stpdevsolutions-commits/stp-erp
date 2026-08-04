@@ -10,6 +10,7 @@ uploads/
 .env.local
 .env.*.local
 .env.vaultwarden
+.env.backup
 stp-api/.env
 
 # Node
