@@ -100,11 +100,26 @@ const ESTADO_FICHA_ES: Record<string, string> = {
 
 const es = (mapa: Record<string, string>, clave: string): string => mapa[clave] ?? clave;
 
-function periodoFiltros(period?: { from: string; to: string }) {
+/**
+ * Fecha a YYYY-MM-DD venga como venga.
+ *
+ * Dentro del servidor una columna `date`/`timestamp` llega como `Date`, aunque al
+ * salir por JSON se vea como string: dar por hecho lo segundo reventaba la
+ * exportación de ingresos con "p.date.slice is not a function".
+ */
+function fechaISO(valor: string | Date | null | undefined): string {
+  if (!valor) return '';
+  if (valor instanceof Date) {
+    return Number.isNaN(valor.getTime()) ? '' : valor.toISOString().slice(0, 10);
+  }
+  return String(valor).slice(0, 10);
+}
+
+function periodoFiltros(period?: { from: string | Date; to: string | Date }) {
   if (!period) return [];
   return [
-    { label: 'Desde', value: period.from?.slice(0, 10) ?? '—' },
-    { label: 'Hasta', value: period.to?.slice(0, 10) ?? '—' },
+    { label: 'Desde', value: fechaISO(period.from) || '—' },
+    { label: 'Hasta', value: fechaISO(period.to) || '—' },
   ];
 }
 
@@ -113,7 +128,7 @@ function periodoFiltros(period?: { from: string; to: string }) {
 // dependa de la capa de datos y se pueda probar con objetos literales.
 
 export interface IncomeReportShape {
-  period: { from: string; to: string };
+  period: { from: string | Date; to: string | Date };
   summary: {
     total: number;
     count: number;
@@ -124,7 +139,7 @@ export interface IncomeReportShape {
   payments: {
     id: string;
     amount: number;
-    date: string;
+    date: string | Date;
     method: string;
     project?: string;
     client?: string;
@@ -132,7 +147,7 @@ export interface IncomeReportShape {
 }
 
 export interface ExpensesReportShape {
-  period: { from: string; to: string };
+  period: { from: string | Date; to: string | Date };
   summary: { total: number; count: number };
   byCategory: { category: string; count: number; total: number }[];
   byProject: { project: string; count: number; total: number }[];
@@ -140,7 +155,7 @@ export interface ExpensesReportShape {
 }
 
 export interface FichasReportShape {
-  period: { from: string; to: string };
+  period: { from: string | Date; to: string | Date };
   summary: { total: number; enviadas: number; tasaEnvio: number };
   byType: { type: string; count: number }[];
   byStatus: { status: string; count: number }[];
@@ -217,7 +232,7 @@ export function buildIncomeDoc(r: IncomeReportShape): ExportDoc {
           { header: 'Monto', type: 'money', total: true },
         ],
         rows: r.payments.map((p) => [
-          p.date?.slice(0, 10) ?? '',
+          fechaISO(p.date),
           p.client ?? '—',
           p.project ?? '—',
           es(METODO_ES, p.method),
