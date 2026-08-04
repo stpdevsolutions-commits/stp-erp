@@ -642,7 +642,12 @@ export class QuotesService implements OnModuleInit {
 
   async remove(id: string): Promise<void> {
     const quote = await this.findOne(id);
+    const pdfFilename = `${quote.number}.pdf`;
     await this.quotesRepository.remove(quote);
+    // El PDF se limpia DESPUÉS y sin propagar, igual que en gastos: el dato es la
+    // cotización, y un fallo de disco no puede devolver un error por algo accesorio.
+    // El nombre se lee antes del borrado porque después la entidad ya no sirve.
+    await this.removePdfByFilename(pdfFilename, `la cotización ${quote.number}`);
   }
 
   async convertToProject(id: string, createdById: string): Promise<Project> {
@@ -1338,6 +1343,37 @@ export class QuotesService implements OnModuleInit {
     const quote = await this.quotesRepository.findOneBy({ id: quoteId });
     if (!quote) return null;
     return this.fileRepo.findOne({ where: { filename: `${quote.number}.pdf` } });
+  }
+
+  /**
+   * Borra el PDF generado de una cotización: primero el registro de `uploaded_files`
+   * y después el archivo del disco, en ese orden y como hace `FilesService.remove`.
+   * Si se cayera entre medias queda un archivo suelto sin registro (invisible e
+   * inocuo), no un registro apuntando a un archivo que ya no está (un 404 al
+   * descargar).
+   *
+   * No propaga: se llama cuando la cotización YA está borrada y ese borrado no se
+   * puede deshacer, así que fallar aquí solo empeora la respuesta.
+   */
+  private async removePdfByFilename(filename: string, label: string): Promise<void> {
+    try {
+      const record = await this.fileRepo.findOne({ where: { filename } });
+      if (!record) return;
+      const storedPath = record.path;
+      await this.fileRepo.remove(record);
+      this.unlinkStoredFile(storedPath);
+    } catch (err) {
+      this.logger.error(`No se pudo borrar el PDF de ${label}: ${(err as Error).message}`);
+    }
+  }
+
+  /** Borra del disco una ruta relativa a la raíz de subidas. Falla solo en el log. */
+  private unlinkStoredFile(relativePath: string): void {
+    const absPath = join(getUploadRoot(), relativePath);
+    if (!existsSync(absPath)) return;
+    unlink(absPath, (err) => {
+      if (err) this.logger.error(`Failed to delete quote PDF ${absPath}: ${err.message}`);
+    });
   }
 
   private assertEditable(quote: Quote, userRole?: UserRole): void {

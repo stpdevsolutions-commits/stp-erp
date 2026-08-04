@@ -159,10 +159,48 @@ export class PaymentsService {
   async remove(id: string): Promise<void> {
     const payment = await this.findOne(id);
     await this.paymentsRepository.remove(payment);
+    // El PDF se limpia DESPUÉS y sin propagar, igual que en gastos: el dato es el
+    // pago, y un fallo de disco no puede devolver un error por algo accesorio.
+    await this.removePdfForPayment(id);
   }
 
   async findPdfFile(paymentId: string): Promise<FileUpload | null> {
     return this.fileRepo.findOne({ where: { filename: `PAGO-${paymentId}.pdf` } });
+  }
+
+  /**
+   * Borra el PDF generado de un pago: primero el registro de `uploaded_files` y
+   * después el archivo del disco, en ese orden y como hace `FilesService.remove`.
+   * Si se cayera entre medias queda un archivo suelto sin registro (invisible e
+   * inocuo), no un registro apuntando a un archivo que ya no está (un 404 al
+   * descargar).
+   *
+   * No propaga: se llama cuando el pago YA está borrado y ese borrado no se puede
+   * deshacer, así que fallar aquí solo empeora la respuesta.
+   */
+  private async removePdfForPayment(paymentId: string): Promise<void> {
+    try {
+      const record = await this.fileRepo.findOne({
+        where: { filename: `PAGO-${paymentId}.pdf` },
+      });
+      if (!record) return;
+      const storedPath = record.path;
+      await this.fileRepo.remove(record);
+      this.unlinkStoredFile(storedPath);
+    } catch (err) {
+      this.logger.error(
+        `No se pudo borrar el PDF del pago ${paymentId}: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /** Borra del disco una ruta relativa a la raíz de subidas. Falla solo en el log. */
+  private unlinkStoredFile(relativePath: string): void {
+    const absPath = join(getUploadRoot(), relativePath);
+    if (!existsSync(absPath)) return;
+    unlink(absPath, (err) => {
+      if (err) this.logger.error(`Failed to delete payment PDF ${absPath}: ${err.message}`);
+    });
   }
 
   async sumByClient(clientId: string): Promise<number> {

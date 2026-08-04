@@ -24,6 +24,7 @@ import {
   Calculator,
   Wallet,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -33,10 +34,23 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarHeader,
 } from '@/components/ui/sidebar'
 
-const navItems = [
+type NavItem = {
+  href: string
+  label: string
+  icon: LucideIcon
+  /** Prefijo por el que se marca activo, si no basta con `href`. */
+  match?: string
+  exact?: boolean
+  children?: { href: string; label: string }[]
+}
+
+const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Resumen', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/clientes', label: 'Clientes', icon: Users },
   { href: '/dashboard/proyectos', label: 'Proyectos', icon: FolderKanban },
@@ -46,7 +60,21 @@ const navItems = [
   { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/dashboard/proveedores', label: 'Proveedores', icon: Truck },
   { href: '/dashboard/inventario', label: 'Inventario', icon: Package },
-  { href: '/dashboard/costos/materiales', label: 'Costos', icon: Calculator },
+  {
+    // Costos es el único módulo con tres vistas distintas (precios, catálogo, ACU).
+    // En vez de una cuarta entrada de primer nivel, se despliegan como subentradas
+    // cuando estás dentro del módulo: el ACU se ve sin robarle sitio al resto.
+    href: '/dashboard/costos/materiales',
+    match: '/dashboard/costos',
+    label: 'Costos',
+    icon: Calculator,
+    children: [
+      { href: '/dashboard/costos/materiales', label: 'Materiales' },
+      { href: '/dashboard/costos/catalogo', label: 'Catálogo' },
+      { href: '/dashboard/costos/acus', label: 'Partidas (ACU)' },
+      { href: '/dashboard/costos/importar', label: 'Importar' },
+    ],
+  },
   { href: '/dashboard/colaboradores', label: 'Colaboradores', icon: HardHat },
   { href: '/dashboard/fichas', label: 'Fichas de campo', icon: ClipboardList },
   { href: '/dashboard/archivos', label: 'Archivos', icon: FolderOpen },
@@ -110,17 +138,36 @@ export function AppSidebar({ role = 'user' }: { role?: string }) {
         <SidebarGroup>
           <SidebarGroupLabel>Módulos</SidebarGroupLabel>
           <SidebarMenu>
-            {navItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  render={<Link href={item.href} />}
-                  isActive={isActive(item.href, item.exact)}
-                >
-                  <item.icon className="size-4" />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {navItems.map((item) => {
+              const open = isActive(item.match ?? item.href, item.exact)
+              return (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    render={<Link href={item.href} />}
+                    isActive={open}
+                  >
+                    <item.icon className="size-4" />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                  {/* Las subentradas solo aparecen dentro del módulo: fuera de él
+                      ocuparían sitio sin aportar contexto. */}
+                  {item.children && open && (
+                    <SidebarMenuSub>
+                      {item.children.map((child) => (
+                        <SidebarMenuSubItem key={child.href}>
+                          <SidebarMenuSubButton
+                            render={<Link href={child.href} />}
+                            isActive={isActive(child.href)}
+                          >
+                            <span>{child.label}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  )}
+                </SidebarMenuItem>
+              )
+            })}
           </SidebarMenu>
         </SidebarGroup>
 

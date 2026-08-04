@@ -563,6 +563,72 @@ export interface MaterialPriceReport {
 
 // ── ACU (Análisis de Costos Unitarios) ────────────────────────────────────────
 
+// ─── Importación de precios desde PDF de proveedor (Costos, Fase 4) ───────────
+
+export type PriceImportStatus = 'pending' | 'processing' | 'review' | 'done' | 'failed'
+export type PriceImportLineStatus = 'pending' | 'approved' | 'rejected'
+
+/**
+ * Una línea extraída del PDF: **un borrador**, no un precio. Solo llega a
+ * `material_prices` cuando alguien la aprueba, y entonces trae `createdPriceId`.
+ */
+export interface PriceImportLine {
+  id: string
+  importId: string
+  position: number
+  /** Lo que decía el PDF, sin normalizar: es contra esto que se revisa. */
+  rawDescription: string
+  rawUnit?: string
+  rawCode?: string
+  price: number
+  currency: PriceCurrency
+  itbisIncluded: boolean
+  discountPct: number
+  materialId?: string
+  material?: Material
+  /** Candidatos del catálogo que encajaban: 1 = propuesto, >1 = ambiguo, 0 = nuevo. */
+  matchCount: number
+  status: PriceImportLineStatus
+  createdPriceId?: string
+  notes?: string
+}
+
+export interface PriceImport {
+  id: string
+  originalName: string
+  size: number
+  status: PriceImportStatus
+  supplierId?: string
+  supplier?: Pick<Supplier, 'id' | 'name'>
+  documentDate?: string
+  model?: string
+  inputTokens: number
+  outputTokens: number
+  error?: string
+  notes?: string
+  createdById?: string
+  createdBy?: Pick<User, 'id' | 'firstName' | 'lastName'>
+  lines?: PriceImportLine[]
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Correcciones de la revisión. `materialId: null` desasigna a propósito, y por eso el
+ * campo admite null explícito y no solo ausencia.
+ */
+export type PriceImportLineUpdate = Partial<
+  Pick<PriceImportLine, 'price' | 'currency' | 'itbisIncluded' | 'discountPct' | 'notes'>
+> & {
+  materialId?: string | null
+  status?: Extract<PriceImportLineStatus, 'pending' | 'rejected'>
+}
+
+export interface ApprovePriceImportResult {
+  created: number
+  skipped: { lineId: string; reason: string }[]
+}
+
 export type AcuTrade = 'electrical' | 'civil' | 'mechanical' | 'other'
 export type AcuItemKind = 'material' | 'labor' | 'equipment'
 

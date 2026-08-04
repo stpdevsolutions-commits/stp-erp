@@ -76,6 +76,12 @@ export default async function MaterialesPage({
           >
             Unidades y categorías
           </Link>
+          <Link
+            href="/dashboard/costos/importar"
+            className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
+          >
+            Importar precios
+          </Link>
           <NuevoMaterialDialog units={units} categories={categories} />
         </div>
       </div>

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -49,6 +50,8 @@ import { Material } from './costs/entities/material.entity';
 import { MaterialPrice } from './costs/entities/material-price.entity';
 import { Acu } from './costs/entities/acu.entity';
 import { AcuItem } from './costs/entities/acu-item.entity';
+import { PriceImport } from './costs/entities/price-import.entity';
+import { PriceImportLine } from './costs/entities/price-import-line.entity';
 import { PayrollEntry } from './payroll/entities/payroll-entry.entity';
 
 @Module({
@@ -60,11 +63,20 @@ import { PayrollEntry } from './payroll/entities/payroll-entry.entity';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PayrollEntry],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',
         logging: configService.get<string>('NODE_ENV') === 'development',
+      }),
+      inject: [ConfigService],
+    }),
+    // Cola de trabajos en Redis. Hoy solo la usa la extracción de precios por IA
+    // (Costos, Fase 4), que tarda minutos y no cabe en una petición HTTP.
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        connection: { url: configService.get<string>('REDIS_URL') },
       }),
       inject: [ConfigService],
     }),
