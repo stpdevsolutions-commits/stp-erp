@@ -1,6 +1,7 @@
 import Link from 'next/link'
+import { AlertTriangle } from 'lucide-react'
 import { api, pageError } from '@/lib/api'
-import type { Material, MaterialCategory, PaginatedResponse, Unit } from '@/lib/types'
+import type { Acu, PaginatedResponse, Unit } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -13,13 +14,14 @@ import {
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Paginacion } from '@/components/ui/paginacion'
-import { NuevoMaterialDialog } from '@/components/costos/nuevo-material-dialog'
-import { MaterialActions } from '@/components/costos/material-actions'
-import { PrecioVigente } from '@/components/costos/precio-vigente'
+import { NuevoAcuDialog } from '@/components/costos/nuevo-acu-dialog'
+import { AcuActions } from '@/components/costos/acu-actions'
+import { CostoUnitario } from '@/components/costos/costo-unitario'
+import { TRADE_LABELS } from '@/components/costos/acu-labels'
 
 const LIMIT = 20
 
-export default async function MaterialesPage({
+export default async function AcusPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string>>
@@ -27,48 +29,52 @@ export default async function MaterialesPage({
   const sp = await searchParams
   const page = Math.max(1, parseInt(sp.page ?? '1'))
   const search = sp.search ?? ''
-  const categoryId = sp.categoryId ?? ''
 
   const query = new URLSearchParams({
     limit: String(LIMIT),
     page: String(page),
-    withPrices: 'true',
+    withCost: 'true',
   })
   if (search) query.set('search', search)
-  if (categoryId) query.set('categoryId', categoryId)
 
-  let res: PaginatedResponse<Material> = { data: [], total: 0, page: 1, limit: LIMIT }
+  let res: PaginatedResponse<Acu> = { data: [], total: 0, page: 1, limit: LIMIT }
   let error: string | null = null
 
   try {
-    res = await api.get<PaginatedResponse<Material>>(`/costs/materials?${query}`)
+    res = await api.get<PaginatedResponse<Acu>>(`/costs/acus?${query}`)
   } catch (e) {
-    error = pageError(e, 'Error al cargar los materiales')
+    error = pageError(e, 'Error al cargar las partidas')
   }
 
-  // Unidades y categorías se necesitan para el formulario de alta.
-  const [units, categories] = await Promise.all([
+  const [units, todas] = await Promise.all([
     api.get<Unit[]>('/costs/units').catch(() => [] as Unit[]),
-    api.get<MaterialCategory[]>('/costs/material-categories').catch(() => [] as MaterialCategory[]),
+    // Solo para sugerir capítulos ya usados: sin `withCost`, que es lo que cuesta.
+    api
+      .get<PaginatedResponse<Acu>>('/costs/acus?limit=200')
+      .then((r) => r.data)
+      .catch(() => [] as Acu[]),
   ])
 
+  const chapters = [...new Set(todas.map((a) => a.chapter).filter(Boolean) as string[])].sort()
+  const incompletas = res.data.filter((a) => a.cost?.incomplete).length
   const totalPages = Math.max(1, Math.ceil(res.total / LIMIT))
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Materiales</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Partidas (ACU)</h1>
           <p className="text-muted-foreground text-sm">
-            {res.total} {res.total === 1 ? 'material' : 'materiales'} en el catálogo
+            {res.total} {res.total === 1 ? 'partida' : 'partidas'} · el unitario se recalcula con
+            los precios vigentes, no se guarda
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/dashboard/costos/acus"
+            href="/dashboard/costos/materiales"
             className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
           >
-            Partidas (ACU)
+            Materiales
           </Link>
           <Link
             href="/dashboard/costos/catalogo"
@@ -76,9 +82,17 @@ export default async function MaterialesPage({
           >
             Unidades y categorías
           </Link>
-          <NuevoMaterialDialog units={units} categories={categories} />
+          <NuevoAcuDialog units={units} chapters={chapters} />
         </div>
       </div>
+
+      {incompletas > 0 && (
+        <p className="text-destructive flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm">
+          <AlertTriangle className="size-4 shrink-0" />
+          {incompletas} {incompletas === 1 ? 'partida usa' : 'partidas usan'} materiales sin precio
+          vigente. Su costo unitario es un mínimo, no un dato para cotizar.
+        </p>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
@@ -86,10 +100,9 @@ export default async function MaterialesPage({
             <Input
               name="search"
               defaultValue={search}
-              placeholder="Buscar por nombre, código, marca..."
+              placeholder="Buscar por nombre, código o capítulo..."
               className="w-72 h-8 text-sm"
             />
-            {categoryId && <input type="hidden" name="categoryId" value={categoryId} />}
             <button type="submit" className="sr-only">
               Buscar
             </button>
@@ -102,12 +115,12 @@ export default async function MaterialesPage({
             <div className="px-6 py-10 text-center">
               <p className="text-muted-foreground text-sm">
                 {search
-                  ? 'Ningún material coincide con la búsqueda.'
-                  : 'El catálogo está vacío. Crea el primer material para empezar a registrar precios.'}
+                  ? 'Ninguna partida coincide con la búsqueda.'
+                  : 'Todavía no hay partidas. Una partida descompone una unidad de obra en los insumos que consume.'}
               </p>
               {!search && (
                 <div className="mt-4 flex justify-center">
-                  <NuevoMaterialDialog units={units} categories={categories} />
+                  <NuevoAcuDialog units={units} chapters={chapters} />
                 </div>
               )}
             </div>
@@ -117,61 +130,57 @@ export default async function MaterialesPage({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
-                    <TableHead>Material</TableHead>
-                    <TableHead>Categoría</TableHead>
+                    <TableHead>Partida</TableHead>
+                    <TableHead>Capítulo</TableHead>
+                    <TableHead>Oficio</TableHead>
                     <TableHead>Unidad</TableHead>
-                    <TableHead className="text-right">Precio vigente</TableHead>
-                    <TableHead className="text-right">Rango</TableHead>
-                    <TableHead className="text-right">Precios</TableHead>
+                    <TableHead className="text-right">Insumos</TableHead>
+                    <TableHead className="text-right">Costo unitario</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {res.data.map((m) => (
-                    <TableRow key={m.id}>
+                  {res.data.map((a) => (
+                    <TableRow key={a.id}>
                       <TableCell className="font-mono text-xs text-muted-foreground">
-                        {m.code}
+                        {a.code}
                       </TableCell>
                       <TableCell>
                         <Link
-                          href={`/dashboard/costos/materiales/${m.id}`}
+                          href={`/dashboard/costos/acus/${a.id}`}
                           className="font-medium hover:underline underline-offset-4"
                         >
-                          {m.name}
+                          {a.name}
                         </Link>
-                        {(m.brand || m.model) && (
+                        {a.description && (
                           <span className="text-muted-foreground block text-xs">
-                            {[m.brand, m.model].filter(Boolean).join(' · ')}
+                            {a.description}
                           </span>
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
-                        {m.category?.name ?? '—'}
+                        {a.chapter ?? '—'}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
-                        {m.unit?.code ?? '—'}
+                        {TRADE_LABELS[a.trade]}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <PrecioVigente summary={m.priceSummary} unit={m.unit?.code} />
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                        {m.priceSummary?.min != null && m.priceSummary.max != null
-                          ? m.priceSummary.min === m.priceSummary.max
-                            ? '—'
-                            : `${m.priceSummary.min.toFixed(2)} – ${m.priceSummary.max.toFixed(2)}`
-                          : '—'}
+                      <TableCell className="text-muted-foreground text-sm">
+                        {a.unit?.code ?? '—'}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
-                        {m.priceSummary?.count ?? 0}
+                        {a.cost?.lines.length ?? 0}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <CostoUnitario cost={a.cost} unit={a.unit?.code} />
                       </TableCell>
                       <TableCell>
-                        <Badge variant={m.isActive ? 'default' : 'secondary'}>
-                          {m.isActive ? 'Activo' : 'Inactivo'}
+                        <Badge variant={a.isActive ? 'default' : 'secondary'}>
+                          {a.isActive ? 'Activa' : 'Inactiva'}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <MaterialActions material={m} units={units} categories={categories} />
+                        <AcuActions acu={a} units={units} chapters={chapters} />
                       </TableCell>
                     </TableRow>
                   ))}

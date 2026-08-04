@@ -22,6 +22,7 @@ import {
 import { PrecioVigente } from '@/components/costos/precio-vigente'
 import { RegistrarPrecioDialog } from '@/components/costos/registrar-precio-dialog'
 import { AnularPrecioButton } from '@/components/costos/anular-precio-button'
+import { GraficaPrecios } from '@/components/costos/grafica-precios'
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 
@@ -248,6 +249,16 @@ export default async function MaterialDetallePage({
               </Table>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── Evolución del precio ────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Evolución del precio</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <GraficaPrecios prices={prices.data} unit={unitCode} />
         </CardContent>
       </Card>
 

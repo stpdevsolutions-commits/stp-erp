@@ -45,13 +45,19 @@ export default async function CatalogoPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-wrap items-center gap-4">
         <Link
           href="/dashboard/costos/materiales"
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
         >
           <ChevronLeft className="size-4" />
           Materiales
+        </Link>
+        <Link
+          href="/dashboard/costos/acus"
+          className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
+        >
+          Partidas (ACU)
         </Link>
       </div>
 

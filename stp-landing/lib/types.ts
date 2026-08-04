@@ -463,6 +463,121 @@ export interface MaterialPriceReport {
   }[]
 }
 
+// ── ACU (Análisis de Costos Unitarios) ────────────────────────────────────────
+
+export type AcuTrade = 'electrical' | 'civil' | 'mechanical' | 'other'
+export type AcuItemKind = 'material' | 'labor' | 'equipment'
+
+/**
+ * Cómo se valora una línea de mano de obra o equipo:
+ * `yield` = rendimiento × tarifa · `pct_materials` = % sobre el costo de materiales.
+ */
+export type AcuLaborBasis = 'yield' | 'pct_materials'
+
+export interface AcuItem {
+  id: string
+  acuId: string
+  kind: AcuItemKind
+  materialId?: string
+  material?: Material
+  description?: string
+  /** Unidad del INSUMO (pie de cable, día de electricista), no la de la partida. */
+  unitId?: string
+  unit?: Unit
+  quantity: number
+  /** En materiales, vacío = usar el precio vigente del catálogo. */
+  unitCost?: number
+  basis?: AcuLaborBasis
+  pct?: number
+  /** Desperdicio en %: sube la cantidad, no el precio. */
+  wastePct: number
+  sortOrder: number
+  notes?: string
+}
+
+export interface AcuCostLine {
+  itemId: string
+  kind: AcuItemKind
+  description: string
+  /** Cantidad ya con el desperdicio aplicado. */
+  effectiveQuantity: number
+  unitCost: number
+  subtotal: number
+  costSource: 'catalog' | 'manual' | 'pct'
+  /** El material no tiene precio vigente: la línea vale 0. */
+  missingPrice: boolean
+}
+
+export interface AcuCost {
+  lines: AcuCostLine[]
+  materialCost: number
+  laborCost: number
+  equipmentCost: number
+  /** Costo directo de UNA unidad de la partida. */
+  directCost: number
+  /** Falta el precio de algún material: el total es un piso, no el costo real. */
+  incomplete: boolean
+  missingMaterialIds: string[]
+}
+
+export interface Acu {
+  id: string
+  code: string
+  name: string
+  normalizedName: string
+  description?: string
+  unitId: string
+  unit?: Unit
+  trade: AcuTrade
+  chapter?: string
+  notes?: string
+  isActive: boolean
+  items?: AcuItem[]
+  createdAt: string
+  updatedAt: string
+  /** Solo viene en el listado con `withCost=true`. */
+  cost?: AcuCost
+}
+
+/** Respuesta de `GET /costs/acus/:id/cost`. */
+export interface AcuCostResponse {
+  acu: Acu
+  cost: AcuCost
+}
+
+/**
+ * Cuerpo de una línea de receta al crearla o editarla.
+ *
+ * `null` explícito donde `undefined` no vale: al editar, la API fusiona la línea guardada
+ * con lo que llega, y un campo ausente conserva el valor viejo. Para BORRAR el material o
+ * la tarifa de una línea hay que mandar `null` (la API lo acepta y lo limpia).
+ */
+export interface AcuItemPayload {
+  kind: AcuItemKind
+  materialId?: string | null
+  description?: string
+  unitId?: string
+  quantity?: number
+  unitCost?: number | null
+  basis?: AcuLaborBasis
+  pct?: number
+  wastePct?: number
+  sortOrder?: number
+  notes?: string
+}
+
+/** Cuerpo de la cabecera de un ACU. */
+export interface AcuPayload {
+  name?: string
+  description?: string
+  unitId?: string
+  trade?: AcuTrade
+  chapter?: string
+  notes?: string
+  isActive?: boolean
+  items?: AcuItemPayload[]
+}
+
 // ── Nómina ────────────────────────────────────────────────────────────────────
 
 export type PayrollStatus = 'pending' | 'paid' | 'cancelled'
