@@ -47,6 +47,8 @@ import { Unit } from './costs/entities/unit.entity';
 import { MaterialCategory } from './costs/entities/material-category.entity';
 import { Material } from './costs/entities/material.entity';
 import { MaterialPrice } from './costs/entities/material-price.entity';
+import { Acu } from './costs/entities/acu.entity';
+import { AcuItem } from './costs/entities/acu-item.entity';
 import { PayrollEntry } from './payroll/entities/payroll-entry.entity';
 
 @Module({
@@ -58,7 +60,7 @@ import { PayrollEntry } from './payroll/entities/payroll-entry.entity';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, PayrollEntry],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PayrollEntry],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',
