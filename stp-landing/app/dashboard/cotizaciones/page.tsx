@@ -1,7 +1,7 @@
 ﻿import Link from 'next/link'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
 import { api, pageError } from '@/lib/api'
-import type { Client, Project, Quote, PaginatedResponse, User } from '@/lib/types'
+import type { Acu, Client, Project, Quote, PaginatedResponse, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -55,15 +55,18 @@ export default async function CotizacionesPage({
   let clients: Client[] = []
   let userRole: string = 'USER'
   let defaultTerms = ''
+  let acus: Acu[] = []
   let error: string | null = null
 
   try {
-    const [quotesRes, proyRes, clientsRes, meRes, termsRes] = await Promise.allSettled([
+    const [quotesRes, proyRes, clientsRes, meRes, termsRes, acusRes] = await Promise.allSettled([
       api.get<PaginatedResponse<Quote>>(`/quotes?${q.toString()}`),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
       api.get<PaginatedResponse<Client>>('/clients?limit=200'),
       api.get<Pick<User, 'role'>>('/users/me'),
       api.get<{ terms: string | null }>('/settings/terms'),
+      // Partidas de costos con su costo de hoy, para cotizar desde una receta.
+      api.get<PaginatedResponse<Acu>>('/costs/acus?limit=200&withCost=true'),
     ])
     if (quotesRes.status === 'fulfilled') cotizacionesRes = quotesRes.value
     else error = pageError(quotesRes.reason, 'Error al cargar cotizaciones')
@@ -71,6 +74,7 @@ export default async function CotizacionesPage({
     if (clientsRes.status === 'fulfilled') clients = clientsRes.value.data
     if (meRes.status === 'fulfilled') userRole = meRes.value.role
     if (termsRes.status === 'fulfilled') defaultTerms = termsRes.value.terms ?? ''
+    if (acusRes.status === 'fulfilled') acus = acusRes.value.data
   } catch (e) {
     // pageError() puede haber lanzado el redirect a /api/auth/logout (401);
     // ese error NEXT_REDIRECT debe propagarse, no tratarse como error de datos.
@@ -95,7 +99,12 @@ export default async function CotizacionesPage({
         </div>
         <div className="flex gap-2">
           <ExportExcelButton href={`/api/export/cotizaciones?${q.toString()}`} label="Exportar Excel" />
-          <NuevaCotizacionDialog clients={clients} projects={projects} defaultTerms={defaultTerms} />
+          <NuevaCotizacionDialog
+            clients={clients}
+            projects={projects}
+            defaultTerms={defaultTerms}
+            acus={acus}
+          />
         </div>
       </div>
 

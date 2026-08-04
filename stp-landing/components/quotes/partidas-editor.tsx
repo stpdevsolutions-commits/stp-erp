@@ -1,7 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Trash2, FolderPlus, ChevronRight, ChevronDown } from 'lucide-react'
+import {
+  Plus,
+  Trash2,
+  FolderPlus,
+  ChevronRight,
+  ChevronDown,
+  Calculator,
+  AlertTriangle,
+  X,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,6 +32,8 @@ import {
   treeSubtotal,
   updateNode,
 } from '@/lib/quote-tree'
+import type { Acu } from '@/lib/types'
+import { AcuPickerDialog } from '@/components/quotes/acu-picker-dialog'
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 
@@ -56,9 +67,12 @@ export const UNITS = [
 export function PartidasEditor({
   nodes,
   onChange,
+  acus = [],
 }: {
   nodes: EditorNode[]
   onChange: (next: EditorNode[]) => void
+  /** Partidas de costos disponibles para calcular unitarios. Vacío = solo precio a mano. */
+  acus?: Acu[]
 }) {
   return (
     <div className="space-y-3">
@@ -80,6 +94,7 @@ export function PartidasEditor({
           canDelete={nodes.length > 1}
           onChange={onChange}
           nodes={nodes}
+          acus={acus}
         />
       ))}
 
@@ -121,6 +136,7 @@ function NodeBlock({
   canDelete,
   nodes,
   onChange,
+  acus,
 }: {
   node: EditorNode
   label: string
@@ -128,6 +144,7 @@ function NodeBlock({
   canDelete: boolean
   nodes: EditorNode[]
   onChange: (next: EditorNode[]) => void
+  acus: Acu[]
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const isGroup = node.children.length > 0 || node.kind === 'group'
@@ -137,7 +154,15 @@ function NodeBlock({
 
   if (!isGroup) {
     return (
-      <ItemRow node={node} label={label} depth={depth} canDelete onChange={onChange} nodes={nodes} />
+      <ItemRow
+        node={node}
+        label={label}
+        depth={depth}
+        canDelete
+        onChange={onChange}
+        nodes={nodes}
+        acus={acus}
+      />
     )
   }
 
@@ -222,6 +247,7 @@ function NodeBlock({
               canDelete
               nodes={nodes}
               onChange={onChange}
+              acus={acus}
             />
           ))}
         </div>
@@ -238,6 +264,7 @@ function ItemRow({
   canDelete,
   nodes,
   onChange,
+  acus,
 }: {
   node: EditorNode
   label: string
@@ -245,14 +272,14 @@ function ItemRow({
   canDelete: boolean
   nodes: EditorNode[]
   onChange: (next: EditorNode[]) => void
+  acus: Acu[]
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false)
   const set = (patch: Partial<EditorNode>) => onChange(updateNode(nodes, node.id, patch))
 
   return (
-    <div
-      className="grid grid-cols-12 gap-2 items-center"
-      style={{ marginLeft: depth > 0 ? 12 : 0 }}
-    >
+    <div style={{ marginLeft: depth > 0 ? 12 : 0 }}>
+    <div className="grid grid-cols-12 gap-2 items-center">
       <span className="col-span-12 sm:col-span-1 text-xs text-muted-foreground tabular-nums">
         {label}
       </span>
@@ -292,15 +319,36 @@ function ItemRow({
         </Select>
       </div>
 
-      <Input
-        type="number"
-        step="0.01"
-        min="0"
-        value={node.unitPrice}
-        onChange={(e) => set({ unitPrice: e.target.value })}
-        placeholder="Precio"
-        className="col-span-6 sm:col-span-2 h-8 text-sm"
-      />
+      <div className="col-span-6 sm:col-span-2 flex items-center gap-1">
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          value={node.unitPrice}
+          onChange={(e) => set({ unitPrice: e.target.value })}
+          placeholder={node.acu ? 'Se calcula' : 'Precio'}
+          className="h-8 text-sm flex-1 min-w-0"
+        />
+        {acus.length > 0 && (
+          <Button
+            type="button"
+            variant={node.acu ? 'secondary' : 'ghost'}
+            size="icon-sm"
+            className="shrink-0"
+            onClick={() => setPickerOpen(true)}
+            aria-label={
+              node.acu ? 'Cambiar la partida de costos' : 'Calcular el precio desde una partida de costos'
+            }
+            title={
+              node.acu
+                ? `Calculado desde ${node.acu.acuCode || 'una partida de costos'}`
+                : 'Calcular desde una partida de costos'
+            }
+          >
+            <Calculator className="size-4" />
+          </Button>
+        )}
+      </div>
 
       <Input
         type="number"
@@ -329,6 +377,54 @@ function ItemRow({
           <Trash2 className="size-4" />
         </Button>
       </div>
+    </div>
+
+      {/*
+        Franja de origen del precio. Se enseña siempre que la línea venga de un ACU:
+        que un unitario esté calculado (y con qué margen) no puede ser invisible al
+        editar, o alguien lo pisa a mano sin saber lo que deshace.
+      */}
+      {node.acu && (
+        <div className="flex flex-wrap items-center gap-2 mt-1 ml-1 text-xs text-muted-foreground">
+          <Calculator className="size-3.5 shrink-0" />
+          <span className="truncate">
+            {node.acu.acuCode ? `${node.acu.acuCode} · ` : ''}
+            {node.acu.acuName}
+          </span>
+          {node.acu.unitCost != null && (
+            <span className="tabular-nums">
+              costo {DOP.format(node.acu.unitCost)}
+              {Number(node.acu.markupPct) > 0 ? ` + ${node.acu.markupPct}%` : ' sin margen'}
+            </span>
+          )}
+          {node.acu.unitCost == null && (
+            <span>se calculará al guardar</span>
+          )}
+          {node.acu.incomplete && (
+            <span className="text-destructive inline-flex items-center gap-1">
+              <AlertTriangle className="size-3.5" />
+              precio mínimo: faltan precios de material
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => set({ acu: null })}
+            className="inline-flex items-center gap-0.5 hover:text-foreground underline"
+            title="Desenlazar: el unitario pasa a escribirse a mano y se conserva el número actual"
+          >
+            <X className="size-3" />
+            desenlazar
+          </button>
+        </div>
+      )}
+
+      <AcuPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        acus={acus}
+        current={node.acu}
+        onSelect={(acu, unitPrice) => set({ acu, unitPrice: String(unitPrice) })}
+      />
     </div>
   )
 }

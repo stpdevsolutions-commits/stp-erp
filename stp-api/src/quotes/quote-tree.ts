@@ -19,6 +19,21 @@ export type QuoteItemKind = 'group' | 'item';
 export const MAX_TREE_DEPTH = 8;
 export const MAX_TREE_NODES = 500;
 
+/**
+ * Origen del unitario cuando la línea nace de una partida de costos (ACU).
+ *
+ * Viaja por el árbol sin que este lo interprete: aquí solo se transporta para que
+ * reconstruir una cotización (editarla entera, o clonarla en una revisión) no pierda de
+ * dónde salió el precio. Congelarlo y compararlo es cosa de `acu-pricing.ts`.
+ */
+export interface QuoteNodeAcu {
+  acuId: string;
+  acuUnitCost: number;
+  acuMarkupPct: number;
+  acuPricedAt: Date;
+  acuIncomplete: boolean;
+}
+
 export interface QuoteNodeInput {
   kind?: QuoteItemKind;
   description: string;
@@ -26,6 +41,7 @@ export interface QuoteNodeInput {
   unit?: string | null;
   unitPrice?: number | null;
   discountPct?: number | null;
+  acu?: QuoteNodeAcu | null;
   children?: QuoteNodeInput[] | null;
 }
 
@@ -36,6 +52,8 @@ export interface QuoteNode {
   unit: string | null;
   unitPrice: number;
   discountPct: number;
+  /** Solo en líneas: un grupo no tiene unitario, así que tampoco de dónde sacarlo. */
+  acu: QuoteNodeAcu | null;
   /** Calculado: línea = cantidad × unitario − descuento; grupo = suma de hijos. */
   total: number;
   /** Numeración jerárquica visible: "1", "1.2", "1.2.3". */
@@ -108,6 +126,7 @@ export function normalizeTree(
       unit: isGroup ? null : (node.unit ?? null),
       unitPrice: isGroup ? 0 : num(node.unitPrice),
       discountPct: isGroup ? 0 : num(node.discountPct),
+      acu: isGroup ? null : (node.acu ?? null),
       label,
       depth,
       children,

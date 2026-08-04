@@ -21,6 +21,7 @@ import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { CreateQuoteItemDto } from './dto/create-quote-item.dto';
 import { UpdateQuoteItemDto } from './dto/update-quote-item.dto';
 import { QueryQuotesDto } from './dto/query-quotes.dto';
+import { RefreshAcuPricesDto } from './dto/refresh-acu-prices.dto';
 import { rowsToTree, flattenTree, ancestorPath } from './quote-tree';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -239,6 +240,34 @@ export class QuotesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.quotesService.remove(id);
+  }
+
+  // ── Partidas de costos (ACU) ───────────────────────────────────────────────
+
+  /**
+   * Aviso de precios viejos: qué líneas nacidas de un ACU tienen el unitario congelado
+   * desfasado respecto al costo de hoy, y en cuánto. Solo lectura: no cambia nada.
+   */
+  @Get(':id/acu-drift')
+  @ScopedResource('quote')
+  acuDrift(@Param('id', ParseUUIDPipe) id: string) {
+    return this.quotesService.acuDrift(id);
+  }
+
+  /**
+   * Vuelve a congelar esos unitarios con los costos de hoy. Es la única vía por la que
+   * el precio de una cotización cambia por el módulo de costos, y es siempre explícita.
+   */
+  @Post(':id/acu-refresh')
+  @ScopedResource('quote')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
+  refreshAcuPrices(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RefreshAcuPricesDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.quotesService.refreshAcuPrices(id, dto, user.role);
   }
 
   // ── Items ──────────────────────────────────────────────────────────────────

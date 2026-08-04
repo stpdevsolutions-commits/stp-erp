@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Client, Project, Quote } from '@/lib/types'
+import type { Acu, Client, Project, Quote } from '@/lib/types'
 import { updateQuote, deleteQuote, sendQuoteEmail } from '@/lib/actions/quotes'
 import { PartidasEditor } from '@/components/quotes/partidas-editor'
 import {
@@ -118,12 +118,14 @@ function EditDialog({
   cotizacion,
   clients,
   projects,
+  acus,
   open,
   onOpenChange,
 }: {
   cotizacion: Quote
   clients: Client[]
   projects: Project[]
+  acus: Acu[]
   open: boolean
   onOpenChange: (o: boolean) => void
 }) {
@@ -294,7 +296,7 @@ function EditDialog({
             </div>
           </div>
 
-          <PartidasEditor nodes={nodes} onChange={setNodes} />
+          <PartidasEditor nodes={nodes} onChange={setNodes} acus={acus} />
 
           {itemsError && (
             <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{itemsError}</p>
@@ -426,11 +428,14 @@ export function QuoteActions({
   clients,
   projects,
   userRole,
+  acus = [],
 }: {
   cotizacion: Quote
   clients: Client[]
   projects: Project[]
   userRole: string
+  /** Partidas de costos, para calcular unitarios desde una receta. */
+  acus?: Acu[]
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -510,6 +515,7 @@ export function QuoteActions({
           cotizacion={cotizacion}
           clients={clients}
           projects={projects}
+          acus={acus}
           open={editOpen}
           onOpenChange={setEditOpen}
         />

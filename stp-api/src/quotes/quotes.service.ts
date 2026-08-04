@@ -43,7 +43,17 @@ import {
   MAX_TREE_NODES,
   type QuoteNode,
   type QuoteNodeInput,
+  type QuoteNodeAcu,
 } from './quote-tree';
+import { AcusService } from '../costs/acus.service';
+import {
+  applyMarkup,
+  compareAcuLine,
+  buildAcuDriftReport,
+  ACU_COST_EPSILON,
+  type AcuDriftLine,
+  type AcuDriftReport,
+} from './acu-pricing';
 
 /** Convierte las filas ya guardadas de una cotización en el árbol de entrada (para clonar). */
 function rowsToNodeInputs(rows: QuoteItem[]): QuoteNodeInput[] {
@@ -57,11 +67,82 @@ function rowsToNodeInputs(rows: QuoteItem[]): QuoteNodeInput[] {
     unit: node.row.unit,
     unitPrice: node.row.unitPrice,
     discountPct: node.row.discountPct,
+    // El congelado viaja tal cual a la revisión: una revisión hereda el precio que se
+    // cotizó, no el costo de hoy. Perderlo dejaría la revisión sin nada contra lo que
+    // avisar y el aviso de desfase se apagaría justo cuando más hace falta.
+    acu: rowToFreeze(node.row),
     children: node.children.map((c) =>
       toInput(c as { row: QuoteItem; children: { row: QuoteItem; children: unknown[] }[] }),
     ),
   });
   return rowsToTree(rows).map((n) => toInput(n));
+}
+
+/** Congelado guardado en una fila, en la forma que viaja por el árbol. */
+function rowToFreeze(row: QuoteItem): QuoteNodeAcu | null {
+  if (!row.acuId) return null;
+  return {
+    acuId: row.acuId,
+    acuUnitCost: row.acuUnitCost ?? 0,
+    acuMarkupPct: row.acuMarkupPct ?? 0,
+    acuPricedAt: row.acuPricedAt ?? row.createdAt ?? new Date(),
+    acuIncomplete: row.acuIncomplete ?? false,
+  };
+}
+
+/**
+ * Columnas del congelado tal como se guardan. Cuando el nodo no viene de un ACU se
+ * escriben todas a null EXPLÍCITAMENTE: al reemplazar el árbol de una cotización, dejar
+ * el campo fuera haría que una línea heredara el enlace de la que ocupaba su sitio.
+ */
+function acuColumns(acu: QuoteNodeAcu | null): Partial<QuoteItem> {
+  if (!acu) {
+    return {
+      acuId: null,
+      acuUnitCost: null,
+      acuMarkupPct: null,
+      acuPricedAt: null,
+      acuIncomplete: false,
+    } as unknown as Partial<QuoteItem>;
+  }
+  return {
+    acuId: acu.acuId,
+    acuUnitCost: acu.acuUnitCost,
+    acuMarkupPct: acu.acuMarkupPct,
+    acuPricedAt: acu.acuPricedAt,
+    acuIncomplete: acu.acuIncomplete,
+  };
+}
+
+/** Un nodo del árbol de entrada tal como puede llegar del cliente (DTO plano). */
+type QuoteNodeWithAcu = QuoteNodeInput & {
+  acuId?: string;
+  acuMarkupPct?: number;
+  acuUnitCost?: number;
+  acuPricedAt?: string | Date;
+  acuIncomplete?: boolean;
+  allowIncompleteAcu?: boolean;
+};
+
+/** Motivo por el que una línea no se pudo (o no se debió) re-congelar. */
+export interface AcuRefreshSkip {
+  itemId: string;
+  description: string;
+  reason: 'acu-not-found' | 'no-cost' | 'incomplete' | 'manual-override';
+  detail: string;
+}
+
+export interface AcuRefreshResult {
+  updated: {
+    itemId: string;
+    description: string;
+    previousUnitCost: number | null;
+    unitCost: number;
+    previousUnitPrice: number;
+    unitPrice: number;
+  }[];
+  skipped: AcuRefreshSkip[];
+  quote: Quote;
 }
 
 export type QuoteDecisionResult =
@@ -90,6 +171,7 @@ export class QuotesService implements OnModuleInit {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly access: AccessControlService,
+    private readonly acus: AcusService,
   ) {}
 
   onModuleInit() {
@@ -398,7 +480,10 @@ export class QuotesService implements OnModuleInit {
   async findOne(id: string): Promise<Quote> {
     const quote = await this.quotesRepository.findOne({
       where: { id },
-      relations: { client: true, project: true, createdBy: true, items: true },
+      // `items.acu` para poder decir de QUÉ partida de costos sale un unitario sin pedir
+      // cada ACU por separado. Es la relación de la línea, no su costo: el costo de hoy
+      // se calcula aparte (`acuDrift`), porque el guardado aquí es el congelado.
+      relations: { client: true, project: true, createdBy: true, items: { acu: true } },
       order: { items: { sortOrder: 'ASC' } },
     });
     if (!quote) throw new NotFoundException('Quote not found');
@@ -689,7 +774,9 @@ export class QuotesService implements OnModuleInit {
       quoteId,
       parentId: parentId ?? IsNull(),
     });
-    const [normalized] = normalizeTree([{ ...node, children }]);
+    // Con `acuId` el unitario lo pone el ACU: se congela aquí, antes de normalizar.
+    const resuelto = await this.resolveAcuNodes([{ ...node, children } as QuoteNodeInput]);
+    const [normalized] = normalizeTree(resuelto);
     this.assertTreeLimits([normalized]);
 
     const created = await this.itemsRepository.save(
@@ -704,6 +791,7 @@ export class QuotesService implements OnModuleInit {
         discountPct: normalized.discountPct,
         total: normalized.total,
         sortOrder: siblings,
+        ...acuColumns(normalized.acu),
       }),
     );
     if (normalized.children.length > 0) {
@@ -808,10 +896,266 @@ export class QuotesService implements OnModuleInit {
     quoteId: string,
     input: QuoteNodeInput[],
   ): Promise<void> {
-    const tree = normalizeTree(input);
+    const resuelto = await this.resolveAcuNodes(input);
+    const tree = normalizeTree(resuelto);
     this.assertTreeLimits(tree);
 
     await this.persistChildren(quoteId, null, tree);
+  }
+
+  // ── Puente con el módulo de Costos (ACU) ──────────────────────────────────
+
+  /**
+   * Resuelve las líneas que vienen de una partida de costos ANTES de normalizar el
+   * árbol, porque `normalizeTree` ya necesita el unitario puesto.
+   *
+   * Dos caminos, y la diferencia importa:
+   * - **Congelar** (llega `acuId` sin `acuUnitCost`): se valora la receta con los
+   *   precios vigentes de hoy y el resultado queda guardado en la línea.
+   * - **Conservar** (llega también `acuUnitCost`): es el mismo congelado volviendo de
+   *   una edición o de una revisión. NO se revalora. Una cotización que ya salió no
+   *   puede cambiar de precio porque alguien le corrigiera una coma al título.
+   */
+  private async resolveAcuNodes(input: QuoteNodeInput[]): Promise<QuoteNodeInput[]> {
+    const conAcu: QuoteNodeWithAcu[] = [];
+    const recolectar = (nodes: QuoteNodeInput[]): void => {
+      for (const node of nodes) {
+        const n = node as QuoteNodeWithAcu;
+        if (n.acuId ?? n.acu?.acuId) conAcu.push(n);
+        if (node.children?.length) recolectar(node.children);
+      }
+    };
+    recolectar(input);
+    if (conAcu.length === 0) return input;
+
+    const ids = conAcu.map((n) => (n.acuId ?? n.acu?.acuId) as string);
+    const costos = await this.acus.costsByIds(ids);
+
+    const mapear = (nodes: QuoteNodeInput[]): QuoteNodeInput[] =>
+      nodes.map((node) => {
+        const n = node as QuoteNodeWithAcu;
+        const acuId = n.acuId ?? n.acu?.acuId;
+        const children = node.children?.length ? mapear(node.children) : node.children;
+        if (!acuId) return { ...node, children };
+
+        const entrada = costos.get(acuId);
+        if (!entrada) {
+          throw new BadRequestException(`La partida de costos ${acuId} no existe`);
+        }
+
+        const markup = n.acuMarkupPct ?? n.acu?.acuMarkupPct ?? 0;
+        const congeladoPrevio = n.acuUnitCost ?? n.acu?.acuUnitCost;
+
+        if (congeladoPrevio != null) {
+          const pricedAt = n.acuPricedAt ?? n.acu?.acuPricedAt;
+          return {
+            ...node,
+            children,
+            acu: {
+              acuId,
+              acuUnitCost: congeladoPrevio,
+              acuMarkupPct: markup,
+              acuPricedAt: pricedAt ? new Date(pricedAt) : new Date(),
+              acuIncomplete: (n.acuIncomplete ?? n.acu?.acuIncomplete) === true,
+            },
+          };
+        }
+
+        const { cost, acu } = entrada;
+        if (!(cost.directCost > 0)) {
+          throw new UnprocessableEntityException(
+            `La partida "${acu.name}" no tiene un costo valorable (su receta está vacía o vale 0). ` +
+              'Complétala antes de cotizarla.',
+          );
+        }
+        if (cost.incomplete && n.allowIncompleteAcu !== true) {
+          // Un ACU incompleto NO se congela como bueno. El total es un piso: faltan
+          // precios, así que cotizarlo sería mandarle al cliente un número que ya se
+          // sabe corto. Se puede forzar, pero a conciencia y dejando marca.
+          throw new UnprocessableEntityException({
+            statusCode: 422,
+            error: 'ACU_INCOMPLETE',
+            message:
+              `La partida "${acu.name}" tiene ${cost.missingMaterialIds.length} material(es) sin ` +
+              'precio vigente: su costo es un piso, no el costo real. Registra los precios que ' +
+              'faltan o confirma que quieres congelarlo así (`allowIncompleteAcu`).',
+            acuId,
+            missingMaterialIds: cost.missingMaterialIds,
+          });
+        }
+
+        return {
+          ...node,
+          children,
+          // Un unitario explícito gana: sirve para cotizar por encima (o por debajo) del
+          // costo sin perder de dónde salió el número.
+          unitPrice: node.unitPrice ?? applyMarkup(cost.directCost, markup),
+          acu: {
+            acuId,
+            acuUnitCost: cost.directCost,
+            acuMarkupPct: markup,
+            acuPricedAt: new Date(),
+            acuIncomplete: cost.incomplete,
+          },
+        };
+      });
+
+    return mapear(input);
+  }
+
+  /**
+   * Aviso de precios viejos: qué líneas de la cotización nacieron de un ACU y cuánto se
+   * ha desfasado su unitario congelado respecto al costo de HOY.
+   *
+   * Es de solo lectura a propósito. Actualizar es `POST /quotes/:id/acu-refresh`, una
+   * decisión humana: el precio que vio el cliente no se toca solo.
+   */
+  async acuDrift(quoteId: string): Promise<AcuDriftReport> {
+    const quote = await this.findOne(quoteId);
+    const rows = (quote.items ?? []).filter((i) => i.acuId && i.kind !== 'group');
+    if (rows.length === 0) return buildAcuDriftReport([]);
+
+    const costos = await this.acus.costsByIds(rows.map((r) => r.acuId));
+    const etiquetas = new Map(
+      flattenTree(rowsToTree(quote.items ?? [])).map((n) => [n.row.id, n.label]),
+    );
+
+    const lines: AcuDriftLine[] = rows.map((row) => {
+      const entrada = costos.get(row.acuId);
+      const linea = compareAcuLine(
+        {
+          id: row.id,
+          description: row.description,
+          quantity: row.quantity,
+          unitPrice: row.unitPrice,
+          discountPct: row.discountPct,
+          acuId: row.acuId,
+          acuUnitCost: row.acuUnitCost,
+          acuMarkupPct: row.acuMarkupPct,
+          acuPricedAt: row.acuPricedAt,
+          acuIncomplete: row.acuIncomplete,
+        },
+        entrada ? { directCost: entrada.cost.directCost, incomplete: entrada.cost.incomplete } : null,
+      );
+      return {
+        ...linea,
+        label: etiquetas.get(row.id),
+        acuCode: entrada?.acu.code,
+        acuName: entrada?.acu.name,
+      };
+    });
+
+    return buildAcuDriftReport(lines);
+  }
+
+  /**
+   * Vuelve a congelar el unitario de las líneas que vienen de un ACU con los costos de
+   * hoy, conservando el margen de cada una.
+   *
+   * Se salta —sin romper la operación— lo que no se debe pisar por las bravas: ACU
+   * incompletos y unitarios escritos a mano después de congelar. Cada omisión sale
+   * listada con su motivo, para que quien lo pidió sepa qué quedó sin tocar.
+   */
+  async refreshAcuPrices(
+    quoteId: string,
+    dto: { itemIds?: string[]; allowIncomplete?: boolean; overrideManual?: boolean } = {},
+    userRole?: UserRole,
+  ): Promise<AcuRefreshResult> {
+    const quote = await this.findOne(quoteId);
+    this.assertEditable(quote, userRole);
+
+    const pedidos = dto.itemIds?.length ? new Set(dto.itemIds) : null;
+    const rows = (quote.items ?? []).filter(
+      (i) => i.acuId && i.kind !== 'group' && (!pedidos || pedidos.has(i.id)),
+    );
+    if (rows.length === 0) {
+      return { updated: [], skipped: [], quote };
+    }
+
+    const costos = await this.acus.costsByIds(rows.map((r) => r.acuId));
+    const ahora = new Date();
+    const updated: AcuRefreshResult['updated'] = [];
+    const skipped: AcuRefreshSkip[] = [];
+    const dirty: QuoteItem[] = [];
+
+    for (const row of rows) {
+      const entrada = costos.get(row.acuId);
+      if (!entrada) {
+        skipped.push({
+          itemId: row.id,
+          description: row.description,
+          reason: 'acu-not-found',
+          detail: 'La partida de costos enlazada ya no existe.',
+        });
+        continue;
+      }
+      const { cost, acu } = entrada;
+      if (!(cost.directCost > 0)) {
+        skipped.push({
+          itemId: row.id,
+          description: row.description,
+          reason: 'no-cost',
+          detail: `La partida "${acu.name}" no tiene hoy un costo valorable.`,
+        });
+        continue;
+      }
+      if (cost.incomplete && dto.allowIncomplete !== true) {
+        skipped.push({
+          itemId: row.id,
+          description: row.description,
+          reason: 'incomplete',
+          detail: `A "${acu.name}" le faltan ${cost.missingMaterialIds.length} precio(s) de material: su costo actual es un piso, no el real.`,
+        });
+        continue;
+      }
+
+      const markup = row.acuMarkupPct ?? 0;
+      const esperado = row.acuUnitCost != null ? applyMarkup(row.acuUnitCost, markup) : null;
+      const manual =
+        esperado !== null && Math.abs(esperado - row.unitPrice) >= ACU_COST_EPSILON;
+      if (manual && dto.overrideManual !== true) {
+        skipped.push({
+          itemId: row.id,
+          description: row.description,
+          reason: 'manual-override',
+          detail:
+            'El unitario se escribió a mano después de congelar; no se pisa sin confirmarlo.',
+        });
+        continue;
+      }
+
+      const previousUnitCost = row.acuUnitCost ?? null;
+      const previousUnitPrice = row.unitPrice;
+
+      row.acuUnitCost = cost.directCost;
+      row.acuPricedAt = ahora;
+      row.acuIncomplete = cost.incomplete;
+      row.unitPrice = applyMarkup(cost.directCost, markup);
+      row.total = lineTotal(row);
+      dirty.push(row);
+
+      updated.push({
+        itemId: row.id,
+        description: row.description,
+        previousUnitCost,
+        unitCost: row.acuUnitCost,
+        previousUnitPrice,
+        unitPrice: row.unitPrice,
+      });
+    }
+
+    if (dirty.length > 0) {
+      await this.itemsRepository.save(dirty);
+      await this.recalculate(quoteId);
+    }
+
+    const result = await this.findOne(quoteId);
+    if (dirty.length > 0) {
+      await this.savePdfForQuote(result).catch((err: Error) =>
+        this.logger.error(`PDF regeneration failed for quote ${quoteId}: ${err.message}`),
+      );
+    }
+    return { updated, skipped, quote: result };
   }
 
   /** Inserta un nivel del árbol y baja recursivamente. `startOrder` permite añadir al final. */
@@ -834,6 +1178,7 @@ export class QuotesService implements OnModuleInit {
           discountPct: node.discountPct,
           total: node.total,
           sortOrder: startOrder + index,
+          ...acuColumns(node.acu),
         }),
       );
       if (node.children.length > 0) {

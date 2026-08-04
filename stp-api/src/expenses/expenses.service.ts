@@ -14,6 +14,7 @@ import { Supplier } from '../suppliers/entities/supplier.entity';
 import { FileUpload, FileContext } from '../files/entities/file-upload.entity';
 import { getUploadRoot } from '../files/files.utils';
 import { generateExpensePdf } from './pdf.generator';
+import { expensePdfFilename, expensePdfRelativeDir } from './expense-pdf';
 import { SettingsService } from '../settings/settings.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -150,10 +151,15 @@ export class ExpensesService {
     // indistinguible de uno bueno.
     await this.materialPrices.voidByExpense(expense.id, expense.createdById);
     await this.expensesRepository.remove(expense);
+    // El PDF se limpia DESPUÉS y en try/catch, como la derivación de precios y las
+    // notificaciones: el dato contable es el gasto, y un fallo de disco no puede dejar
+    // el borrado a medias ni devolver un error por algo accesorio. Si esto falla queda
+    // un huérfano —lo que pasaba siempre antes de este arreglo—, no una inconsistencia.
+    await this.removePdfForExpense(id);
   }
 
   async findPdfFile(expenseId: string): Promise<FileUpload | null> {
-    return this.fileRepo.findOne({ where: { filename: `GASTO-${expenseId}.pdf` } });
+    return this.fileRepo.findOne({ where: { filename: expensePdfFilename(expenseId) } });
   }
 
   async sumByProject(projectId: string): Promise<number> {
@@ -262,10 +268,13 @@ export class ExpensesService {
       if (project) expense.project = project;
     }
 
-    const destDir = join(getUploadRoot(), 'clients', clientId, 'projects', expense.projectId, 'expenses');
+    const destDir = join(
+      getUploadRoot(),
+      expensePdfRelativeDir(clientId, expense.projectId),
+    );
     mkdirSync(destDir, { recursive: true });
 
-    const filename = `GASTO-${expense.id}.pdf`;
+    const filename = expensePdfFilename(expense.id);
     const filePath = join(destDir, filename);
 
     const company = await this.settingsService.getCompanyData();
@@ -278,12 +287,7 @@ export class ExpensesService {
     const existing = await this.fileRepo.findOne({ where: { filename } });
     if (existing) {
       if (existing.path !== relativePath) {
-        const oldAbsPath = join(getUploadRoot(), existing.path);
-        if (existsSync(oldAbsPath)) {
-          unlink(oldAbsPath, (err) => {
-            if (err) this.logger.error(`Failed to delete old expense PDF ${oldAbsPath}: ${err.message}`);
-          });
-        }
+        this.unlinkStoredFile(existing.path);
       }
       await this.fileRepo.remove(existing);
     }
@@ -300,5 +304,39 @@ export class ExpensesService {
       uploadedById: expense.createdById ?? undefined,
     });
     await this.fileRepo.save(record);
+  }
+
+  /**
+   * Borra el PDF de un gasto: primero el registro de `uploaded_files` y después el
+   * archivo del disco, en ese orden y como hace `FilesService.remove`. Si se cayera
+   * entre medias, lo que queda es un archivo suelto sin registro (invisible e inocuo),
+   * no un registro apuntando a un archivo que ya no está (un 404 al descargar).
+   *
+   * No propaga: se llama cuando el gasto YA está borrado y el borrado no se puede
+   * deshacer, así que fallar aquí solo puede empeorar la respuesta, no arreglar nada.
+   */
+  private async removePdfForExpense(expenseId: string): Promise<void> {
+    try {
+      const record = await this.fileRepo.findOne({
+        where: { filename: expensePdfFilename(expenseId) },
+      });
+      if (!record) return;
+      const storedPath = record.path;
+      await this.fileRepo.remove(record);
+      this.unlinkStoredFile(storedPath);
+    } catch (err) {
+      this.logger.error(
+        `No se pudo borrar el PDF del gasto ${expenseId}: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /** Borra del disco una ruta relativa a la raíz de subidas. Falla solo en el log. */
+  private unlinkStoredFile(relativePath: string): void {
+    const absPath = join(getUploadRoot(), relativePath);
+    if (!existsSync(absPath)) return;
+    unlink(absPath, (err) => {
+      if (err) this.logger.error(`Failed to delete expense PDF ${absPath}: ${err.message}`);
+    });
   }
 }

@@ -204,6 +204,43 @@ export class AcusService {
     return { acu, cost: computeAcuCost(await this.toInputs(acu.items ?? []), prices) };
   }
 
+  /**
+   * Valora VARIAS partidas de una vez. Existe para el puente con cotizaciones: comparar
+   * las líneas de una cotización contra sus ACU de una en una dispararía tres consultas
+   * por línea sobre las mismas tablas.
+   *
+   * Los ids que no existen simplemente no aparecen en el mapa; el llamador decide qué
+   * hacer con ellos (nunca se devuelve un costo inventado).
+   */
+  async costsByIds(ids: string[]): Promise<Map<string, { acu: Acu; cost: AcuCost }>> {
+    const unicos = [...new Set(ids)];
+    const out = new Map<string, { acu: Acu; cost: AcuCost }>();
+    if (unicos.length === 0) return out;
+
+    const acus = await this.acusRepository.find({
+      where: { id: In(unicos) },
+      relations: { unit: true },
+    });
+    if (acus.length === 0) return out;
+
+    const items = await this.itemsRepository.find({
+      where: { acuId: In(acus.map((a) => a.id)) },
+      order: { sortOrder: 'ASC' },
+    });
+    const prices = await this.currentPrices(items);
+    const inputs = await this.toInputs(items); // mismo orden que `items`
+
+    const porAcu = new Map<string, AcuItemInput[]>();
+    items.forEach((item, i) => {
+      porAcu.set(item.acuId, [...(porAcu.get(item.acuId) ?? []), inputs[i]]);
+    });
+
+    for (const acu of acus) {
+      out.set(acu.id, { acu, cost: computeAcuCost(porAcu.get(acu.id) ?? [], prices) });
+    }
+    return out;
+  }
+
   // ------------------------------------------------------------------ interno
 
   /**

@@ -10,6 +10,27 @@ import type { Quote, QuoteItem } from '@/lib/types'
 
 export type NodeKind = 'group' | 'item'
 
+/**
+ * Enlace de una línea con la partida de costos (ACU) de la que sale su unitario.
+ *
+ * `unitCost` es la pieza delicada: cuando ya tiene valor, es el CONGELADO que vino de
+ * la API y viaja de vuelta tal cual para que el servidor lo conserve. Si se perdiera
+ * aquí, editar el título de una cotización revaluaría sus precios con los costos de
+ * hoy — justo lo que el congelado existe para impedir.
+ */
+export interface EditorAcu {
+  acuId: string
+  /** Solo para mostrar; el servidor no los usa. */
+  acuCode: string
+  acuName: string
+  /** Texto porque sale de un <input>. */
+  markupPct: string
+  /** Congelado ya existente. `null` = línea nueva: lo congela el servidor al guardar. */
+  unitCost: number | null
+  pricedAt: string | null
+  incomplete: boolean
+}
+
 /** Nodo del editor: los importes viven como texto porque salen de <input>. */
 export interface EditorNode {
   id: string
@@ -19,6 +40,8 @@ export interface EditorNode {
   quantity: string
   unitPrice: string
   discountPct: string
+  /** null = el unitario se escribe a mano, como siempre. */
+  acu: EditorAcu | null
   children: EditorNode[]
 }
 
@@ -42,6 +65,7 @@ export function makeItem(): EditorNode {
     quantity: '1',
     unitPrice: '',
     discountPct: '',
+    acu: null,
     children: [],
   }
 }
@@ -55,6 +79,7 @@ export function makeGroup(name = ''): EditorNode {
     quantity: '',
     unitPrice: '',
     discountPct: '',
+    acu: null,
     children: [makeItem()],
   }
 }
@@ -143,10 +168,23 @@ export interface QuoteItemPayload {
   quantity?: number
   unitPrice?: number
   discountPct?: number
+  acuId?: string
+  acuMarkupPct?: number
+  acuUnitCost?: number
+  acuPricedAt?: string
+  acuIncomplete?: boolean
+  allowIncompleteAcu?: boolean
   children?: QuoteItemPayload[]
 }
 
-/** Convierte el árbol del editor al cuerpo que espera la API. */
+/**
+ * Convierte el árbol del editor al cuerpo que espera la API.
+ *
+ * En las líneas con ACU se reenvía el congelado (`acuUnitCost`, `acuPricedAt`) cuando ya
+ * existe: la API lo interpreta como "consérvalo" y no revalora. Sin esos campos volvería
+ * a congelar con los costos de hoy, y guardar un cambio de título movería los precios.
+ * En una línea nueva sí se omiten a propósito: ahí congelar es justo lo que se busca.
+ */
 export function toPayload(nodes: EditorNode[]): QuoteItemPayload[] {
   return nodes.map((n) => {
     const isGroup = n.children.length > 0 || n.kind === 'group'
@@ -157,13 +195,36 @@ export function toPayload(nodes: EditorNode[]): QuoteItemPayload[] {
         children: toPayload(n.children),
       }
     }
-    return {
+
+    const base = {
       kind: 'item' as const,
       description: n.description,
       unit: n.unit || undefined,
       quantity: num(n.quantity),
       unitPrice: num(n.unitPrice),
       discountPct: num(n.discountPct),
+    }
+    if (!n.acu) return base
+
+    return {
+      ...base,
+      acuId: n.acu.acuId,
+      acuMarkupPct: num(n.acu.markupPct),
+      // En un enlace nuevo el unitario NO se manda: lo calcula el servidor al congelar,
+      // con el costo del momento de guardar. El número que enseña el editor es una vista
+      // previa, y si el costo se movió mientras el diálogo estaba abierto, mandarlo haría
+      // que la línea naciera marcada como "precio escrito a mano".
+      ...(n.acu.unitCost == null ? { unitPrice: undefined } : {}),
+      ...(n.acu.unitCost != null
+        ? {
+            acuUnitCost: n.acu.unitCost,
+            acuPricedAt: n.acu.pricedAt ?? undefined,
+            acuIncomplete: n.acu.incomplete,
+          }
+        : {}),
+      // Una línea nueva sobre un ACU incompleto se congela solo si se aceptó el aviso al
+      // elegirlo; el diálogo no deja marcarlo sin enseñar qué materiales faltan.
+      ...(n.acu.unitCost == null && n.acu.incomplete ? { allowIncompleteAcu: true } : {}),
     }
   })
 }
@@ -211,6 +272,18 @@ export function editorTreeFromQuote(quote: Quote): EditorNode[] {
     quantity: node.item.quantity ? String(node.item.quantity) : '',
     unitPrice: node.item.unitPrice ? String(node.item.unitPrice) : '',
     discountPct: node.item.discountPct ? String(node.item.discountPct) : '',
+    // El congelado se conserva al abrir para editar; ver `toPayload`.
+    acu: node.item.acuId
+      ? {
+          acuId: node.item.acuId,
+          acuCode: node.item.acu?.code ?? '',
+          acuName: node.item.acu?.name ?? node.item.description,
+          markupPct: node.item.acuMarkupPct ? String(node.item.acuMarkupPct) : '',
+          unitCost: node.item.acuUnitCost ?? null,
+          pricedAt: node.item.acuPricedAt ?? null,
+          incomplete: node.item.acuIncomplete === true,
+        }
+      : null,
     children: node.children.map(toEditor),
   })
 
@@ -246,7 +319,14 @@ export function validateTree(nodes: EditorNode[]): string | null {
         if (num(node.quantity) <= 0) {
           return `La cantidad de "${node.description}" debe ser mayor que 0`
         }
-        if (node.unitPrice === '' || num(node.unitPrice) < 0) {
+        // Una línea recién enlazada a un ACU puede ir sin unitario: lo pone el servidor
+        // al congelar el costo de la receta. Exigirlo aquí obligaría a teclear un número
+        // que se va a sobrescribir.
+        const priceFromAcu = node.acu !== null && node.acu.unitCost === null
+        if (!priceFromAcu && (node.unitPrice === '' || num(node.unitPrice) < 0)) {
+          return `El precio unitario de "${node.description}" no es válido`
+        }
+        if (node.unitPrice !== '' && num(node.unitPrice) < 0) {
           return `El precio unitario de "${node.description}" no es válido`
         }
       }

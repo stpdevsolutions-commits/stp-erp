@@ -1,7 +1,15 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
-import type { Quote, User, Client, Project, PaginatedResponse } from '@/lib/types'
+import type {
+  Quote,
+  User,
+  Client,
+  Project,
+  PaginatedResponse,
+  Acu,
+  AcuDriftReport,
+} from '@/lib/types'
 import { itemsToTree, flattenTree } from '@/lib/quote-tree'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,10 +22,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ChevronLeft, FileText, Calendar, User as UserIcon, FolderKanban, History } from 'lucide-react'
+import {
+  ChevronLeft,
+  FileText,
+  Calendar,
+  User as UserIcon,
+  FolderKanban,
+  History,
+  Calculator,
+} from 'lucide-react'
 import { QuoteActions } from '@/components/quotes/quote-actions'
 import { ConvertToProjectButton } from '@/components/quotes/convert-to-project-button'
 import { ReviseQuoteButton } from '@/components/quotes/revise-quote-button'
+import { AcuDriftPanel } from '@/components/quotes/acu-drift-panel'
 
 const REVISABLE_STATUSES: Quote['status'][] = ['sent', 'approved', 'rejected', 'expired']
 
@@ -57,17 +74,34 @@ export default async function CotizacionDetallePage({
   let userRole = 'user'
   let clients: Client[] = []
   let projects: Project[] = []
+  let acus: Acu[] = []
   try {
-    const [me, clientsRes, projectsRes] = await Promise.all([
+    const [me, clientsRes, projectsRes, acusRes] = await Promise.all([
       api.get<Pick<User, 'role'>>('/users/me'),
       api.get<PaginatedResponse<Client>>('/clients?limit=200'),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
+      // `withCost=true` para poder enseñar el costo de cada partida al elegirla; sin él
+      // habría que pedir cada ACU por separado desde el diálogo.
+      api.get<PaginatedResponse<Acu>>('/costs/acus?limit=200&withCost=true'),
     ])
     userRole = me.role
     clients = clientsRes.data
     projects = projectsRes.data
+    acus = acusRes.data
   } catch {
     // ignore
+  }
+
+  // Aviso de desfase: solo tiene sentido si alguna línea nace de un ACU. Va aparte del
+  // detalle porque compara contra los costos de HOY, no contra lo guardado.
+  const hasAcuLines = (quote.items ?? []).some((i) => i.acuId)
+  let acuDrift: AcuDriftReport | null = null
+  if (hasAcuLines) {
+    try {
+      acuDrift = await api.get<AcuDriftReport>(`/quotes/${id}/acu-drift`)
+    } catch {
+      // Que falle el aviso no puede tumbar la cotización: es información añadida.
+    }
   }
 
   const indirectCosts = (
@@ -76,6 +110,7 @@ export default async function CotizacionDetallePage({
   const hasIndirect = Array.isArray(indirectCosts) && indirectCosts.length > 0
 
   const isManager = ['ADMIN', 'admin', 'MANAGER', 'manager'].includes(userRole)
+  const isAdmin = ['ADMIN', 'admin'].includes(userRole)
   const isSuperseded = !!quote.supersededById
   const isRevisable = !isSuperseded && REVISABLE_STATUSES.includes(quote.status)
   const canRevise = isManager && isRevisable
@@ -142,6 +177,7 @@ export default async function CotizacionDetallePage({
             clients={clients}
             projects={projects}
             userRole={userRole}
+            acus={acus}
           />
         </div>
       </div>
@@ -317,6 +353,21 @@ export default async function CotizacionDetallePage({
         </Card>
       )}
 
+      {/* Aviso de desfase de los precios calculados desde partidas de costos */}
+      {acuDrift && (
+        <AcuDriftPanel
+          quoteId={quote.id}
+          report={acuDrift}
+          // Mismas reglas que el backend (`assertEditable`): una cotización reemplazada no
+          // se toca, y aprobada o rechazada solo la mueve un ADMIN.
+          canRefresh={
+            isManager &&
+            !isSuperseded &&
+            (isAdmin || !['approved', 'rejected'].includes(quote.status))
+          }
+        />
+      )}
+
       {/* Partidas (árbol) */}
       {itemTree.length > 0 && (
         <div className="space-y-4">
@@ -382,6 +433,30 @@ export default async function CotizacionDetallePage({
                           </TableCell>
                           <TableCell className="text-sm" style={{ paddingLeft: indent + 12 }}>
                             {item.description}
+                            {/*
+                              De dónde sale el unitario. Se enseña en el detalle porque un
+                              precio calculado y uno tecleado se leen igual en la tabla, y
+                              no lo son: el calculado tiene costo, margen y fecha detrás.
+                            */}
+                            {item.acuId && (
+                              <span className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                <Calculator className="size-3 shrink-0" />
+                                {item.acu ? (
+                                  <Link
+                                    href={`/dashboard/costos/acus/${item.acuId}`}
+                                    className="hover:underline truncate"
+                                  >
+                                    {item.acu.code} · {item.acu.name}
+                                  </Link>
+                                ) : (
+                                  <span>calculado desde una partida de costos</span>
+                                )}
+                                {item.acuMarkupPct ? <span>+{item.acuMarkupPct}%</span> : null}
+                                {item.acuIncomplete && (
+                                  <span className="text-destructive">precio mínimo</span>
+                                )}
+                              </span>
+                            )}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {item.unit ?? '—'}

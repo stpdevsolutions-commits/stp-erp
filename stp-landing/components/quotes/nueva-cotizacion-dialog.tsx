@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Client, Project } from '@/lib/types'
+import type { Acu, Client, Project } from '@/lib/types'
 import { createQuote } from '@/lib/actions/quotes'
 import { PartidasEditor } from '@/components/quotes/partidas-editor'
 import {
@@ -95,10 +95,13 @@ export function NuevaCotizacionDialog({
   clients,
   projects,
   defaultTerms = '',
+  acus = [],
 }: {
   clients: Client[]
   projects: Project[]
   defaultTerms?: string
+  /** Partidas de costos, para calcular unitarios desde una receta. */
+  acus?: Acu[]
 }) {
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -283,7 +286,7 @@ export function NuevaCotizacionDialog({
             </div>
           </div>
 
-          <PartidasEditor nodes={nodes} onChange={setNodes} />
+          <PartidasEditor nodes={nodes} onChange={setNodes} acus={acus} />
 
           {itemsError && (
             <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{itemsError}</p>

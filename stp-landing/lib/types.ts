@@ -78,6 +78,104 @@ export interface QuoteItem {
   kind?: 'group' | 'item'
   parentId?: string | null
   sortOrder?: number
+
+  /**
+   * Origen del unitario cuando la línea nace de una partida de costos (ACU).
+   *
+   * Lo guardado es el CONGELADO, no un enlace vivo: `acuUnitCost` es el costo directo
+   * del día en que se cotizó. Una cotización ya enviada no cambia de precio sola; el
+   * desfase contra el costo de hoy se consulta aparte (`GET /quotes/:id/acu-drift`).
+   */
+  acuId?: string | null
+  /** La partida enlazada, para poder nombrarla. Solo viene en el detalle de la cotización. */
+  acu?: Pick<Acu, 'id' | 'code' | 'name'> | null
+  acuUnitCost?: number | null
+  acuMarkupPct?: number | null
+  acuPricedAt?: string | null
+  /** El ACU estaba incompleto al congelar: el unitario es un piso, no el costo real. */
+  acuIncomplete?: boolean | null
+}
+
+// ─── Desfase de precios ACU en una cotización ────────────────────────────────
+
+/** Por qué una línea entra en el aviso. Ninguna es excluyente de las otras. */
+export interface AcuDriftFlags {
+  costChanged: boolean
+  currentIncomplete: boolean
+  frozenIncomplete: boolean
+  aged: boolean
+  /** El unitario se escribió a mano tras congelar: no se pisa sin confirmarlo. */
+  manualOverride: boolean
+  /** No hay costo congelado con el que comparar (o el ACU ya no existe). */
+  noBaseline: boolean
+}
+
+export interface AcuDriftLine {
+  itemId: string
+  description: string
+  acuId: string
+  /** Numeración jerárquica de la línea en el árbol ("1.2.3"). */
+  label?: string
+  acuCode?: string
+  acuName?: string
+  quantity: number
+  discountPct: number
+  frozenUnitCost: number | null
+  currentUnitCost: number | null
+  unitCostDelta: number | null
+  unitCostDeltaPct: number | null
+  markupPct: number
+  currentUnitPrice: number
+  suggestedUnitPrice: number | null
+  unitPriceDelta: number | null
+  currentLineTotal: number
+  suggestedLineTotal: number | null
+  lineTotalDelta: number | null
+  direction: 'up' | 'down' | 'same' | 'unknown'
+  pricedAt: string | null
+  ageDays: number | null
+  stale: boolean
+  flags: AcuDriftFlags
+}
+
+/** Respuesta de `GET /quotes/:id/acu-drift`. */
+export interface AcuDriftReport {
+  linkedLines: number
+  staleLines: number
+  incompleteLines: number
+  /** Suma de las líneas enlazadas a un ACU, no el subtotal de la cotización. */
+  currentTotal: number
+  suggestedTotal: number
+  totalDelta: number
+  totalDeltaPct: number | null
+  maxDeltaPct: number | null
+  lines: AcuDriftLine[]
+  generatedAt: string
+}
+
+/** Motivo por el que una línea no se re-congeló. */
+export type AcuRefreshSkipReason =
+  | 'acu-not-found'
+  | 'no-cost'
+  | 'incomplete'
+  | 'manual-override'
+
+/** Respuesta de `POST /quotes/:id/acu-refresh`. */
+export interface AcuRefreshResult {
+  updated: {
+    itemId: string
+    description: string
+    previousUnitCost: number | null
+    unitCost: number
+    previousUnitPrice: number
+    unitPrice: number
+  }[]
+  skipped: {
+    itemId: string
+    description: string
+    reason: AcuRefreshSkipReason
+    detail: string
+  }[]
 }
 
 export interface QuoteRevisionSummary {

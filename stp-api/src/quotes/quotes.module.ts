@@ -11,11 +11,15 @@ import { QuotesService } from './quotes.service';
 import { QuotesController } from './quotes.controller';
 import { QuotesPublicController } from './quotes-public.controller';
 import { SettingsModule } from '../settings/settings.module';
+import { CostsModule } from '../costs/costs.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Quote, QuoteItem, Client, Project, FileUpload]),
     SettingsModule,
+    // Fase 6: el unitario de una partida puede venir de un ACU. La dependencia va en
+    // un solo sentido (Costos no sabe nada de Cotizaciones), así que no hay ciclo.
+    CostsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
