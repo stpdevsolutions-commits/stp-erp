@@ -47,49 +47,94 @@ type NavItem = {
   /** Prefijo por el que se marca activo, si no basta con `href`. */
   match?: string
   exact?: boolean
+  /** Rol mínimo. Sin él, lo ve cualquiera que haya entrado. */
+  minRole?: 'MANAGER' | 'ADMIN'
   children?: { href: string; label: string }[]
 }
 
-const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Resumen', icon: LayoutDashboard, exact: true },
-  { href: '/dashboard/clientes', label: 'Clientes', icon: Users },
-  { href: '/dashboard/proyectos', label: 'Proyectos', icon: FolderKanban },
-  { href: '/dashboard/tareas', label: 'Tareas', icon: CheckSquare },
-  { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: FileText },
-  { href: '/dashboard/gastos', label: 'Gastos', icon: Receipt },
-  { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
-  { href: '/dashboard/proveedores', label: 'Proveedores', icon: Truck },
-  { href: '/dashboard/inventario', label: 'Inventario', icon: Package },
+type NavGroup = {
+  /** Sin etiqueta el grupo se pinta sin encabezado (el Resumen no necesita título). */
+  label?: string
+  items: NavItem[]
+}
+
+/**
+ * El menú, agrupado por el flujo de trabajo real de STP y no por el orden en que
+ * se fueron construyendo los módulos: se cotiza a un cliente, la obra se ejecuta,
+ * cuesta dinero, entra dinero, y hay gente y configuración detrás.
+ *
+ * Un grupo desaparece entero si el rol no ve ninguna de sus entradas, así que un
+ * USER no encuentra encabezados vacíos.
+ */
+const NAV: NavGroup[] = [
   {
-    // Costos es el único módulo con tres vistas distintas (precios, catálogo, ACU).
-    // En vez de una cuarta entrada de primer nivel, se despliegan como subentradas
-    // cuando estás dentro del módulo: el ACU se ve sin robarle sitio al resto.
-    href: '/dashboard/costos/materiales',
-    match: '/dashboard/costos',
-    label: 'Costos',
-    icon: Calculator,
-    children: [
-      { href: '/dashboard/costos/materiales', label: 'Materiales' },
-      { href: '/dashboard/costos/catalogo', label: 'Catálogo' },
-      { href: '/dashboard/costos/acus', label: 'Partidas (ACU)' },
-      { href: '/dashboard/costos/importar', label: 'Importar' },
+    items: [{ href: '/dashboard', label: 'Resumen', icon: LayoutDashboard, exact: true }],
+  },
+  {
+    label: 'Comercial',
+    items: [
+      { href: '/dashboard/clientes', label: 'Clientes', icon: Users },
+      { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: FileText },
     ],
   },
-  { href: '/dashboard/colaboradores', label: 'Colaboradores', icon: HardHat },
-  { href: '/dashboard/fichas', label: 'Fichas de campo', icon: ClipboardList },
-  { href: '/dashboard/archivos', label: 'Archivos', icon: FolderOpen },
-]
-
-const adminItems = [
-  // Nómina expone sueldos: el módulo entero es MANAGER+ también en lectura.
-  { href: '/dashboard/nomina', label: 'Nómina', icon: Wallet, minRole: 'MANAGER' },
-  { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3, minRole: 'MANAGER' },
-  { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog, minRole: 'ADMIN' },
-  { href: '/dashboard/configuracion', label: 'Configuración', icon: Settings, minRole: 'ADMIN' },
-]
-
-const accountItems = [
-  { href: '/dashboard/perfil', label: 'Mi perfil', icon: CircleUser },
+  {
+    label: 'Operación',
+    items: [
+      { href: '/dashboard/proyectos', label: 'Proyectos', icon: FolderKanban },
+      { href: '/dashboard/tareas', label: 'Tareas', icon: CheckSquare },
+      { href: '/dashboard/fichas', label: 'Fichas de campo', icon: ClipboardList },
+      { href: '/dashboard/archivos', label: 'Archivos', icon: FolderOpen },
+    ],
+  },
+  {
+    label: 'Costos y compras',
+    items: [
+      {
+        // Costos tiene cuatro vistas y sigue con subentradas desplegables: como grupo
+        // propio ocuparía cuatro filas siempre, incluso mientras se trabaja en otra cosa.
+        // Orden: primero lo que se usa a diario, y al final los datos maestros.
+        href: '/dashboard/costos/materiales',
+        match: '/dashboard/costos',
+        label: 'Costos',
+        icon: Calculator,
+        children: [
+          { href: '/dashboard/costos/materiales', label: 'Materiales y precios' },
+          { href: '/dashboard/costos/acus', label: 'Partidas (ACU)' },
+          { href: '/dashboard/costos/importar', label: 'Importar precios' },
+          { href: '/dashboard/costos/catalogo', label: 'Unidades y categorías' },
+        ],
+      },
+      { href: '/dashboard/proveedores', label: 'Proveedores', icon: Truck },
+      { href: '/dashboard/inventario', label: 'Inventario', icon: Package },
+    ],
+  },
+  {
+    label: 'Finanzas',
+    items: [
+      { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
+      { href: '/dashboard/gastos', label: 'Gastos', icon: Receipt },
+      { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3, minRole: 'MANAGER' },
+    ],
+  },
+  {
+    label: 'Equipo',
+    items: [
+      { href: '/dashboard/colaboradores', label: 'Colaboradores', icon: HardHat },
+      // Nómina expone sueldos: el módulo entero es MANAGER+ también en lectura.
+      { href: '/dashboard/nomina', label: 'Nómina', icon: Wallet, minRole: 'MANAGER' },
+    ],
+  },
+  {
+    label: 'Administración',
+    items: [
+      { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog, minRole: 'ADMIN' },
+      { href: '/dashboard/configuracion', label: 'Configuración', icon: Settings, minRole: 'ADMIN' },
+    ],
+  },
+  {
+    label: 'Cuenta',
+    items: [{ href: '/dashboard/perfil', label: 'Mi perfil', icon: CircleUser }],
+  },
 ]
 
 const ROLE_RANK: Record<string, number> = { user: 1, manager: 2, admin: 3 }
@@ -98,10 +143,13 @@ export function AppSidebar({ role = 'user' }: { role?: string }) {
   const pathname = usePathname()
   const router = useRouter()
 
-  const normalizedRole = role.toLowerCase()
-  const visibleAdminItems = adminItems.filter(
-    (item) => (ROLE_RANK[normalizedRole] ?? 1) >= (ROLE_RANK[item.minRole.toLowerCase()] ?? 1),
-  )
+  const rank = ROLE_RANK[role.toLowerCase()] ?? 1
+  const grupos = NAV.map((grupo) => ({
+    ...grupo,
+    items: grupo.items.filter(
+      (item) => !item.minRole || rank >= (ROLE_RANK[item.minRole.toLowerCase()] ?? 1),
+    ),
+  })).filter((grupo) => grupo.items.length > 0)
 
   function isActive(href: string, exact?: boolean) {
     return exact ? pathname === href : pathname.startsWith(href)
@@ -135,77 +183,40 @@ export function AppSidebar({ role = 'user' }: { role?: string }) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Módulos</SidebarGroupLabel>
-          <SidebarMenu>
-            {navItems.map((item) => {
-              const open = isActive(item.match ?? item.href, item.exact)
-              return (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    render={<Link href={item.href} />}
-                    isActive={open}
-                  >
-                    <item.icon className="size-4" />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                  {/* Las subentradas solo aparecen dentro del módulo: fuera de él
-                      ocuparían sitio sin aportar contexto. */}
-                  {item.children && open && (
-                    <SidebarMenuSub>
-                      {item.children.map((child) => (
-                        <SidebarMenuSubItem key={child.href}>
-                          <SidebarMenuSubButton
-                            render={<Link href={child.href} />}
-                            isActive={isActive(child.href)}
-                          >
-                            <span>{child.label}</span>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  )}
-                </SidebarMenuItem>
-              )
-            })}
-          </SidebarMenu>
-        </SidebarGroup>
-
-        {visibleAdminItems.length > 0 && (
-        <SidebarGroup>
-          <SidebarGroupLabel>Administración</SidebarGroupLabel>
-          <SidebarMenu>
-            {visibleAdminItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  render={<Link href={item.href} />}
-                  isActive={isActive(item.href)}
-                >
-                  <item.icon className="size-4" />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-        )}
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Cuenta</SidebarGroupLabel>
-          <SidebarMenu>
-            {accountItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  render={<Link href={item.href} />}
-                  isActive={isActive(item.href)}
-                >
-                  <item.icon className="size-4" />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+        {grupos.map((grupo, i) => (
+          <SidebarGroup key={grupo.label ?? `grupo-${i}`}>
+            {grupo.label && <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>}
+            <SidebarMenu>
+              {grupo.items.map((item) => {
+                const abierto = isActive(item.match ?? item.href, item.exact)
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton render={<Link href={item.href} />} isActive={abierto}>
+                      <item.icon className="size-4" />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                    {/* Las subentradas solo aparecen dentro del módulo: fuera de él
+                        ocuparían sitio sin aportar contexto. */}
+                    {item.children && abierto && (
+                      <SidebarMenuSub>
+                        {item.children.map((child) => (
+                          <SidebarMenuSubItem key={child.href}>
+                            <SidebarMenuSubButton
+                              render={<Link href={child.href} />}
+                              isActive={isActive(child.href)}
+                            >
+                              <span>{child.label}</span>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    )}
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t p-2">
