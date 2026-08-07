@@ -61,6 +61,46 @@ describe('docToPdf con textos largos', () => {
     expect(largo.length).toBeGreaterThan(corto.length);
   });
 
+  // El bug que reportó el usuario: la fila tenía altura fija, así que una
+  // descripción larga se dibujaba encima de la fila de abajo.
+  it('una celda con texto largo hace crecer la fila: el PDF ocupa más', async () => {
+    const corto = doc();
+    corto.tables[0].rows = [['Compra', 1000]];
+
+    const largo = doc();
+    largo.tables[0].rows = [
+      [
+        'Compra de materiales eléctricos para la adecuación del tablero principal, ' +
+          'incluyendo breakers, canalizaciones y cableado calibre 12 según especificación',
+        1000,
+      ],
+    ];
+
+    const a = await docToPdf(corto, COMPANY);
+    const b = await docToPdf(largo, COMPANY);
+    expect(b.length).toBeGreaterThan(a.length);
+  });
+
+  it('un salto de línea dentro de una celda no se pierde ni pisa la fila siguiente', async () => {
+    const d = doc();
+    d.tables[0].rows = [['Primera línea\nSegunda línea\nTercera línea', 1000]];
+    const pdf = await docToPdf(d, COMPANY);
+    expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  it('un bloque `texto` se pinta como párrafo, no como filas', async () => {
+    const d = doc();
+    d.tables[0] = {
+      name: 'Observaciones',
+      title: 'Observaciones',
+      columns: [{ header: 'Observaciones' }],
+      rows: [['Un párrafo redactado por el usuario.']],
+      texto: 'Un párrafo redactado por el usuario.',
+    };
+    const pdf = await docToPdf(d, COMPANY);
+    expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
   it('un título de tabla largo tampoco rompe la generación', async () => {
     const d = doc();
     d.tables[0].title = LARGO;

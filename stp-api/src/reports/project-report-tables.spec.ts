@@ -2,7 +2,6 @@ import {
   assertSinEconomiaInterna,
   buildClientProjectDoc,
   buildInternalProjectDoc,
-  envolverTexto,
   type ClientProjectReportShape,
   type InternalProjectReportShape,
   type ProjectReportSettingsShape,
@@ -413,27 +412,6 @@ describe('conceptos añadidos a mano', () => {
 
 // ── 5. Envoltura del texto libre ─────────────────────────────────────────────
 
-describe('envolverTexto', () => {
-  it('parte el texto en líneas que caben en el PDF', () => {
-    const lineas = envolverTexto('palabra '.repeat(60).trim(), 40);
-    expect(lineas.length).toBeGreaterThan(1);
-    for (const l of lineas) expect(l.length).toBeLessThanOrEqual(40);
-  });
-
-  it('respeta los saltos de línea del usuario', () => {
-    expect(envolverTexto('Primera\nSegunda')).toEqual(['Primera', 'Segunda']);
-  });
-
-  it('trocea una palabra más larga que la línea en vez de desbordarla', () => {
-    const lineas = envolverTexto('a'.repeat(25), 10);
-    expect(lineas).toEqual(['aaaaaaaaaa', 'aaaaaaaaaa', 'aaaaa']);
-  });
-
-  it('devuelve vacío si no hay texto', () => {
-    expect(envolverTexto('')).toEqual([]);
-    expect(envolverTexto('   \n  ')).toEqual([]);
-  });
-});
 
 // ── 6. Casillas por defecto ──────────────────────────────────────────────────
 

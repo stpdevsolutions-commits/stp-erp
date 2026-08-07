@@ -108,61 +108,22 @@ const round2 = (n: number): number => Math.round((n || 0) * 100) / 100;
 // ── Texto libre ───────────────────────────────────────────────────────────────
 
 /**
- * Ancho aproximado, en caracteres, de una línea de texto a 9pt sobre el ancho
- * útil de la página A4 del generador de PDF.
- */
-const ANCHO_LINEA = 95;
-
-/**
- * Parte un texto en líneas que caben en el PDF.
+ * Bloque de texto redactado por el usuario.
  *
- * El renderizador de tablas dibuja cada celda en UNA línea con `ellipsis`, así
- * que un párrafo largo metido en una sola fila se cortaría con puntos
- * suspensivos. Se envuelve aquí, en la capa pura, para que el Excel y el PDF
- * partan el texto por el mismo sitio.
+ * El PDF lo pinta como párrafo corrido (campo `texto`); el Excel no sabe de
+ * párrafos, así que recibe en `rows` un párrafo por fila. El troceo por ancho
+ * lo hace ahora el renderizador del PDF, que sí puede medir la fuente.
  */
-export function envolverTexto(texto: string, ancho = ANCHO_LINEA): string[] {
-  const lineas: string[] = [];
-
-  for (const parrafo of String(texto ?? '').split(/\r?\n/)) {
-    if (parrafo.trim() === '') {
-      lineas.push('');
-      continue;
-    }
-    let actual = '';
-    for (const palabra of parrafo.trim().split(/\s+/)) {
-      if (actual === '') {
-        actual = palabra;
-      } else if (actual.length + 1 + palabra.length <= ancho) {
-        actual = `${actual} ${palabra}`;
-      } else {
-        lineas.push(actual);
-        actual = palabra;
-      }
-      // Una palabra sola más larga que la línea (una URL, por ejemplo) se trocea.
-      while (actual.length > ancho) {
-        lineas.push(actual.slice(0, ancho));
-        actual = actual.slice(ancho);
-      }
-    }
-    if (actual !== '') lineas.push(actual);
-  }
-
-  // Sin líneas en blanco al principio ni al final.
-  while (lineas.length && lineas[0] === '') lineas.shift();
-  while (lineas.length && lineas[lineas.length - 1] === '') lineas.pop();
-  return lineas;
-}
-
-/** Tabla de una sola columna con un bloque de texto redactado por el usuario. */
 function tablaTexto(name: string, title: string, texto?: string): ExportTable | null {
-  const lineas = envolverTexto(texto ?? '');
-  if (lineas.length === 0) return null;
+  const limpio = String(texto ?? '').trim();
+  if (limpio === '') return null;
+  const parrafos = limpio.split(/\r?\n/).filter((p) => p.trim() !== '');
   return {
     name: name.slice(0, 31),
     title,
     columns: [{ header: title }],
-    rows: lineas.map((l) => [l] as ExportCell[]),
+    rows: parrafos.map((p) => [p] as ExportCell[]),
+    texto: limpio,
   };
 }
 

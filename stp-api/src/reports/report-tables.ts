@@ -31,6 +31,13 @@ export interface ExportTable {
   totals?: boolean;
   /** Texto cuando no hay filas. */
   vacio?: string;
+  /**
+   * Bloque redactado por una persona (introducción, observaciones…). Cuando
+   * viene, el PDF lo pinta como párrafo corrido en vez de como tabla: un texto
+   * partido en filas se lee como un listado, no como prosa. El Excel sigue
+   * usando `rows`, donde cada fila es un párrafo.
+   */
+  texto?: string;
 }
 
 export interface ExportDoc {

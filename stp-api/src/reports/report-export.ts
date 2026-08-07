@@ -20,7 +20,7 @@ import {
   WIDTH,
 } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
-import type { ExportCell, ExportDoc, ExportTable } from './report-tables';
+import type { ExportCell, ExportColumn, ExportDoc, ExportTable } from './report-tables';
 
 /**
  * Rinde un `ExportDoc` a Excel y a PDF. Ambos formatos parten de las mismas
@@ -108,20 +108,94 @@ function fmt(value: ExportCell, type?: string): string {
   return textoPdf(value);
 }
 
+/** Alto de una línea de texto dentro de una celda o de un párrafo. */
+const LINE_H = 11;
+
+/**
+ * Parte un texto en las líneas que caben en `ancho`, midiendo con la fuente que
+ * esté activa (hay que fijarla ANTES de llamar).
+ *
+ * No vale contar caracteres: «MMMM» y «llll» ocupan muy distinto. Y hay que
+ * respetar los saltos de línea que escriba el usuario, que PDFKit dibuja aunque
+ * se le pase `lineBreak: false` — de ahí venía que una descripción larga se
+ * montara sobre la fila siguiente.
+ */
+function envolver(pdf: PDFKit.PDFDocument, texto: string, ancho: number): string[] {
+  const lineas: string[] = [];
+
+  for (const parrafo of String(texto ?? '').split(/\r?\n/)) {
+    if (parrafo.trim() === '') {
+      lineas.push('');
+      continue;
+    }
+    let actual = '';
+    for (const palabra of parrafo.trim().split(/\s+/)) {
+      const prueba = actual === '' ? palabra : `${actual} ${palabra}`;
+      if (pdf.widthOfString(prueba) <= ancho) {
+        actual = prueba;
+        continue;
+      }
+      if (actual !== '') lineas.push(actual);
+      actual = palabra;
+      // Una palabra sola más ancha que la columna (un correo, una URL) se trocea
+      // por donde quepa; si no, se saldría de la celda.
+      while (pdf.widthOfString(actual) > ancho && actual.length > 1) {
+        let corte = actual.length;
+        while (corte > 1 && pdf.widthOfString(actual.slice(0, corte)) > ancho) corte--;
+        lineas.push(actual.slice(0, corte));
+        actual = actual.slice(corte);
+      }
+    }
+    if (actual !== '') lineas.push(actual);
+  }
+
+  return lineas.length ? lineas : [''];
+}
+
 function dateFmt(d: Date): string {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
 /**
- * Anchos de columna: la primera (siempre el concepto) se lleva el espacio
- * sobrante y las numéricas van fijas y estrechas, que es como se leen mejor.
+ * Anchos de columna: el espacio sobrante se reparte entre las columnas de
+ * TEXTO, y las de dato conocido (fecha, dinero, número) van fijas y estrechas.
+ *
+ * Antes se le daba todo el sobrante a la primera columna, dando por hecho que
+ * era el concepto. En "Detalle de gastos" la primera es la fecha, así que se
+ * llevaba 165 pt para escribir "2026-08-01" y dejaba la descripción en 80 pt,
+ * donde cualquier texto real se partía en un montón de líneas.
  */
 function columnWidths(table: ExportTable): number[] {
   const n = table.columns.length;
   if (n === 1) return [WIDTH];
-  const numericas = table.columns.slice(1).map((c) => (c.type === 'money' ? 110 : 80));
-  const usado = numericas.reduce((a, b) => a + b, 0);
-  return [Math.max(120, WIDTH - usado), ...numericas];
+
+  const fijo = (c: ExportColumn): number | null => {
+    if (c.type === 'money') return 110;
+    if (c.type === 'date') return 72;
+    if (c.type === 'int' || c.type === 'percent') return 80;
+    return null; // texto: reparte el resto
+  };
+
+  const base = table.columns.map(fijo);
+  const nTexto = base.filter((a) => a === null).length;
+  const usadoFijo = base.reduce<number>((s, a) => s + (a ?? 0), 0);
+
+  // Sin columnas de texto, el sobrante va a la primera (suele ser el concepto).
+  if (nTexto === 0) {
+    const extra = Math.max(0, WIDTH - usadoFijo);
+    return base.map((a, i) => (a ?? 0) + (i === 0 ? extra : 0));
+  }
+
+  // La primera columna de texto suele ser la descripción y es la que carga con
+  // el contenido largo: se lleva doble ración que las demás.
+  const pesos = base.map((a, i) => (a !== null ? 0 : i === base.findIndex((b) => b === null) ? 2 : 1));
+  const totalPesos = pesos.reduce((a, b) => a + b, 0);
+  const libre = Math.max(nTexto * 80, WIDTH - usadoFijo);
+  const anchos = base.map((a, i) => a ?? (libre * pesos[i]) / totalPesos);
+
+  // Si no cabe (muchas columnas), se escala todo para no salirse de la página.
+  const total = anchos.reduce((a, b) => a + b, 0);
+  return total > WIDTH ? anchos.map((a) => (a * WIDTH) / total) : anchos;
 }
 
 export function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Buffer> {
@@ -185,6 +259,25 @@ export function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Buffer> 
         ),
       );
 
+      // Un bloque redactado va como párrafo corrido: partirlo en filas de tabla
+      // lo hacía leerse como un listado, con una raya entre cada renglón.
+      if (table.texto) {
+        pdf.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5);
+        for (const linea of envolver(pdf, textoPdf(table.texto), WIDTH)) {
+          if (y + LINE_H + 2 > PAGE_BOTTOM) nuevaPagina();
+          if (linea !== '') {
+            pdf
+              .fillColor(DARK_TEXT)
+              .font('Helvetica')
+              .fontSize(9.5)
+              .text(linea, LEFT, y, { width: WIDTH, lineBreak: false });
+          }
+          y += LINE_H + 2;
+        }
+        y += 8;
+        continue;
+      }
+
       const dibujarCabecera = () => {
         pdf.rect(LEFT, y - 3, WIDTH, altoCabecera).fill('#f1f5f9');
         let x = LEFT;
@@ -213,32 +306,41 @@ export function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Buffer> 
       }
 
       for (const row of table.rows) {
-        if (y + ROW_H > PAGE_BOTTOM) {
+        // La fila crece con su celda más alta. Antes tenía altura fija y una
+        // descripción larga se dibujaba encima de la fila siguiente.
+        pdf.font('Helvetica').fontSize(9);
+        const celdas = table.columns.map((col, i) =>
+          envolver(pdf, fmt(row[i], col.type), widths[i] - 8),
+        );
+        const alto = Math.max(ROW_H, Math.max(...celdas.map((c) => c.length)) * LINE_H + 7);
+
+        if (y + alto > PAGE_BOTTOM) {
           nuevaPagina();
           dibujarCabecera();
         }
         let x = LEFT;
         table.columns.forEach((col, i) => {
           const alineado = col.type && col.type !== 'text' && col.type !== 'date' ? 'right' : 'left';
-          pdf
-            .fillColor(DARK_TEXT)
-            .font('Helvetica')
-            .fontSize(9)
-            .text(fmt(row[i], col.type), x + 4, y + 3, {
-              width: widths[i] - 8,
-              align: alineado,
-              lineBreak: false,
-              ellipsis: true,
-            });
+          celdas[i].forEach((linea, j) => {
+            pdf
+              .fillColor(DARK_TEXT)
+              .font('Helvetica')
+              .fontSize(9)
+              .text(linea, x + 4, y + 3 + j * LINE_H, {
+                width: widths[i] - 8,
+                align: alineado,
+                lineBreak: false,
+              });
+          });
           x += widths[i];
         });
         pdf
-          .moveTo(LEFT, y + ROW_H - 2)
-          .lineTo(RIGHT, y + ROW_H - 2)
+          .moveTo(LEFT, y + alto - 2)
+          .lineTo(RIGHT, y + alto - 2)
           .strokeColor(BORDER_GRAY)
           .lineWidth(0.4)
           .stroke();
-        y += ROW_H;
+        y += alto;
       }
 
       // ── Totales ────────────────────────────────────────────────────────────
