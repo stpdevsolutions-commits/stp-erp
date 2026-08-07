@@ -156,5 +156,38 @@ describe('el resto de reportes', () => {
     });
     expect(doc.filters[1]).toEqual({ label: 'RNC', value: '—' });
     expect(doc.tables[1].rows).toHaveLength(0);
+    // La tabla de proyectos existe aunque el reporte no traiga proyectos.
+    expect(doc.tables[2].rows).toHaveLength(0);
+  });
+
+  it('cliente: lista los proyectos con la fecha como Date', () => {
+    const doc = buildClientDoc({
+      client: { name: 'Cliente Y', rnc: '130123456' },
+      quotes: {},
+      approvedAmount: 0,
+      totalPaid: 0,
+      totalExpenses: 0,
+      outstanding: 0,
+      projects: [
+        {
+          code: 'PRJ-2026-001',
+          name: 'Planta eléctrica',
+          status: 'active',
+          budget: 250000,
+          startDate: new Date('2026-03-15T00:00:00.000Z'),
+        },
+        { code: 'PRJ-2026-002', name: 'Remodelación', status: 'draft', budget: null },
+      ],
+    });
+
+    expect(doc.tables[2].name).toBe('Proyectos');
+    expect(doc.tables[2].rows[0]).toEqual([
+      'PRJ-2026-001',
+      'Planta eléctrica',
+      'En curso',
+      '2026-03-15',
+      250000,
+    ]);
+    expect(doc.tables[2].rows[1]).toEqual(['PRJ-2026-002', 'Remodelación', 'Pendiente', '', 0]);
   });
 });

@@ -390,8 +390,20 @@ export function buildProjectDoc(r: ProjectReportShape): ExportDoc {
   };
 }
 
-export function buildClientDoc(r: ClientReportShape): ExportDoc {
+export function buildClientDoc(
+  r: ClientReportShape & {
+    /** Proyectos del cliente; opcional para no romper llamadas antiguas. */
+    projects?: {
+      code: string;
+      name: string;
+      status: string;
+      budget: number | null;
+      startDate?: string | Date | null;
+    }[];
+  },
+): ExportDoc {
   const cotizaciones = Object.entries(r.quotes ?? {});
+  const proyectos = r.projects ?? [];
 
   return {
     title: `Reporte de cliente — ${r.client.name}`,
@@ -427,6 +439,26 @@ export function buildClientDoc(r: ClientReportShape): ExportDoc {
         ]),
         totals: true,
         vacio: 'Sin cotizaciones',
+      },
+      {
+        name: 'Proyectos',
+        title: 'Proyectos del cliente',
+        columns: [
+          { header: 'Código' },
+          { header: 'Proyecto' },
+          { header: 'Estado' },
+          { header: 'Inicio', type: 'date' },
+          { header: 'Presupuesto', type: 'money', total: true },
+        ],
+        rows: proyectos.map((p) => [
+          p.code,
+          p.name,
+          es(ESTADO_PROYECTO_ES, p.status),
+          fechaISO(p.startDate),
+          p.budget ?? 0,
+        ]),
+        totals: true,
+        vacio: 'Sin proyectos',
       },
     ],
   };

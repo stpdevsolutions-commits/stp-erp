@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { api } from '@/lib/api'
 import type {
   Project,
@@ -274,6 +275,8 @@ function ProjectSummary({ report }: { report: ProjectReport }) {
 
 function ClientBalance({ report }: { report: ClientReport }) {
   const { client, quotes, approvedAmount, totalPaid, totalExpenses, outstanding } = report
+  const proyectos = report.projects ?? []
+  const presupuestoProyectos = report.projectsBudget ?? 0
 
   return (
     <div className="space-y-4">
@@ -323,6 +326,64 @@ function ClientBalance({ report }: { report: ClientReport }) {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3 flex-row items-center justify-between gap-2 space-y-0">
+          <CardTitle className="text-base">
+            Proyectos{proyectos.length > 0 && ` (${proyectos.length})`}
+          </CardTitle>
+          {proyectos.length > 0 && (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              Presupuesto total: {DOP.format(presupuestoProyectos)}
+            </span>
+          )}
+        </CardHeader>
+        <CardContent className="p-0">
+          {proyectos.length === 0 ? (
+            <p className="text-sm text-muted-foreground px-6 pb-4">Sin proyectos registrados.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Proyecto</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Presupuesto</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {proyectos.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="py-2 font-mono text-sm">
+                      <Link href={`/dashboard/proyectos/${p.id}`} className="hover:underline">
+                        {p.code}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="py-2 font-medium">
+                      <Link href={`/dashboard/proyectos/${p.id}`} className="hover:underline">
+                        {p.name}
+                      </Link>
+                      {p.startDate && (
+                        <div className="text-xs text-muted-foreground font-normal">
+                          Inicio: {new Date(p.startDate).toLocaleDateString('es-DO')}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <Badge variant={PROJECT_STATUS_VARIANTS[p.status]}>
+                        {PROJECT_STATUS_LABELS[p.status] ?? p.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="py-2 text-right tabular-nums">
+                      {p.budget != null ? DOP.format(p.budget) : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-3">

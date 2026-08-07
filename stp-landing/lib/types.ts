@@ -359,8 +359,20 @@ export interface ProjectReport {
   balance: number
 }
 
+export interface ClientReportProject {
+  id: string
+  code: string
+  name: string
+  status: Project['status']
+  budget: number | null
+  startDate: string | null
+  endDate: string | null
+}
+
 export interface ClientReport {
   client: Client
+  projects: ClientReportProject[]
+  projectsBudget: number
   quotes: Partial<Record<Quote['status'], { count: number; amount: number }>>
   approvedAmount: number
   totalPaid: number
