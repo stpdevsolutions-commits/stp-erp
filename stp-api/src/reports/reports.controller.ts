@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { ReportsService } from './reports.service';
+import { GeneralReportService } from './general-report.service';
+import { buildGeneralDoc } from './general-report-tables';
 import { SettingsService } from '../settings/settings.service';
 import { sendWorkbook } from '../common/excel-report';
 import { docToPdf, docToWorkbook } from './report-export';
@@ -56,6 +58,7 @@ function parseDateRange(from?: string, to?: string): { from: string; to: string 
 export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
+    private readonly generalReportService: GeneralReportService,
     private readonly settingsService: SettingsService,
   ) {}
 
@@ -129,6 +132,39 @@ export class ReportsController {
   ) {
     const range = parseDateRange(from, to);
     return this.reportsService.getFichasReport(range.from, range.to, user);
+  }
+
+  /**
+   * Reporte general del negocio en un período: ingresos, gastos y UTILIDAD, más
+   * cotizaciones, nómina, proyectos y fichas.
+   *
+   * `compare=false` desactiva la comparativa con el período anterior (que cuesta
+   * una segunda pasada por ingresos y gastos).
+   */
+  @Get('general')
+  getGeneralReport(
+    @CurrentUser() user: AuthUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('compare') compare?: string,
+  ) {
+    const range = parseDateRange(from, to);
+    return this.generalReportService.getGeneralReport(range.from, range.to, user, {
+      comparar: compare !== 'false',
+    });
+  }
+
+  @Get('general/export')
+  async exportGeneral(
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+    @Query('format') format?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<void> {
+    const range = parseDateRange(from, to);
+    const report = await this.generalReportService.getGeneralReport(range.from, range.to, user);
+    await this.enviar(res, buildGeneralDoc(report), this.parseFormato(format));
   }
 
   @Get('projects/:id')

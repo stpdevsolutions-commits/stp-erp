@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { api } from '@/lib/api'
 import type {
   Project,
@@ -13,6 +14,7 @@ import type {
   PaymentMethod,
   FichaType,
   FichaStatus,
+  GeneralReport,
 } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,6 +29,7 @@ import {
 } from '@/components/ui/table'
 import { ReporteNav } from '@/components/reports/reporte-nav'
 import { ExportarReporte } from '@/components/reports/exportar-reporte'
+import { ReporteGeneral } from '@/components/reports/reporte-general'
 import { BarChart3, AlertCircle } from 'lucide-react'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -274,6 +277,8 @@ function ProjectSummary({ report }: { report: ProjectReport }) {
 
 function ClientBalance({ report }: { report: ClientReport }) {
   const { client, quotes, approvedAmount, totalPaid, totalExpenses, outstanding } = report
+  const proyectos = report.projects ?? []
+  const presupuestoProyectos = report.projectsBudget ?? 0
 
   return (
     <div className="space-y-4">
@@ -323,6 +328,64 @@ function ClientBalance({ report }: { report: ClientReport }) {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3 flex-row items-center justify-between gap-2 space-y-0">
+          <CardTitle className="text-base">
+            Proyectos{proyectos.length > 0 && ` (${proyectos.length})`}
+          </CardTitle>
+          {proyectos.length > 0 && (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              Presupuesto total: {DOP.format(presupuestoProyectos)}
+            </span>
+          )}
+        </CardHeader>
+        <CardContent className="p-0">
+          {proyectos.length === 0 ? (
+            <p className="text-sm text-muted-foreground px-6 pb-4">Sin proyectos registrados.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Proyecto</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Presupuesto</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {proyectos.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="py-2 font-mono text-sm">
+                      <Link href={`/dashboard/proyectos/${p.id}`} className="hover:underline">
+                        {p.code}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="py-2 font-medium">
+                      <Link href={`/dashboard/proyectos/${p.id}`} className="hover:underline">
+                        {p.name}
+                      </Link>
+                      {p.startDate && (
+                        <div className="text-xs text-muted-foreground font-normal">
+                          Inicio: {new Date(p.startDate).toLocaleDateString('es-DO')}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <Badge variant={PROJECT_STATUS_VARIANTS[p.status]}>
+                        {PROJECT_STATUS_LABELS[p.status] ?? p.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="py-2 text-right tabular-nums">
+                      {p.budget != null ? DOP.format(p.budget) : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-3">
@@ -694,6 +757,7 @@ export default async function ReportesPage({
   let incomeReport: IncomeReport | null = null
   let expensesReport: ExpensesReport | null = null
   let fichasReport: FichasReport | null = null
+  let generalReport: GeneralReport | null = null
 
   if (proyecto) {
     try { projectReport = await api.get<ProjectReport>(`/reports/projects/${proyecto}`) } catch {}
@@ -708,9 +772,12 @@ export default async function ReportesPage({
   } else if (view === 'fichas') {
     const q = from && to ? `?from=${from}&to=${to}` : ''
     try { fichasReport = await api.get<FichasReport>(`/reports/fichas${q}`) } catch {}
+  } else if (view === 'general') {
+    const q = from && to ? `?from=${from}&to=${to}` : ''
+    try { generalReport = await api.get<GeneralReport>(`/reports/general${q}`) } catch {}
   }
 
-  const hasContent = projectReport || clientReport || incomeReport || expensesReport || fichasReport
+  const hasContent = projectReport || clientReport || incomeReport || expensesReport || fichasReport || generalReport
 
   return (
     <div className="space-y-6">
@@ -730,6 +797,7 @@ export default async function ReportesPage({
         {incomeReport && <ExportarReporte tipo="ingresos" from={from} to={to} />}
         {expensesReport && <ExportarReporte tipo="gastos" from={from} to={to} />}
         {fichasReport && <ExportarReporte tipo="fichas" from={from} to={to} />}
+        {generalReport && <ExportarReporte tipo="general" from={from} to={to} />}
       </div>
 
       <ReporteNav
@@ -769,12 +837,16 @@ export default async function ReportesPage({
       {(view === 'fichas') && !fichasReport && (
         <p className="text-sm text-destructive">No se pudo cargar el reporte de fichas.</p>
       )}
+      {(view === 'general') && !generalReport && (
+        <p className="text-sm text-destructive">No se pudo cargar el reporte general.</p>
+      )}
 
       {projectReport && <ProjectSummary report={projectReport} />}
       {clientReport && <ClientBalance report={clientReport} />}
       {incomeReport && <IncomeReportView report={incomeReport} />}
       {expensesReport && <ExpensesReportView report={expensesReport} />}
       {fichasReport && <FichasReportView report={fichasReport} />}
+      {generalReport && <ReporteGeneral report={generalReport} />}
     </div>
   )
 }

@@ -47,6 +47,9 @@ export default async function ProyectosPage({
   const q = new URLSearchParams({ limit: String(LIMIT), page: String(page) })
   if (sp.search) q.set('search', sp.search)
   if (sp.status) q.set('status', sp.status)
+  // El filtro por cliente es el que usa el botón "Ver todos" de la ficha de
+  // cliente: sin reenviarlo, ese enlace llevaba a la lista completa.
+  if (sp.clientId) q.set('clientId', sp.clientId)
 
   let proyectosRes: PaginatedResponse<Project> = { data: [], total: 0, page, limit: LIMIT }
   let clients: Client[] = []
@@ -68,30 +71,53 @@ export default async function ProyectosPage({
     Object.keys(STATUS_LABELS).map((s) => [s, proyectos.filter((p) => p.status === s).length]),
   )
 
+  // Nombre del cliente filtrado: normalmente sale de la lista de clientes; si el
+  // cliente está inactivo (no viene en esa lista) se toma del propio proyecto.
+  const clienteFiltrado = sp.clientId
+    ? (clients.find((c) => c.id === sp.clientId)?.name ??
+      proyectos.find((p) => p.client?.id === sp.clientId)?.client?.name ??
+      null)
+    : null
+
+  // Los conteos se calculan sobre las filas cargadas, que son las de esta
+  // página: se dice explícitamente para no dar una cifra que parezca el total.
+  const parcial = proyectosRes.total > proyectos.length
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Proyectos</h1>
-          <p className="text-muted-foreground text-sm">Gestión de proyectos de construcción y electromecánica</p>
+          <p className="text-muted-foreground text-sm">
+            {clienteFiltrado
+              ? `Proyectos de ${clienteFiltrado} — ${proyectosRes.total} en total`
+              : 'Gestión de proyectos de construcción y electromecánica'}
+          </p>
         </div>
         <NuevoProyectoDialog clients={clients} />
       </div>
 
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-        {(['draft', 'active', 'completed', 'cancelled'] as const).map((s) => (
-          <Card key={s}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">{STATUS_LABELS[s]}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{byStatus[s] ?? 0}</div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-1">
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
+          {(['draft', 'active', 'completed', 'cancelled'] as const).map((s) => (
+            <Card key={s}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">{STATUS_LABELS[s]}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{byStatus[s] ?? 0}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {parcial
+            ? `Conteo de los ${proyectos.length} proyectos de esta página (${proyectosRes.total} en total con los filtros actuales).`
+            : `Conteo sobre los ${proyectosRes.total} proyectos que cumplen los filtros actuales.`}
+        </p>
       </div>
 
-      <FiltrosProyectos />
+      <FiltrosProyectos clients={clients} />
 
       {error ? (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">{error}</div>

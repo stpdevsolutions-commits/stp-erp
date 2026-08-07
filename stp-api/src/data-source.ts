@@ -25,6 +25,7 @@ import { MaterialPrice } from './costs/entities/material-price.entity';
 import { Acu } from './costs/entities/acu.entity';
 import { AcuItem } from './costs/entities/acu-item.entity';
 import { PayrollEntry } from './payroll/entities/payroll-entry.entity';
+import { ProjectReport } from './reports/entities/project-report.entity';
 
 dotenv.config();
 
@@ -36,7 +37,7 @@ export const AppDataSource = new DataSource({
     Supplier, FileUpload, RefreshToken, Collaborator, Ficha, InventoryItem, AppSettings,
     ProjectMember, ClientMember,
     Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem,
-    PayrollEntry,
+    PayrollEntry, ProjectReport,
   ],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,

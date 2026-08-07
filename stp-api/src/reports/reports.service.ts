@@ -664,7 +664,23 @@ export class ReportsService {
     // se revalida aquí por defensa en profundidad.
     await this.access.assertClientAccess(user, clientId);
 
-    const [client, quotesByStatus, paymentsTotal, expensesTotal] = await Promise.all([
+    // Proyectos del cliente: el reporte hablaba solo de cotizaciones y dinero,
+    // sin decir en qué obras se estaba gastando. Se acota igual que el listado
+    // (/projects) para que un USER no vea aquí proyectos que no le tocan.
+    const projectsQb = this.projectsRepo
+      .createQueryBuilder('p')
+      .select('p.id', 'id')
+      .addSelect('p.code', 'code')
+      .addSelect('p.name', 'name')
+      .addSelect('p.status', 'status')
+      .addSelect('p.budget', 'budget')
+      .addSelect('p.startDate', 'startDate')
+      .addSelect('p.endDate', 'endDate')
+      .where('p.clientId = :clientId', { clientId })
+      .orderBy('p.createdAt', 'DESC');
+    await this.scopeProjects(projectsQb, user);
+
+    const [client, quotesByStatus, paymentsTotal, expensesTotal, projectRows] = await Promise.all([
       this.clientsRepo.findOne({ where: { id: clientId } }),
 
       this.quotesRepo
@@ -691,6 +707,8 @@ export class ReportsService {
         .select('COALESCE(SUM(e.amount), 0)', 'total')
         .where('project.clientId = :clientId', { clientId })
         .getRawOne(),
+
+      projectsQb.getRawMany(),
     ]);
 
     if (!client) throw new NotFoundException(`Client ${clientId} not found`);
@@ -702,8 +720,28 @@ export class ReportsService {
     const totalPaid = parseFloat(paymentsTotal.total) || 0;
     const totalExpenses = parseFloat(expensesTotal.total) || 0;
 
+    // Las columnas `date` llegan aquí como objetos Date, no como string: se
+    // normalizan a YYYY-MM-DD para que el JSON y la exportación coincidan.
+    const soloFecha = (v: unknown): string | null => {
+      if (!v) return null;
+      if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v.toISOString().slice(0, 10);
+      return String(v).slice(0, 10);
+    };
+
+    const projects = projectRows.map((r) => ({
+      id: String(r.id),
+      code: String(r.code),
+      name: String(r.name),
+      status: String(r.status),
+      budget: r.budget != null ? num(r.budget) : null,
+      startDate: soloFecha(r.startDate),
+      endDate: soloFecha(r.endDate),
+    }));
+
     return {
       client,
+      projects,
+      projectsBudget: projects.reduce((s, p) => s + (p.budget ?? 0), 0),
       quotes: quotesByStatus.reduce(
         (acc, row) => ({
           ...acc,
