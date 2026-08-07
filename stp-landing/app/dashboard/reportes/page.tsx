@@ -13,6 +13,7 @@ import type {
   PaymentMethod,
   FichaType,
   FichaStatus,
+  GeneralReport,
 } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,6 +28,7 @@ import {
 } from '@/components/ui/table'
 import { ReporteNav } from '@/components/reports/reporte-nav'
 import { ExportarReporte } from '@/components/reports/exportar-reporte'
+import { ReporteGeneral } from '@/components/reports/reporte-general'
 import { BarChart3, AlertCircle } from 'lucide-react'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -694,6 +696,7 @@ export default async function ReportesPage({
   let incomeReport: IncomeReport | null = null
   let expensesReport: ExpensesReport | null = null
   let fichasReport: FichasReport | null = null
+  let generalReport: GeneralReport | null = null
 
   if (proyecto) {
     try { projectReport = await api.get<ProjectReport>(`/reports/projects/${proyecto}`) } catch {}
@@ -708,9 +711,12 @@ export default async function ReportesPage({
   } else if (view === 'fichas') {
     const q = from && to ? `?from=${from}&to=${to}` : ''
     try { fichasReport = await api.get<FichasReport>(`/reports/fichas${q}`) } catch {}
+  } else if (view === 'general') {
+    const q = from && to ? `?from=${from}&to=${to}` : ''
+    try { generalReport = await api.get<GeneralReport>(`/reports/general${q}`) } catch {}
   }
 
-  const hasContent = projectReport || clientReport || incomeReport || expensesReport || fichasReport
+  const hasContent = projectReport || clientReport || incomeReport || expensesReport || fichasReport || generalReport
 
   return (
     <div className="space-y-6">
@@ -730,6 +736,7 @@ export default async function ReportesPage({
         {incomeReport && <ExportarReporte tipo="ingresos" from={from} to={to} />}
         {expensesReport && <ExportarReporte tipo="gastos" from={from} to={to} />}
         {fichasReport && <ExportarReporte tipo="fichas" from={from} to={to} />}
+        {generalReport && <ExportarReporte tipo="general" from={from} to={to} />}
       </div>
 
       <ReporteNav
@@ -769,12 +776,16 @@ export default async function ReportesPage({
       {(view === 'fichas') && !fichasReport && (
         <p className="text-sm text-destructive">No se pudo cargar el reporte de fichas.</p>
       )}
+      {(view === 'general') && !generalReport && (
+        <p className="text-sm text-destructive">No se pudo cargar el reporte general.</p>
+      )}
 
       {projectReport && <ProjectSummary report={projectReport} />}
       {clientReport && <ClientBalance report={clientReport} />}
       {incomeReport && <IncomeReportView report={incomeReport} />}
       {expensesReport && <ExpensesReportView report={expensesReport} />}
       {fichasReport && <FichasReportView report={fichasReport} />}
+      {generalReport && <ReporteGeneral report={generalReport} />}
     </div>
   )
 }

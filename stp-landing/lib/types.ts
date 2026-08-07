@@ -453,6 +453,42 @@ export interface FichasReport {
   byTechnician: { userId: string; name: string; total: number; enviadas: number }[]
 }
 
+/**
+ * Reporte general del negocio en un período.
+ * `payroll` llega en `null` para un USER: la nómina es MANAGER+ incluso en
+ * lectura, así que el bloque no se pinta (no es que valga cero).
+ */
+export interface GeneralReport {
+  period: { from: string; to: string }
+  previousPeriod: { from: string; to: string } | null
+  finance: {
+    income: number
+    incomeCount: number
+    expenses: number
+    expenseCount: number
+    profit: number
+    margin: number | null
+    previous: { income: number; expenses: number; profit: number } | null
+    variation: { income: number | null; expenses: number | null; profit: number | null } | null
+  }
+  quotes: {
+    emitted: { count: number; amount: number }
+    approved: { count: number; amount: number }
+    rejected: { count: number; amount: number }
+    decidedCount: number
+    conversionRate: number | null
+  }
+  payroll: { count: number; gross: number; net: number; imputedToExpenses: number } | null
+  projects: {
+    active: number
+    completedInPeriod: number
+    budgetCommitted: number
+    spent: number
+    budgetUsed: number | null
+  }
+  fichas: { total: number; enviadas: number; tasaEnvio: number }
+}
+
 // ─── Módulo Costos ────────────────────────────────────────────────────────────
 
 export type UnitKind = 'count' | 'length' | 'area' | 'volume' | 'mass' | 'time' | 'other'

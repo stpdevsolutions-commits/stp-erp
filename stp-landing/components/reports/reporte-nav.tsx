@@ -13,9 +13,10 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Project, Client } from '@/lib/types'
 
-type TabKey = 'proyecto' | 'cliente' | 'ingresos' | 'gastos' | 'fichas'
+type TabKey = 'general' | 'proyecto' | 'cliente' | 'ingresos' | 'gastos' | 'fichas'
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: 'general', label: 'General' },
   { key: 'proyecto', label: 'Proyecto' },
   { key: 'cliente', label: 'Cliente' },
   { key: 'ingresos', label: 'Ingresos' },
@@ -39,6 +40,43 @@ function firstOfMonthStr() {
   const d = new Date()
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10)
 }
+
+/** YYYY-MM-DD en hora local (sin el salto de día que provoca toISOString). */
+function ymd(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * Períodos del reporte general. Todos terminan hoy: lo que se quiere saber es
+ * cómo va el mes/trimestre/año en curso, no cómo fue el anterior completo.
+ */
+const PERIODOS: { key: string; label: string; rango: () => { from: string; to: string } }[] = [
+  {
+    key: 'mes',
+    label: 'Este mes',
+    rango: () => {
+      const hoy = new Date()
+      return { from: ymd(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), to: ymd(hoy) }
+    },
+  },
+  {
+    key: 'trimestre',
+    label: 'Este trimestre',
+    rango: () => {
+      const hoy = new Date()
+      const mes = Math.floor(hoy.getMonth() / 3) * 3
+      return { from: ymd(new Date(hoy.getFullYear(), mes, 1)), to: ymd(hoy) }
+    },
+  },
+  {
+    key: 'anio',
+    label: 'Este año',
+    rango: () => {
+      const hoy = new Date()
+      return { from: ymd(new Date(hoy.getFullYear(), 0, 1)), to: ymd(hoy) }
+    },
+  },
+]
 
 export function ReporteNav({
   projects,
@@ -164,7 +202,32 @@ export function ReporteNav({
         </div>
       )}
 
-      {(currentTab === 'ingresos' || currentTab === 'gastos' || currentTab === 'fichas') && (
+      {/* Atajos de período: solo en el reporte general, que es el que se mira por trimestre o año. */}
+      {currentTab === 'general' && (
+        <div className="flex flex-wrap items-center gap-2">
+          {PERIODOS.map((p) => (
+            <Button
+              key={p.key}
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const r = p.rango()
+                setFrom(r.from)
+                setTo(r.to)
+                router.push(`/dashboard/reportes?view=general&from=${r.from}&to=${r.to}`)
+              }}
+            >
+              {p.label}
+            </Button>
+          ))}
+          <span className="text-xs text-muted-foreground">o un rango libre:</span>
+        </div>
+      )}
+
+      {(currentTab === 'general' ||
+        currentTab === 'ingresos' ||
+        currentTab === 'gastos' ||
+        currentTab === 'fichas') && (
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">Desde</p>
