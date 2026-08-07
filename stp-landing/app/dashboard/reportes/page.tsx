@@ -30,7 +30,8 @@ import {
 import { ReporteNav } from '@/components/reports/reporte-nav'
 import { ExportarReporte } from '@/components/reports/exportar-reporte'
 import { ReporteGeneral } from '@/components/reports/reporte-general'
-import { BarChart3, AlertCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { BarChart3, AlertCircle, FileText } from 'lucide-react'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -792,6 +793,19 @@ export default async function ReportesPage({
           </p>
         </div>
         {/* Solo se ofrece exportar lo que efectivamente hay en pantalla. */}
+        {/* Esta pantalla es el resumen automático; el informe redactable (interno
+            y de cliente) vive en el proyecto, así que se enlaza desde aquí —
+            que es donde se viene a buscarlo. */}
+        {projectReport && (
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href={`/dashboard/proyectos/${proyecto}/informe`} />}
+          >
+            <FileText className="size-4 mr-1.5" />
+            Redactar informe
+          </Button>
+        )}
         {projectReport && <ExportarReporte tipo="proyecto" id={proyecto} />}
         {clientReport && <ExportarReporte tipo="cliente" id={cliente} />}
         {incomeReport && <ExportarReporte tipo="ingresos" from={from} to={to} />}
