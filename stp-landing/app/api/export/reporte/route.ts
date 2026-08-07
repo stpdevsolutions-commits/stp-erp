@@ -5,13 +5,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 /**
- * Descarga de reportes. Una sola ruta para los cinco tipos porque todos hacen lo
+ * Descarga de reportes. Una sola ruta para todos los tipos porque todos hacen lo
  * mismo: adjuntar el token de la cookie y devolver el archivo tal cual.
  *
  * El `tipo` se traduce contra una tabla fija en vez de interpolarse en la URL:
  * así un parámetro manipulado no puede apuntar a otro endpoint de la API.
  */
 const RUTAS: Record<string, (id: string | null) => string | null> = {
+  general: () => '/reports/general/export',
   ingresos: () => '/reports/income/export',
   gastos: () => '/reports/expenses/export',
   fichas: () => '/reports/fichas/export',

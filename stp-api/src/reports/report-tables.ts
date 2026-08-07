@@ -107,7 +107,7 @@ const es = (mapa: Record<string, string>, clave: string): string => mapa[clave] 
  * salir por JSON se vea como string: dar por hecho lo segundo reventaba la
  * exportación de ingresos con "p.date.slice is not a function".
  */
-function fechaISO(valor: string | Date | null | undefined): string {
+export function fechaISO(valor: string | Date | null | undefined): string {
   if (!valor) return '';
   if (valor instanceof Date) {
     return Number.isNaN(valor.getTime()) ? '' : valor.toISOString().slice(0, 10);
