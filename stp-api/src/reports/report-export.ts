@@ -74,12 +74,38 @@ function money(n: number): string {
   return 'RD$ ' + int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec;
 }
 
+/**
+ * Las fuentes estándar de PDFKit (Helvetica) escriben en WinAnsi, que NO tiene
+ * el menos matemático «−» (U+2212) ni las comillas y guiones que mete cualquier
+ * editor de texto: salían como un carácter suelto sin sentido («cobros " gastos»).
+ * El texto de los informes lo redacta una persona y puede traer cualquiera de
+ * estos, así que se normalizan aquí, en el único punto por el que pasa TODO lo
+ * que se dibuja. El guion largo «—» y el punto medio «·» sí están en WinAnsi y
+ * se dejan tal cual.
+ */
+const NO_WINANSI: [RegExp, string][] = [
+  [/−/g, '-'], // menos matemático
+  [/[‐‑]/g, '-'], // guiones tipográficos
+  [/[‘’‛]/g, "'"], // comillas simples curvas
+  [/[“”‟]/g, '"'], // comillas dobles curvas
+  [/…/g, '...'],
+  [/[≤]/g, '<='],
+  [/[≥]/g, '>='],
+  [/ /g, ' '], // espacio duro
+];
+
+export function textoPdf(valor: unknown): string {
+  let s = String(valor ?? '');
+  for (const [re, rep] of NO_WINANSI) s = s.replace(re, rep);
+  return s;
+}
+
 function fmt(value: ExportCell, type?: string): string {
   if (value === null || value === undefined || value === '') return '—';
   if (type === 'money') return money(Number(value));
   if (type === 'int') return String(Math.round(Number(value)));
   if (type === 'percent') return `${Number(value)}%`;
-  return String(value);
+  return textoPdf(value);
 }
 
 function dateFmt(d: Date): string {
@@ -106,15 +132,19 @@ export function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Buffer> 
     pdf.on('error', reject);
     pdf.on('end', () => resolve(Buffer.concat(chunks)));
 
-    const subtitulo = doc.filters.map((f) => `${f.label}: ${f.value}`).join('  ·  ');
+    const subtitulo = textoPdf(doc.filters.map((f) => `${f.label}: ${f.value}`).join('  ·  '));
     drawDocumentHeader(pdf, 'REPORTE', dateFmt(new Date()), findLogoPath(), company);
 
     let y = CONTENT_Y;
 
-    pdf.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(14).text(doc.title, LEFT, y, {
-      width: WIDTH,
-    });
-    y += 20;
+    // El título envuelve cuando es largo, así que hay que avanzar por su altura
+    // real: con un `y += 20` fijo, un título de dos líneas se comía el subtítulo.
+    // `heightOfString` mide con la fuente activa, por eso se fija antes.
+    pdf.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(14);
+    const tituloDoc = textoPdf(doc.title);
+    const altoTitulo = pdf.heightOfString(tituloDoc, { width: WIDTH });
+    pdf.text(tituloDoc, LEFT, y, { width: WIDTH });
+    y += altoTitulo + 6;
 
     if (subtitulo) {
       pdf.fillColor(MID_GRAY).font('Helvetica').fontSize(9).text(subtitulo, LEFT, y, {
@@ -135,14 +165,28 @@ export function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Buffer> 
       if (y + ROW_H * 3 > PAGE_BOTTOM) nuevaPagina();
 
       y += 8;
-      pdf.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(10.5).text(table.title, LEFT, y, {
-        width: WIDTH,
-        lineBreak: false,
-      });
-      y += 16;
+      // Los títulos de sección los redacta el usuario y pueden ser largos: se
+      // dejan envolver y se avanza por la altura real. Con `lineBreak: false`
+      // se salían por el lado derecho de la página.
+      pdf.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(10.5);
+      const tituloTabla = textoPdf(table.title);
+      const altoTituloTabla = pdf.heightOfString(tituloTabla, { width: WIDTH });
+      pdf.text(tituloTabla, LEFT, y, { width: WIDTH });
+      y += altoTituloTabla + 4;
+
+      // Una cabecera larga («Var. vs período anterior») envuelve a dos líneas y
+      // se salía por debajo de la banda gris, pisando la primera fila. La banda
+      // crece con el encabezado más alto en vez de asumir una sola línea.
+      pdf.font('Helvetica-Bold').fontSize(8.5);
+      const altoCabecera = Math.max(
+        ROW_H,
+        ...table.columns.map(
+          (col, i) => pdf.heightOfString(textoPdf(col.header), { width: widths[i] - 8 }) + 6,
+        ),
+      );
 
       const dibujarCabecera = () => {
-        pdf.rect(LEFT, y - 3, WIDTH, ROW_H).fill('#f1f5f9');
+        pdf.rect(LEFT, y - 3, WIDTH, altoCabecera).fill('#f1f5f9');
         let x = LEFT;
         table.columns.forEach((col, i) => {
           const alineado = col.type && col.type !== 'text' && col.type !== 'date' ? 'right' : 'left';
@@ -150,10 +194,10 @@ export function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Buffer> 
             .fillColor(DARK_TEXT)
             .font('Helvetica-Bold')
             .fontSize(8.5)
-            .text(col.header, x + 4, y + 2, { width: widths[i] - 8, align: alineado, lineBreak: false });
+            .text(textoPdf(col.header), x + 4, y + 2, { width: widths[i] - 8, align: alineado });
           x += widths[i];
         });
-        y += ROW_H;
+        y += altoCabecera;
       };
 
       dibujarCabecera();
@@ -163,7 +207,7 @@ export function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Buffer> 
           .fillColor(MID_GRAY)
           .font('Helvetica-Oblique')
           .fontSize(9)
-          .text(table.vacio ?? 'Sin datos', LEFT + 4, y + 3, { width: WIDTH - 8, lineBreak: false });
+          .text(textoPdf(table.vacio ?? 'Sin datos'), LEFT + 4, y + 3, { width: WIDTH - 8, lineBreak: false });
         y += ROW_H + 6;
         continue;
       }
