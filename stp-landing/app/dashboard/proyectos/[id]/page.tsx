@@ -5,7 +5,7 @@ import type { Project, Task, Expense, Payment, FileUpload, PaginatedResponse, Fi
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ChevronLeft, Calendar, DollarSign, User } from 'lucide-react'
+import { ChevronLeft, Calendar, DollarSign, FileText, User } from 'lucide-react'
 import { ProjectDetailTabs } from '@/components/projects/project-detail-tabs'
 import { MembersCard } from '@/components/access/members-card'
 import type { Member } from '@/lib/actions/memberships'
@@ -75,7 +75,7 @@ export default async function ProyectoDetallePage({
       </div>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="font-mono text-sm text-muted-foreground">{project.code}</span>
@@ -86,6 +86,12 @@ export default async function ProyectoDetallePage({
             <p className="text-muted-foreground text-sm mt-1">{project.description}</p>
           )}
         </div>
+        {/* Informes del proyecto: uno interno (económico) y otro para entregar
+            al cliente. La página elige cuál según el rol. */}
+        <Button variant="outline" size="sm" render={<Link href={`/dashboard/proyectos/${id}/informe`} />}>
+          <FileText className="size-4 mr-1.5" />
+          Informes
+        </Button>
       </div>
 
       {/* Info cards */}
