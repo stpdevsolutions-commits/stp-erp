@@ -18,6 +18,13 @@ export enum FileContext {
   PROJECT_EXPENSES = 'project-expenses',
   PROJECT_QUOTES = 'project-quotes',
   PROJECT_PAYMENTS = 'project-payments',
+  /**
+   * Informes de proyecto archivados (PDF). A diferencia del resto de contextos,
+   * estos archivos NO los sube nadie: los genera el ERP al pulsar "Guardar en el
+   * proyecto" en el informe. Van en su propio contexto para que no se mezclen
+   * con los documentos que el equipo sube a mano.
+   */
+  PROJECT_REPORTS = 'project-reports',
 }
 
 @Entity('uploaded_files')

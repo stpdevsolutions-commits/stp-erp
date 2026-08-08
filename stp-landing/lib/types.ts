@@ -314,6 +314,7 @@ export type FileContext =
   | 'project-expenses'
   | 'project-quotes'
   | 'project-payments'
+  | 'project-reports'
 
 export interface FileUpload {
   id: string

@@ -135,3 +135,37 @@ export async function guardarInforme(
   revalidatePath(`/dashboard/proyectos/${projectId}/informe`)
   return { ok: true }
 }
+
+/**
+ * Archiva el PDF del informe como archivo del proyecto.
+ *
+ * Distinto de exportar: exportar te enseña el PDF, esto lo deja guardado. El
+ * archivo aparece en la pestaña Archivos del proyecto y, en el siguiente ciclo
+ * del sync (≤15 min), en Nextcloud bajo "ERP/Informes".
+ *
+ * Cada guardado añade un archivo fechado en vez de sustituir al anterior: así
+ * queda constancia de lo que se entregó en cada momento, aunque las cifras del
+ * proyecto cambien después.
+ *
+ * Revalida también la pestaña de archivos, que es donde el usuario va a
+ * comprobar que se guardó.
+ */
+export async function archivarInforme(
+  projectId: string,
+  tipo: TipoInforme,
+): Promise<ActionResult & { nombre?: string }> {
+  const res = await authFetch(`/reports/projects/${projectId}/informe/${tipo}/archivar`, {
+    method: 'POST',
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    return { ok: false, error: apiError(err, 'Error al guardar el informe en el proyecto') }
+  }
+
+  const data = (await res.json().catch(() => ({}))) as { nombre?: string }
+
+  revalidatePath(`/dashboard/proyectos/${projectId}/informe`)
+  revalidatePath(`/dashboard/proyectos/${projectId}`)
+  return { ok: true, nombre: data.nombre }
+}

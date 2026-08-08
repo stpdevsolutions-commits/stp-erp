@@ -17,6 +17,7 @@ import { ReportsController } from './reports.controller';
 import { ProjectReportService } from './project-report.service';
 import { ProjectReportController } from './project-report.controller';
 import { SettingsModule } from '../settings/settings.module';
+import { FilesModule } from '../files/files.module';
 
 @Module({
   imports: [
@@ -39,6 +40,8 @@ import { SettingsModule } from '../settings/settings.module';
     ]),
     // Datos de la empresa para encabezar los reportes exportados a PDF.
     SettingsModule,
+    // Para archivar el PDF de un informe como archivo del proyecto.
+    FilesModule,
   ],
   providers: [ReportsService, GeneralReportService, ProjectReportService],
   controllers: [ReportsController, ProjectReportController],

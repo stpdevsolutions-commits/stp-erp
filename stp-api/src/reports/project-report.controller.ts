@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   Res,
   UseGuards,
@@ -96,6 +97,23 @@ export class ProjectReportController {
     const type = this.parseTipo(tipo);
     this.service.assertTipoPermitido(user, type);
     return this.service.saveSettings(projectId, type, dto, user);
+  }
+
+  /**
+   * Archiva el PDF del informe como archivo del proyecto: aparece en la pestaña
+   * Archivos y, en el siguiente ciclo del sync (≤15 min), en Nextcloud dentro de
+   * "ERP/Informes".
+   *
+   * POST y no GET porque crea algo. Devuelve el nombre con el que quedó
+   * guardado, que es lo que necesita la UI para decir dónde buscarlo.
+   */
+  @Post(':tipo/archivar')
+  async archivarInforme(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Param('tipo') tipo: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<{ fileId: string; nombre: string }> {
+    return this.service.archivarPdf(projectId, this.parseTipo(tipo), user);
   }
 
   @Get(':tipo/export')

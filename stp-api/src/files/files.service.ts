@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { join, relative, resolve, sep } from 'path';
-import { existsSync, unlink } from 'fs';
+import { extname, join, relative, resolve, sep } from 'path';
+import { existsSync, mkdirSync, unlink, writeFileSync } from 'fs';
+import { randomUUID } from 'crypto';
 import { FileUpload, FileContext } from './entities/file-upload.entity';
 import { getUploadRoot, validateFileMagicBytes } from './files.utils';
 import { QueryFilesDto } from './dto/query-files.dto';
@@ -50,6 +51,65 @@ export class FilesService {
       context,
       clientId,
       projectId: projectId ?? undefined,
+      uploadedById,
+    });
+
+    return this.repo.save(record);
+  }
+
+  /**
+   * Archiva un documento que ha generado el propio ERP (hoy: el PDF de un
+   * informe de proyecto) como un archivo más del proyecto.
+   *
+   * No pasa por multer porque no viene de una petición `multipart`: llega como
+   * buffer ya montado. Aun así termina exactamente igual que una subida normal
+   * —mismo árbol en disco, misma fila en `uploaded_files`— y eso es lo que hace
+   * que aparezca solo en la pantalla de Archivos y en Nextcloud, sin que el
+   * sync tenga que saber nada de informes.
+   *
+   * `displayName` es el nombre con el que se verá (columna `originalName`, que
+   * es la que usa el sync para nombrar el hard link). En disco se guarda con un
+   * UUID, igual que el resto: dos informes archivados el mismo día no pueden
+   * pisarse aunque se llamen igual.
+   */
+  async saveGeneratedFile(params: {
+    buffer: Buffer;
+    displayName: string;
+    mimetype: string;
+    context: FileContext;
+    clientId: string;
+    projectId: string;
+    uploadedById: string;
+  }): Promise<FileUpload> {
+    const { buffer, displayName, mimetype, context, clientId, projectId, uploadedById } = params;
+
+    await this.projectsService.assertProjectBelongsToClient(projectId, clientId);
+
+    // Misma carpeta que usaría multer para este contexto.
+    const dir = join(getUploadRoot(), 'clients', clientId, 'projects', projectId, 'reports');
+    mkdirSync(dir, { recursive: true });
+
+    const filename = `${randomUUID()}${extname(displayName).toLowerCase() || '.pdf'}`;
+    const absolutePath = join(dir, filename);
+    writeFileSync(absolutePath, buffer);
+
+    // El PDF lo genera el servidor, así que esto no defiende de un cliente
+    // hostil: es una red de seguridad contra archivar un buffer corrupto o
+    // vacío, que sería peor que no archivar nada.
+    if (!validateFileMagicBytes(absolutePath, mimetype)) {
+      unlink(absolutePath, () => undefined);
+      throw new BadRequestException('El documento generado no es un archivo válido');
+    }
+
+    const record = this.repo.create({
+      originalName: displayName,
+      filename,
+      path: relative(getUploadRoot(), absolutePath),
+      mimetype,
+      size: buffer.length,
+      context,
+      clientId,
+      projectId,
       uploadedById,
     });
 

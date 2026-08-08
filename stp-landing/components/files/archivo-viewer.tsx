@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useState, useRef } from 'react'
-import { FileText, Eye, Printer, Trash2, Upload, FolderOpen, Images, BookText, Receipt, Quote, CreditCard } from 'lucide-react'
+import { FileText, Eye, Printer, Trash2, Upload, FolderOpen, Images, BookText, Receipt, Quote, CreditCard, ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,6 +23,12 @@ type ProjectTab = {
   suffix: string
   icon: React.ElementType
   accept: string
+  /**
+   * Categorías que llena el sistema, no las personas. No se puede subir a mano
+   * (no existe endpoint de subida para ellas) y por eso se les oculta el botón:
+   * enseñar un "Subir archivo" que siempre falla es peor que no enseñarlo.
+   */
+  readOnly?: boolean
 }
 
 const PROJECT_TABS: ProjectTab[] = [
@@ -31,6 +37,7 @@ const PROJECT_TABS: ProjectTab[] = [
   { context: 'project-expenses', label: 'Comprobantes', suffix: 'expenses', icon: Receipt, accept: 'application/pdf,image/jpeg,image/png,image/webp' },
   { context: 'project-quotes', label: 'Cotizaciones', suffix: 'quotes', icon: Quote, accept: 'application/pdf' },
   { context: 'project-payments', label: 'Pagos', suffix: 'payments', icon: CreditCard, accept: 'application/pdf' },
+  { context: 'project-reports', label: 'Informes', suffix: 'reports', icon: ClipboardList, accept: 'application/pdf', readOnly: true },
 ]
 
 const ACCEPT_ALL = 'image/jpeg,image/png,image/webp,application/pdf'
@@ -455,11 +462,17 @@ export function ArchivoViewer({
           })}
         </div>
 
-        <SubirDialog
-          uploadPath={`/files/clients/${clientId}/projects/${projectId}/${activeTabDef.suffix}`}
-          contextLabel={activeTabDef.label}
-          accept={activeTabDef.accept}
-        />
+        {activeTabDef.readOnly ? (
+          <p className="text-xs text-muted-foreground">
+            Se guardan desde el informe del proyecto
+          </p>
+        ) : (
+          <SubirDialog
+            uploadPath={`/files/clients/${clientId}/projects/${projectId}/${activeTabDef.suffix}`}
+            contextLabel={activeTabDef.label}
+            accept={activeTabDef.accept}
+          />
+        )}
       </div>
 
       <FileGrid files={tabFiles} canDelete={canDelete} />

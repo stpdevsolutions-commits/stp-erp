@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { InformeEditor } from '@/components/proyectos/informe-editor'
+import { ArchivarInforme } from '@/components/proyectos/archivar-informe'
 import type {
   Informe,
   InformeCliente,
@@ -358,7 +359,7 @@ export default async function InformeProyectoPage({
             {informe.project.client ? ` · ${informe.project.client.name}` : ''}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-start gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -371,6 +372,7 @@ export default async function InformeProyectoPage({
             <FileSpreadsheet className="size-4 mr-1.5" />
             Excel
           </Button>
+          <ArchivarInforme projectId={id} tipo={tipo} />
         </div>
       </div>
 

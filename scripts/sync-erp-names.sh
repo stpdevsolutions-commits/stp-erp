@@ -127,6 +127,11 @@ for client_row in "${clients[@]}"; do
     mirror_leaf "$psrc/expenses"  "$pbase/Gastos"
     mirror_leaf "$psrc/quotes"    "$pbase/Cotizaciones"
     mirror_leaf "$psrc/payments"  "$pbase/Pagos"
+    # Informes archivados desde el ERP (botón "Guardar en el proyecto"). Carpeta
+    # propia y no dentro de Documentos: estos los genera el sistema, no los sube
+    # nadie, y conviene poder compartir la carpeta de informes sin dar acceso al
+    # resto de la documentación del proyecto.
+    mirror_leaf "$psrc/reports"   "$pbase/Informes"
 
     # Fotos de fichas técnicas (guardadas por projectId bajo fichas/)
     mirror_leaf "$UPLOADS/fichas/$pid/photos" "$pbase/Fotos de Campo (Fichas)"

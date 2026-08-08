@@ -9,5 +9,7 @@ import { ProjectsModule } from '../projects/projects.module';
   imports: [TypeOrmModule.forFeature([FileUpload]), ProjectsModule],
   controllers: [FilesController],
   providers: [FilesService],
+  // ReportsModule lo usa para archivar el PDF de un informe como archivo del proyecto.
+  exports: [FilesService],
 })
 export class FilesModule {}

@@ -18,6 +18,9 @@ import {
   type ProjectReportInclude,
 } from './entities/project-report.entity';
 import type { UpdateProjectReportDto } from './dto/update-project-report.dto';
+import { FilesService } from '../files/files.service';
+import { SettingsService } from '../settings/settings.service';
+import { docToPdf } from './report-export';
 import {
   buildClientProjectDoc,
   buildInternalProjectDoc,
@@ -57,6 +60,10 @@ export class ProjectReportService {
     private readonly payrollRepo: Repository<PayrollEntry>,
     private readonly reportsService: ReportsService,
     private readonly access: AccessControlService,
+    // Para archivar el informe como archivo del proyecto (botón "Guardar en el
+    // proyecto"): de ahí sale solo a Nextcloud, vía el sync de erp-named.
+    private readonly files: FilesService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   // ── Acceso ────────────────────────────────────────────────────────────────
@@ -354,6 +361,79 @@ export class ProjectReportService {
       return buildInternalProjectDoc(await this.buildInternalReport(projectId, user));
     }
     return buildClientProjectDoc(await this.buildClientReport(projectId, user));
+  }
+
+  /**
+   * Genera el PDF del informe y lo archiva como archivo del proyecto.
+   *
+   * Se dispara desde el botón "Guardar en el proyecto", no al exportar: ver el
+   * PDF es una vista previa y no debe dejar rastro, archivarlo es una decisión.
+   *
+   * Se acumula historial en vez de sobrescribir (decisión de Ángel, 08/08): cada
+   * guardado deja su propio archivo fechado, de modo que lo que se le entregó al
+   * cliente en marzo se puede seguir abriendo en agosto aunque las cifras del
+   * proyecto hayan cambiado. Es la única copia del informe que queda congelada:
+   * el resto se recalcula en cada impresión.
+   */
+  async archivarPdf(
+    projectId: string,
+    type: ProjectReportType,
+    user: AccessSubject & { id: string },
+  ): Promise<{ fileId: string; nombre: string }> {
+    this.assertTipoPermitido(user, type);
+    if (!hasUnrestrictedAccess(user.role)) {
+      throw new ForbiddenException(
+        'Archivar un informe guarda un archivo en el proyecto: requiere rol MANAGER o ADMIN',
+      );
+    }
+
+    const project = await this.assertProjectExists(projectId, user);
+    const doc = await this.buildDoc(projectId, type, user);
+    const company = await this.settingsService.getCompanyData();
+    const buffer = await docToPdf(doc, company);
+
+    const nombre = await this.nombreArchivo(projectId, type, project.code);
+
+    const saved = await this.files.saveGeneratedFile({
+      buffer,
+      displayName: nombre,
+      mimetype: 'application/pdf',
+      context: FileContext.PROJECT_REPORTS,
+      clientId: project.clientId,
+      projectId,
+      uploadedById: user.id,
+    });
+
+    return { fileId: saved.id, nombre };
+  }
+
+  /**
+   * "Informe de cliente - PRJ-2026-001 - 2026-08-08.pdf".
+   *
+   * Si ya se archivó uno igual ese mismo día se le añade la hora, en vez de
+   * dejar dos archivos con nombre idéntico que solo se distinguen abriéndolos.
+   */
+  private async nombreArchivo(
+    projectId: string,
+    type: ProjectReportType,
+    code: string,
+  ): Promise<string> {
+    const etiqueta = type === ProjectReportType.INTERNAL ? 'Informe interno' : 'Informe de cliente';
+    const ahora = new Date();
+    const fecha = ahora.toISOString().slice(0, 10);
+    const base = `${etiqueta} - ${code} - ${fecha}`;
+
+    const yaExiste = await this.filesRepo.count({
+      where: {
+        projectId,
+        context: FileContext.PROJECT_REPORTS,
+        originalName: `${base}.pdf`,
+      },
+    });
+    if (yaExiste === 0) return `${base}.pdf`;
+
+    const hora = ahora.toISOString().slice(11, 16).replace(':', '-');
+    return `${base} ${hora}.pdf`;
   }
 
   // ── Auxiliares ────────────────────────────────────────────────────────────
