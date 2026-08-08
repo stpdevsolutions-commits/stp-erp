@@ -20,7 +20,9 @@ import {
   WIDTH,
 } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
-import type { ExportCell, ExportColumn, ExportDoc, ExportTable } from './report-tables';
+import type { ExportCell, ExportColumn, ExportDoc, ExportImage, ExportTable } from './report-tables';
+import { Logger } from '@nestjs/common';
+import sharp from 'sharp';
 
 /**
  * Rinde un `ExportDoc` a Excel y a PDF. Ambos formatos parten de las mismas
@@ -68,6 +70,72 @@ export function docToWorkbook(doc: ExportDoc): ExcelJS.Workbook {
 
 const PAGE_BOTTOM = 780;
 const ROW_H = 18;
+
+// ── Galería de fotos ──────────────────────────────────────────────────────────
+
+const GALERIA_COLS = 2;
+/** Separación entre fotos. */
+const GALERIA_GAP = 14;
+/** Alto de la caja de cada foto; la imagen se encaja dentro conservando su proporción. */
+const GALERIA_ALTO = 150;
+/**
+ * Alto reservado al pie (nombre + fecha) más el aire hasta la fila siguiente.
+ * Con menos, las fotos de la fila de abajo quedaban pegadas al pie de la de arriba.
+ */
+const GALERIA_PIE = 32;
+
+/**
+ * Tope de fotos por informe. Sin él, un proyecto con cientos de fotos genera un
+ * PDF de decenas de páginas que nadie puede enviar ni imprimir. Cuando se
+ * recorta se dice en el propio documento, para que quien lo lea sepa que hay
+ * más y no crea que se perdieron.
+ */
+const GALERIA_MAX = 60;
+
+/** Ancho máximo al que se reescala cada foto antes de incrustarla. */
+const FOTO_ANCHO_MAX = 1100;
+const FOTO_CALIDAD = 78;
+
+const logger = new Logger('report-export');
+
+/**
+ * Prepara las fotos para incrustarlas: reescala, recomprime a JPEG y aplica la
+ * rotación EXIF.
+ *
+ * Las tres cosas importan. Sin reescalar, veinte fotos de móvil dejan un PDF de
+ * decenas de MB que no pasa por correo. Sin `rotate()`, las fotos verticales
+ * salen tumbadas: la cámara no gira los píxeles, solo escribe la orientación en
+ * los metadatos, y PDFKit los ignora. Y sin recomprimir a JPEG, los WEBP —que el
+ * ERP permite subir— no se pueden incrustar en absoluto: PDFKit solo entiende
+ * JPEG y PNG.
+ *
+ * Una foto que falle (borrada del disco, corrupta) se salta con un aviso en el
+ * log: es mucho peor quedarse sin informe que quedarse sin una foto.
+ */
+async function prepararFotos(imagenes: ExportImage[]): Promise<Map<string, Buffer>> {
+  const preparadas = new Map<string, Buffer>();
+
+  await Promise.all(
+    imagenes.map(async (img) => {
+      try {
+        const buffer = await sharp(img.path)
+          .rotate()
+          .resize({ width: FOTO_ANCHO_MAX, height: FOTO_ANCHO_MAX, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: FOTO_CALIDAD })
+          .toBuffer();
+        preparadas.set(img.path, buffer);
+      } catch (err) {
+        logger.warn(
+          `No se pudo preparar la foto ${img.path} para el informe: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }),
+  );
+
+  return preparadas;
+}
 
 function money(n: number): string {
   const [int, dec] = (Math.round((n ?? 0) * 100) / 100).toFixed(2).split('.');
@@ -120,6 +188,27 @@ const LINE_H = 11;
  * se le pase `lineBreak: false` — de ahí venía que una descripción larga se
  * montara sobre la fila siguiente.
  */
+/**
+ * Recorta un texto para que quepa en UNA línea, midiendo con la fuente activa.
+ *
+ * No se usa el `ellipsis` de PDFKit porque no cumple: con `align: 'center'` el
+ * pie de foto envolvía igual a dos líneas y la segunda pisaba la fecha. Es el
+ * mismo patrón que ya dio problemas en las tablas — cuando hay que garantizar
+ * una altura, el texto se mide y se corta aquí, no se le pide a PDFKit que se
+ * contenga.
+ *
+ * Los puntos suspensivos van como tres puntos y no como «…»: Helvetica escribe
+ * en WinAnsi, que no tiene ese carácter.
+ */
+function recortarUnaLinea(pdf: PDFKit.PDFDocument, texto: string, ancho: number): string {
+  const limpio = String(texto ?? '').replace(/\s+/g, ' ').trim();
+  if (limpio === '' || pdf.widthOfString(limpio) <= ancho) return limpio;
+
+  let corte = limpio.length;
+  while (corte > 1 && pdf.widthOfString(`${limpio.slice(0, corte)}...`) > ancho) corte--;
+  return `${limpio.slice(0, corte).trimEnd()}...`;
+}
+
 function envolver(pdf: PDFKit.PDFDocument, texto: string, ancho: number): string[] {
   const lineas: string[] = [];
 
@@ -198,7 +287,13 @@ function columnWidths(table: ExportTable): number[] {
   return total > WIDTH ? anchos.map((a) => (a * WIDTH) / total) : anchos;
 }
 
-export function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Buffer> {
+export async function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Buffer> {
+  // Las fotos se decodifican ANTES de abrir el documento: PDFKit dibuja de forma
+  // síncrona y no se le puede pedir que espere a mitad del render.
+  const fotos = await prepararFotos(
+    doc.tables.flatMap((t) => (t.imagenes ?? []).slice(0, GALERIA_MAX)),
+  );
+
   return new Promise((resolve, reject) => {
     const pdf = new PDFDocument({ margin: 0, size: 'A4', autoFirstPage: true });
     const chunks: Buffer[] = [];
@@ -274,6 +369,89 @@ export function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Buffer> 
           }
           y += LINE_H + 2;
         }
+        y += 8;
+        continue;
+      }
+
+      // Registro fotográfico: rejilla de imágenes en vez de una lista de nombres
+      // de archivo, que era lo que salía antes y no le decía nada al cliente.
+      if (table.imagenes) {
+        const todas = table.imagenes;
+        const visibles = todas.slice(0, GALERIA_MAX).filter((img) => fotos.has(img.path));
+
+        if (visibles.length === 0) {
+          pdf
+            .fillColor(MID_GRAY)
+            .font('Helvetica-Oblique')
+            .fontSize(9)
+            .text(textoPdf(table.vacio ?? 'Sin fotos registradas'), LEFT, y + 3, {
+              width: WIDTH,
+              lineBreak: false,
+            });
+          y += ROW_H + 6;
+          continue;
+        }
+
+        const celda = (WIDTH - GALERIA_GAP * (GALERIA_COLS - 1)) / GALERIA_COLS;
+        const altoFila = GALERIA_ALTO + GALERIA_PIE;
+
+        for (let i = 0; i < visibles.length; i += GALERIA_COLS) {
+          if (y + altoFila > PAGE_BOTTOM) nuevaPagina();
+
+          visibles.slice(i, i + GALERIA_COLS).forEach((img, col) => {
+            const x = LEFT + col * (celda + GALERIA_GAP);
+            const buffer = fotos.get(img.path)!;
+
+            // `fit` conserva la proporción y centra: una foto vertical y una
+            // horizontal ocupan la misma caja sin deformarse.
+            pdf.image(buffer, x, y, {
+              fit: [celda, GALERIA_ALTO],
+              align: 'center',
+              valign: 'center',
+            });
+
+            let pieY = y + GALERIA_ALTO + 5;
+            if (img.caption) {
+              pdf.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(7.5);
+              pdf.text(recortarUnaLinea(pdf, textoPdf(img.caption), celda), x, pieY, {
+                width: celda,
+                align: 'center',
+                lineBreak: false,
+              });
+              pieY += 10;
+            }
+            if (img.sub) {
+              pdf.fillColor(MID_GRAY).font('Helvetica').fontSize(7);
+              pdf.text(recortarUnaLinea(pdf, textoPdf(img.sub), celda), x, pieY, {
+                width: celda,
+                align: 'center',
+                lineBreak: false,
+              });
+            }
+          });
+
+          y += altoFila;
+        }
+
+        // Si se recortó o alguna foto no se pudo leer, se dice: un informe que
+        // calla que faltan fotos es un informe en el que no se puede confiar.
+        const omitidas = todas.length - visibles.length;
+        if (omitidas > 0) {
+          if (y + ROW_H > PAGE_BOTTOM) nuevaPagina();
+          const nota =
+            todas.length > GALERIA_MAX
+              ? `Se muestran las primeras ${visibles.length} de ${todas.length} fotos del proyecto.`
+              : omitidas === 1
+                ? 'Una foto no se pudo incluir en el documento.'
+                : `${omitidas} fotos no se pudieron incluir en el documento.`;
+          pdf
+            .fillColor(MID_GRAY)
+            .font('Helvetica-Oblique')
+            .fontSize(8)
+            .text(textoPdf(nota), LEFT, y + 2, { width: WIDTH, lineBreak: false });
+          y += ROW_H;
+        }
+
         y += 8;
         continue;
       }

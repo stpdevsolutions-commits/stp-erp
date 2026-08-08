@@ -18,7 +18,9 @@ import {
   type ProjectReportInclude,
 } from './entities/project-report.entity';
 import type { UpdateProjectReportDto } from './dto/update-project-report.dto';
+import { join } from 'path';
 import { FilesService } from '../files/files.service';
+import { getUploadRoot } from '../files/files.utils';
 import { SettingsService } from '../settings/settings.service';
 import { docToPdf } from './report-export';
 import {
@@ -28,7 +30,7 @@ import {
   type InternalProjectReportShape,
   type ProjectReportSettingsShape,
 } from './project-report-tables';
-import type { ExportDoc } from './report-tables';
+import { fechaISO, type ExportDoc } from './report-tables';
 
 /**
  * Informes de proyecto: la parte editable (persistida) y el armado de los dos
@@ -360,7 +362,41 @@ export class ProjectReportService {
     if (type === ProjectReportType.INTERNAL) {
       return buildInternalProjectDoc(await this.buildInternalReport(projectId, user));
     }
-    return buildClientProjectDoc(await this.buildClientReport(projectId, user));
+    const doc = buildClientProjectDoc(await this.buildClientReport(projectId, user));
+    await this.adjuntarFotos(doc, projectId);
+    return doc;
+  }
+
+  /**
+   * Pone las rutas en disco de las fotos en la tabla del registro fotográfico,
+   * para que el PDF pueda incrustarlas en vez de listar nombres de archivo.
+   *
+   * Se hace aquí y no en `project-report-tables.ts` a propósito: aquel módulo es
+   * lógica pura (sin base de datos ni disco) y esa pureza es lo que permite
+   * probarlo entero sin montar nada. Las rutas tampoco viajan nunca al JSON de
+   * la API — el shape del informe solo expone nombre y fecha.
+   */
+  private async adjuntarFotos(doc: ExportDoc, projectId: string): Promise<void> {
+    // Si el usuario desmarcó "Registro fotográfico", la tabla no existe y aquí
+    // no hay nada que hacer.
+    const tabla = doc.tables.find((t) => t.name === 'Fotos');
+    if (!tabla) return;
+
+    const fotos = await this.filesRepo.find({
+      where: { projectId, context: FileContext.PROJECT_PHOTOS },
+      order: { createdAt: 'ASC' },
+    });
+
+    const root = getUploadRoot();
+    tabla.imagenes = fotos.map((f) => ({
+      path: join(root, f.path),
+      caption: f.originalName,
+      // `fechaISO` es el mismo formateador que usan las tablas del informe.
+      // Con `toLocaleDateString('es-DO')` salía "8/8/2026" junto a tablas que
+      // escriben "2026-08-08", y dos formatos en un mismo documento se leen como
+      // un descuido.
+      sub: fechaISO(f.createdAt) || undefined,
+    }));
   }
 
   /**

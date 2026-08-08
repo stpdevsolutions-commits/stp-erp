@@ -59,7 +59,6 @@ describe('ProjectReportService.archivarPdf — permisos', () => {
     await expect(
       svc.archivarPdf('p1', ProjectReportType.CLIENT, {
         id: 'u1',
-        email: 'u@x.com',
         role: UserRole.USER,
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -71,7 +70,6 @@ describe('ProjectReportService.archivarPdf — permisos', () => {
     await expect(
       svc.archivarPdf('p1', ProjectReportType.INTERNAL, {
         id: 'u1',
-        email: 'u@x.com',
         role: UserRole.USER,
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -86,7 +84,6 @@ describe('ProjectReportService.archivarPdf — permisos', () => {
 
     const res = await svc.archivarPdf('p1', ProjectReportType.CLIENT, {
       id: 'u1',
-      email: 'm@x.com',
       role: UserRole.MANAGER,
     });
 

@@ -21,6 +21,22 @@ export interface ExportColumn {
 
 export type ExportCell = string | number | null;
 
+/**
+ * Una foto para incrustar en el PDF.
+ *
+ * `path` es una ruta ABSOLUTA en disco y la rellena el servicio justo antes de
+ * exportar — nunca viaja en el JSON de la API, que solo expone nombre y fecha.
+ * Por eso `report-tables.ts` sigue siendo lógica pura: aquí solo se declara la
+ * forma, quien toca el disco es el exportador.
+ */
+export interface ExportImage {
+  path: string;
+  /** Pie de foto (el nombre del archivo). */
+  caption?: string;
+  /** Segunda línea del pie, más tenue (la fecha). */
+  sub?: string;
+}
+
 export interface ExportTable {
   /** Nombre corto: es el de la pestaña en Excel (máx. 31 caracteres). */
   name: string;
@@ -38,6 +54,16 @@ export interface ExportTable {
    * usando `rows`, donde cada fila es un párrafo.
    */
   texto?: string;
+  /**
+   * Fotos a incrustar. Cuando vienen, el PDF pinta una galería en vez de la
+   * tabla: un registro fotográfico que solo lista nombres de archivo no le
+   * sirve de nada a quien recibe el informe.
+   *
+   * El Excel sigue usando `rows` — una hoja de cálculo con imágenes embebidas
+   * pesa una barbaridad y no se puede filtrar —, así que ambos formatos siguen
+   * saliendo de la misma tabla y diciendo lo mismo.
+   */
+  imagenes?: ExportImage[];
 }
 
 export interface ExportDoc {
