@@ -9,10 +9,12 @@ export interface PayrollAmountsInput {
   overtimeAmount?: number | null;
   bonuses?: number | null;
   deductions?: number | null;
+  retentionPercent?: number | null;
 }
 
 export interface PayrollAmounts {
   grossAmount: number;
+  retentionAmount: number;
   netAmount: number;
 }
 
@@ -28,6 +30,10 @@ const num = (v: number | null | undefined): number =>
 export function computePayrollAmounts(input: PayrollAmountsInput): PayrollAmounts {
   const base = round2(num(input.daysWorked) * num(input.dailyRate));
   const gross = round2(base + num(input.overtimeAmount) + num(input.bonuses));
-  const net = round2(gross - num(input.deductions));
-  return { grossAmount: gross, netAmount: net };
+  // La retención es un porcentaje del BRUTO (el monto total del período), no de
+  // lo que queda tras los descuentos: los avances ya entregados no deben reducir
+  // la base sobre la que se retiene.
+  const retention = round2((gross * num(input.retentionPercent)) / 100);
+  const net = round2(gross - num(input.deductions) - retention);
+  return { grossAmount: gross, retentionAmount: retention, netAmount: net };
 }

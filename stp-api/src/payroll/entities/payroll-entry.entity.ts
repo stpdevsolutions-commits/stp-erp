@@ -34,9 +34,10 @@ const dec = {
 /**
  * Un pago de nómina a un colaborador por un período trabajado.
  *
- * `grossAmount` y `netAmount` los RECALCULA siempre el servidor a partir de
- * días × tarifa + extras + bonos − descuentos (ver `payroll-amounts.ts`), igual
- * que hace `expenses` con cantidad × unitario: así no pueden contradecirse.
+ * `grossAmount`, `retentionAmount` y `netAmount` los RECALCULA siempre el servidor
+ * a partir de días × tarifa + extras + bonos − descuentos − retención (ver
+ * `payroll-amounts.ts`), igual que hace `expenses` con cantidad × unitario: así no
+ * pueden contradecirse.
  */
 @Entity('payroll_entries')
 export class PayrollEntry {
@@ -89,6 +90,18 @@ export class PayrollEntry {
   /** Avances entregados durante el período, descuentos por herramienta, etc. */
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0, transformer: dec })
   deductions: number;
+
+  /** Motivo del descuento/avance, en texto libre. */
+  @Column({ type: 'varchar', nullable: true })
+  discountReason: string;
+
+  /** Porcentaje de retención aplicado sobre el bruto (0–100). Lo escribe el usuario. */
+  @Column({ type: 'numeric', precision: 5, scale: 2, default: 0, transformer: dec })
+  retentionPercent: number;
+
+  /** Importe retenido: lo calcula SIEMPRE el servidor a partir del porcentaje. */
+  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0, transformer: dec })
+  retentionAmount: number;
 
   @Column({ type: 'numeric', precision: 12, scale: 2, transformer: dec })
   grossAmount: number;

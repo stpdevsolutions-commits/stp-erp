@@ -21,6 +21,9 @@ export interface PayrollInput {
   overtimeAmount?: number | null
   bonuses?: number | null
   deductions?: number | null
+  discountReason?: string | null
+  /** Solo el porcentaje: el importe retenido lo calcula el servidor. */
+  retentionPercent?: number | null
   status?: PayrollStatus
   method?: PayrollMethod
   paymentDate?: string | null

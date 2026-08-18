@@ -211,7 +211,7 @@ export default async function NominaPage({
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
                         {DOP.format(p.netAmount)}
-                        {p.deductions > 0 && (
+                        {(p.deductions > 0 || p.retentionAmount > 0) && (
                           <div className="text-xs text-muted-foreground">
                             bruto {DOP.format(p.grossAmount)}
                           </div>

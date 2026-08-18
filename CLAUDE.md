@@ -156,7 +156,7 @@ Jerarquía en `RolesGuard`: ADMIN (rango 3) > MANAGER (rango 2) > USER (rango 1)
 16. **Inventory** — materiales, equipos, herramientas con categorías y SKU
 17. **Settings** — configuración empresa (logo, nombre, términos y condiciones)
 18. **Notifications** — emails via Resend (cotizaciones enviadas/aprobadas, tareas vencidas)
-19. **Payroll (Nómina)** — pagos a colaboradores por período (NOM-YYYY-NNN): días × tarifa + extras + bonos − descuentos; el servidor calcula bruto y neto. Al marcarse `paid` con proyecto, genera/actualiza un gasto de categoría `labor` (el importe imputado es el **bruto**); al dejar de estarlo o al borrarse, el gasto se elimina. **Módulo MANAGER+ completo, también en lectura** (son sueldos).
+19. **Payroll (Nómina)** — pagos a colaboradores por período (NOM-YYYY-NNN): días × tarifa + extras + bonos − descuentos − retención; el servidor calcula bruto, retención y neto. La **retención** es un porcentaje editable (`retentionPercent`, 0–100) aplicado sobre el **bruto**; su importe (`retentionAmount`) lo calcula siempre el servidor. Al marcarse `paid` con proyecto, genera/actualiza un gasto de categoría `labor` (el importe imputado es el **bruto**); al dejar de estarlo o al borrarse, el gasto se elimina. **Módulo MANAGER+ completo, también en lectura** (son sueldos).
 20. **Scheduler** — cron diario 8am: alerta cotizaciones a 3 días de vencer, tareas vencidas; 9am: recordatorio al cliente de cotizaciones `sent` sin respuesta (a partir de 3 días, máx. 2 por envío)
 
 ## Módulo Fichas — contexto adicional

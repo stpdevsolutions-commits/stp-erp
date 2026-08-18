@@ -181,6 +181,16 @@ export function generatePayrollReceiptPdf(
     linea('Total bruto', money(entry.grossAmount), true);
 
     if (entry.deductions) linea('Deducciones', `− ${money(entry.deductions)}`);
+    if (entry.deductions && entry.discountReason) {
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8)
+        .text(`Motivo: ${entry.discountReason}`, LEFT, y, { width: 320, lineBreak: false });
+      y += 12;
+    }
+    if (entry.retentionAmount)
+      linea(
+        `Retención (${entry.retentionPercent}%)`,
+        `− ${money(entry.retentionAmount)}`,
+      );
 
     y += 4;
     doc.moveTo(VALUE_X - 60, y).lineTo(RIGHT, y).strokeColor(TEAL).lineWidth(0.8).stroke();

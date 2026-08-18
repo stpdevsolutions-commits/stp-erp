@@ -148,6 +148,7 @@ export class PayrollService {
 
     const amounts = computePayrollAmounts(entry);
     entry.grossAmount = amounts.grossAmount;
+    entry.retentionAmount = amounts.retentionAmount;
     entry.netAmount = amounts.netAmount;
 
     // Marcar como pagado sin fecha: se asume hoy, que es lo que el usuario espera.
@@ -214,8 +215,8 @@ export class PayrollService {
    *
    * Solo existe gasto si el pago está PAGADO y tiene proyecto (la tabla
    * `expenses` exige `projectId`). El importe imputado es el **bruto**: es el
-   * costo de la mano de obra del período para la empresa; los descuentos solo
-   * cambian cuánto se entrega en mano, no lo que costó el trabajo.
+   * costo de la mano de obra del período para la empresa; los descuentos y la
+   * retención solo cambian cuánto se entrega en mano, no lo que costó el trabajo.
    *
    * Un fallo aquí no debe tumbar el registro del pago (el dato de nómina es el
    * que manda), así que se registra en el log y se sigue.

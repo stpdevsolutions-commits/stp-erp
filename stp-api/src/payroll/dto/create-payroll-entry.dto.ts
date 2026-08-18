@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsDateString,
   Min,
+  Max,
 } from 'class-validator';
 import { PayrollMethod, PayrollStatus } from '../entities/payroll-entry.entity';
 
@@ -52,6 +53,18 @@ export class CreatePayrollEntryDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   deductions?: number;
+
+  /** Motivo del descuento/avance, en texto libre. */
+  @IsOptional()
+  @IsString()
+  discountReason?: string;
+
+  /** Porcentaje de retención sobre el bruto. El importe lo calcula el servidor. */
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  retentionPercent?: number;
 
   @IsOptional()
   @IsEnum(PayrollStatus)

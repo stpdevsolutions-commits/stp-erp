@@ -810,7 +810,15 @@ export interface PayrollEntry {
   overtimeAmount: number
   bonuses: number
   deductions: number
-  /** Calculados por el servidor: días × tarifa + extras + bonos, menos descuentos. */
+  /** Motivo del descuento/avance, en texto libre. */
+  discountReason?: string
+  /** Porcentaje de retención sobre el bruto (0–100). */
+  retentionPercent: number
+  /**
+   * Calculados por el servidor: días × tarifa + extras + bonos, menos descuentos
+   * y menos la retención (que es `retentionPercent` % del bruto).
+   */
+  retentionAmount: number
   grossAmount: number
   netAmount: number
   status: PayrollStatus

@@ -42,6 +42,14 @@ const money = z
   .optional()
   .refine((v) => !v || (!isNaN(Number(v)) && Number(v) >= 0), 'Debe ser un número positivo')
 
+const percent = z
+  .string()
+  .optional()
+  .refine(
+    (v) => !v || (!isNaN(Number(v)) && Number(v) >= 0 && Number(v) <= 100),
+    'Debe ser un porcentaje entre 0 y 100',
+  )
+
 const schema = z
   .object({
     collaboratorId: z.string().min(1, 'Selecciona un colaborador'),
@@ -53,6 +61,8 @@ const schema = z
     overtimeAmount: money,
     bonuses: money,
     deductions: money,
+    discountReason: z.string().optional(),
+    retentionPercent: percent,
     status: z.enum(['pending', 'paid', 'cancelled']),
     method: z.enum(['cash', 'transfer', 'check', 'other']),
     paymentDate: z.string().optional(),
@@ -72,7 +82,9 @@ const str = (v?: number) => (v === undefined || v === null ? '' : String(v))
 /** Mismo cálculo que hace el servidor; aquí solo sirve para previsualizar. */
 function preview(v: PayrollFormValues) {
   const gross = num(v.daysWorked) * num(v.dailyRate) + num(v.overtimeAmount) + num(v.bonuses)
-  return { gross, net: gross - num(v.deductions) }
+  // La retención es un % del bruto, igual que en el servidor (payroll-amounts.ts).
+  const retention = (gross * num(v.retentionPercent)) / 100
+  return { gross, retention, net: gross - num(v.deductions) - retention }
 }
 
 function toInput(v: PayrollFormValues): PayrollInput {
@@ -86,6 +98,8 @@ function toInput(v: PayrollFormValues): PayrollInput {
     overtimeAmount: num(v.overtimeAmount),
     bonuses: num(v.bonuses),
     deductions: num(v.deductions),
+    discountReason: v.discountReason || null,
+    retentionPercent: num(v.retentionPercent),
     status: v.status,
     method: v.method,
     // Sin fecha de pago el servidor pone hoy al marcarlo como pagado.
@@ -130,6 +144,8 @@ export function PagoNominaForm({
       overtimeAmount: str(entry?.overtimeAmount),
       bonuses: str(entry?.bonuses),
       deductions: str(entry?.deductions),
+      discountReason: entry?.discountReason ?? '',
+      retentionPercent: str(entry?.retentionPercent),
       status: entry?.status ?? 'pending',
       method: entry?.method ?? 'cash',
       paymentDate: entry?.paymentDate?.slice(0, 10) ?? '',
@@ -142,7 +158,7 @@ export function PagoNominaForm({
   const collaboratorId = values.collaboratorId
   const collaborator = collaborators.find((c) => c.id === collaboratorId)
   const project = projects.find((p) => p.id === values.projectId)
-  const { gross, net } = preview(values)
+  const { gross, retention, net } = preview(values)
 
   // Al elegir colaborador se propone su tarifa diaria; el usuario la puede pisar y
   // queda congelada en el pago (si mañana sube la tarifa, este pago no cambia).
@@ -277,10 +293,43 @@ export function PagoNominaForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-        <div className="space-y-1.5">
-          <Label htmlFor="deductions">Descuentos / avances</Label>
-          <Input id="deductions" type="number" step="0.01" min="0" {...register('deductions')} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="deductions">Descuentos / avances</Label>
+            <Input id="deductions" type="number" step="0.01" min="0" {...register('deductions')} />
+          </div>
+
+          {num(values.deductions) > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="discountReason">Motivo del descuento</Label>
+              <Input
+                id="discountReason"
+                placeholder="Avance en efectivo, herramienta, préstamo…"
+                {...register('discountReason')}
+              />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="retentionPercent">Retención (%)</Label>
+            <Input
+              id="retentionPercent"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              placeholder="0"
+              {...register('retentionPercent')}
+            />
+            {errors.retentionPercent ? (
+              <p className="text-xs text-destructive">{errors.retentionPercent.message}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Porcentaje del bruto que se retiene. Déjalo en 0 si no aplica.
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
@@ -288,6 +337,18 @@ export function PagoNominaForm({
             <span>Bruto</span>
             <span className="tabular-nums">{DOP.format(gross)}</span>
           </div>
+          {num(values.deductions) > 0 && (
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span>Descuentos</span>
+              <span className="tabular-nums">− {DOP.format(num(values.deductions))}</span>
+            </div>
+          )}
+          {retention > 0 && (
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span>Retención ({num(values.retentionPercent)}%)</span>
+              <span className="tabular-nums">− {DOP.format(retention)}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between font-semibold">
             <span>Neto a pagar</span>
             <span className={`tabular-nums ${net < 0 ? 'text-destructive' : ''}`}>
