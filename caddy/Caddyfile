@@ -120,6 +120,38 @@ http://gw.stpsoluciones.com {
 		reverse_proxy vigia-frontend:3000
 	}
 
+	# eCF-SaaS Frontend (facturación electrónica DGII — en desarrollo, futura integración al ERP)
+	@ecf {
+		host ecf.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
+	}
+	handle @ecf {
+		reverse_proxy ecf-frontend:3000
+	}
+
+	# eCF-SaaS API
+	@ecfapi {
+		host ecf-api.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
+	}
+	handle @ecfapi {
+		reverse_proxy ecf-api:3000
+	}
+
+	# Mi Día — PWA personal de tareas/notas. Única app de esta lista que es
+	# PÚBLICA a propósito (sin remote_ip): tiene su propio login (JWT) porque
+	# no puede depender de la VPN para usarse desde el celular fuera de casa.
+	@midia {
+		host dia.stpsoluciones.com
+	}
+	handle @midia {
+		handle /api/* {
+			uri strip_prefix /api
+			reverse_proxy mi-dia-api:3000
+		}
+		reverse_proxy mi-dia-frontend:80
+	}
+
 	# Catch-all: cualquier subdominio sin IP válida → 403
 	handle {
 		respond "Acceso restringido. Conéctate a la VPN." 403
