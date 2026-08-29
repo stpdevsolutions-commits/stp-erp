@@ -177,6 +177,7 @@ services:
       - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/downloads:/srv/downloads:ro
       - caddy-data:/data
       - caddy-config:/config
     networks:

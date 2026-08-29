@@ -138,6 +138,16 @@ http://gw.stpsoluciones.com {
 		reverse_proxy ecf-api:3000
 	}
 
+	# Descargas — APKs de las apps móviles internas (STP Tecnicos, etc.)
+	@descargas {
+		host apk.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
+	}
+	handle @descargas {
+		root * /srv/downloads
+		file_server browse
+	}
+
 	# Mi Día — PWA personal de tareas/notas. Única app de esta lista que es
 	# PÚBLICA a propósito (sin remote_ip): tiene su propio login (JWT) porque
 	# no puede depender de la VPN para usarse desde el celular fuera de casa.
