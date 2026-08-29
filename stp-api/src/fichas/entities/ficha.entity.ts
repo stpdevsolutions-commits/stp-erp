@@ -17,6 +17,7 @@ export enum FichaType {
   ELECTROMECANICO = 'electromecanico',
   LEVANTAMIENTO = 'levantamiento',
   EVALUACION_DANOS = 'evaluacion_danos',
+  DOMOTICA = 'domotica',
 }
 
 export enum FichaStatus {

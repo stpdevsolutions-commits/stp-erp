@@ -221,6 +221,10 @@ const SENAL_WIFI_LABEL: Record<string, string> = {
   excelente: 'Excelente', buena: 'Buena', debil: 'Débil', sin_senal: 'Sin señal',
 };
 
+const CATEGORIA_PUNTO_LABEL: Record<string, string> = {
+  cajita: 'Cajita', tomacorriente: 'Tomacorriente', interruptor: 'Interruptor', luminaria: 'Luminaria',
+};
+
 function levantamientoHtml(d: Record<string, unknown>): string {
   const propositoLabel: Record<string, string> = {
     presupuesto: 'Presupuesto', inventario: 'Inventario',
@@ -228,6 +232,84 @@ function levantamientoHtml(d: Record<string, unknown>): string {
   };
   const estadoLabel: Record<string, string> = {
     bueno: 'Bueno', regular: 'Regular', malo: 'Malo',
+  };
+
+  let html = section('Información general', `<table>
+    ${row('Propósito', propositoLabel[d.proposito as string] ?? esc(d.proposito))}
+  </table>`);
+
+  const puntosElectricos = (d.puntosElectricos as Record<string, unknown>[] | undefined) ?? [];
+  if (puntosElectricos.length) {
+    const filas = puntosElectricos.map((p) => `
+      <tr>
+        <td>${CATEGORIA_PUNTO_LABEL[p.categoria as string] ?? esc(p.categoria)}</td>
+        <td>${esc(p.tipo)}</td>
+        <td>${esc(p.cantidad)}</td>
+        <td>${esc(p.ubicacion)}</td>
+        <td>${esc(p.observaciones)}</td>
+      </tr>`).join('');
+    html += section(`Puntos eléctricos (${puntosElectricos.length})`, `
+      <table>
+        <thead><tr>
+          <th>Categoría</th><th>Tipo</th><th>Cant.</th><th>Ubicación</th><th>Observaciones</th>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+      </table>`);
+  }
+
+  const materiales = (d.materiales as Record<string, unknown>[] | undefined) ?? [];
+  if (materiales.length) {
+    const filas = materiales.map((m) => {
+      const cantidad = Number(m.cantidad) || 0;
+      const precio = Number(m.precioUnitarioRD) || 0;
+      return `<tr>
+        <td>${m.codigo ? `[${esc(m.codigo)}] ` : ''}${esc(m.descripcion)}</td>
+        <td>${cantidad} ${esc(m.unidad)}</td>
+        <td>${precio ? `RD$ ${precio.toLocaleString('es-DO')}` : '—'}</td>
+        <td>${precio ? `RD$ ${(cantidad * precio).toLocaleString('es-DO')}` : '—'}</td>
+      </tr>`;
+    }).join('');
+    const total = materiales.reduce(
+      (sum, m) => sum + (Number(m.cantidad) || 0) * (Number(m.precioUnitarioRD) || 0), 0,
+    );
+    html += section(`Materiales (${materiales.length})`, `
+      <table>
+        <thead><tr><th>Descripción</th><th>Cant.</th><th>P. unitario</th><th>Subtotal</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+      ${total > 0 ? `<p style="text-align:right;margin-top:8px;font-weight:700;">Total estimado: RD$ ${total.toLocaleString('es-DO')}</p>` : ''}`);
+  }
+
+  const items = (d.items as Record<string, unknown>[] | undefined) ?? [];
+  if (items.length) {
+    const itemRows = items.map((i) => `
+      <tr>
+        <td>${esc(i.descripcion)}</td>
+        <td>${esc(i.ubicacion)}</td>
+        <td>${esc(i.cantidad)} ${esc(i.unidad)}</td>
+        <td>${estadoLabel[i.estado as string] ?? esc(i.estado)}</td>
+        <td>${esc(i.observaciones)}</td>
+      </tr>`).join('');
+    html += section(`Inventario (${items.length} ítems)`, `
+      <table>
+        <thead><tr>
+          <th>Descripción</th><th>Ubicación</th><th>Cantidad</th><th>Estado</th><th>Observaciones</th>
+        </tr></thead>
+        <tbody>${itemRows}</tbody>
+      </table>`);
+  }
+
+  if (d.observacionesGenerales) {
+    html += section('Observaciones generales', `<p>${esc(d.observacionesGenerales)}</p>`);
+  }
+
+  return html;
+}
+
+function domoticaHtml(d: Record<string, unknown>): string {
+  const propositoLabel: Record<string, string> = {
+    presupuesto: 'Presupuesto', inventario: 'Inventario',
+    diagnostico: 'Diagnóstico', otro: 'Otro',
   };
   const tipoConexionLabel: Record<string, string> = {
     fibra: 'Fibra', cable: 'Cable', dsl: 'DSL', satelital: 'Satelital', otro: 'Otro',
@@ -309,25 +391,6 @@ function levantamientoHtml(d: Record<string, unknown>): string {
       ${total > 0 ? `<p style="text-align:right;margin-top:8px;font-weight:700;">Total estimado: RD$ ${total.toLocaleString('es-DO')}</p>` : ''}`);
   }
 
-  const items = (d.items as Record<string, unknown>[] | undefined) ?? [];
-  if (items.length) {
-    const itemRows = items.map((i) => `
-      <tr>
-        <td>${esc(i.descripcion)}</td>
-        <td>${esc(i.ubicacion)}</td>
-        <td>${esc(i.cantidad)} ${esc(i.unidad)}</td>
-        <td>${estadoLabel[i.estado as string] ?? esc(i.estado)}</td>
-        <td>${esc(i.observaciones)}</td>
-      </tr>`).join('');
-    html += section(`Inventario (${items.length} ítems)`, `
-      <table>
-        <thead><tr>
-          <th>Descripción</th><th>Ubicación</th><th>Cantidad</th><th>Estado</th><th>Observaciones</th>
-        </tr></thead>
-        <tbody>${itemRows}</tbody>
-      </table>`);
-  }
-
   if (d.observacionesGenerales) {
     html += section('Observaciones generales', `<p>${esc(d.observacionesGenerales)}</p>`);
   }
@@ -384,6 +447,7 @@ export function generateFichaPdfHtml(ficha: Ficha): string {
     civil: 'Civil',
     electromecanico: 'Electromecánica',
     levantamiento: 'Levantamiento general',
+    domotica: 'Domótica',
     evaluacion_danos: 'Evaluación de daños',
   };
 
@@ -409,6 +473,9 @@ export function generateFichaPdfHtml(ficha: Ficha): string {
       break;
     case FichaType.LEVANTAMIENTO:
       bodyContent = levantamientoHtml(d);
+      break;
+    case FichaType.DOMOTICA:
+      bodyContent = domoticaHtml(d);
       break;
     case FichaType.EVALUACION_DANOS:
       bodyContent = evaluacionHtml(d);
