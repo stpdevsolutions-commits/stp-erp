@@ -23,6 +23,7 @@ import { updateMe } from '@/lib/actions/profile'
 const schema = z.object({
   firstName: z.string().min(2, 'Mínimo 2 caracteres'),
   lastName: z.string().min(2, 'Mínimo 2 caracteres'),
+  phone: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -38,7 +39,7 @@ export function EditarPerfilDialog({ user }: { user: User }) {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { firstName: user.firstName, lastName: user.lastName },
+    defaultValues: { firstName: user.firstName, lastName: user.lastName, phone: user.phone ?? '' },
   })
 
   async function onSubmit(data: FormValues) {
@@ -52,7 +53,7 @@ export function EditarPerfilDialog({ user }: { user: User }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { reset({ firstName: user.firstName, lastName: user.lastName }); setServerError(null) } }}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { reset({ firstName: user.firstName, lastName: user.lastName, phone: user.phone ?? '' }); setServerError(null) } }}>
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
         <Pencil className="size-4 mr-1" />
         Editar perfil
@@ -61,7 +62,7 @@ export function EditarPerfilDialog({ user }: { user: User }) {
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Editar perfil</DialogTitle>
-          <DialogDescription>Actualiza tu nombre.</DialogDescription>
+          <DialogDescription>Actualiza tu nombre y teléfono.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
@@ -75,6 +76,13 @@ export function EditarPerfilDialog({ user }: { user: User }) {
             <Label htmlFor="lastName">Apellido</Label>
             <Input id="lastName" {...register('lastName')} />
             {errors.lastName && <p className="text-xs text-destructive">{errors.lastName.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="phone">WhatsApp</Label>
+            <Input id="phone" placeholder="809-537-6566" {...register('phone')} />
+            <p className="text-xs text-muted-foreground">Para recibir avisos de tareas asignadas por WhatsApp.</p>
+            {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
           </div>
 
           {serverError && (

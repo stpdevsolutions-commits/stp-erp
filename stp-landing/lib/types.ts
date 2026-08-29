@@ -289,6 +289,8 @@ export interface User {
   lastName: string
   role: UserRole
   isActive: boolean
+  /** Para notificaciones por WhatsApp (asignación de tareas). */
+  phone?: string | null
   createdAt: string
 }
 

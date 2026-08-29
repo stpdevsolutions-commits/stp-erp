@@ -16,6 +16,7 @@ import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
 import { taskResourceScope } from './task-access';
 import { loadForUpdate } from '../common/load-for-update';
+import { WhatsappService } from '../notifications/whatsapp.service';
 
 @Injectable()
 export class TasksService {
@@ -29,6 +30,7 @@ export class TasksService {
     @InjectRepository(Collaborator)
     private readonly collaboratorsRepository: Repository<Collaborator>,
     private readonly access: AccessControlService,
+    private readonly whatsapp: WhatsappService,
   ) {}
 
   async create(dto: CreateTaskDto, createdById: string): Promise<Task> {
@@ -40,7 +42,9 @@ export class TasksService {
       await this.assertCollaboratorExists(dto.collaboratorId);
 
     const task = this.tasksRepository.create({ ...dto, createdById });
-    return this.tasksRepository.save(task);
+    const saved = await this.tasksRepository.save(task);
+    void this.notifyAssignment(saved);
+    return saved;
   }
 
   async findAll(query: QueryTasksDto, user?: AccessSubject) {
@@ -110,6 +114,8 @@ export class TasksService {
       // también al proyecto de destino.
       await this.access.assertProjectAccess(user, dto.projectId);
     }
+    const previousAssignedToId = task.assignedToId;
+    const previousCollaboratorId = task.collaboratorId;
     if (dto.assignedToId && dto.assignedToId !== task.assignedToId) {
       await this.assertUserExists(dto.assignedToId);
     }
@@ -135,12 +141,64 @@ export class TasksService {
     }
 
     await this.tasksRepository.save(target);
-    return this.findOne(id, user);
+    const updated = await this.findOne(id, user);
+
+    // Reasignación (incluye pasar de "sin asignar" a alguien): mismo aviso
+    // que al crear la tarea. Un cambio de dueDate/status/etc. sin tocar la
+    // asignación NO reenvía el mensaje.
+    const reassignedToNewUser =
+      dto.assignedToId !== undefined && dto.assignedToId !== previousAssignedToId && dto.assignedToId;
+    const reassignedToNewCollaborator =
+      dto.collaboratorId !== undefined && dto.collaboratorId !== previousCollaboratorId && dto.collaboratorId;
+    if (reassignedToNewUser || reassignedToNewCollaborator) {
+      void this.notifyAssignment(updated);
+    }
+
+    return updated;
   }
 
   async remove(id: string, user?: AccessSubject): Promise<void> {
     const task = await this.findOne(id, user);
     await this.tasksRepository.remove(task);
+  }
+
+  /**
+   * Avisa por WhatsApp a quien quedó asignado (usuario con cuenta y/o
+   * colaborador de campo — pueden convivir en la misma tarea). Nunca lanza:
+   * un fallo de WhatsApp no debe tumbar la creación/actualización de la tarea
+   * (ver WhatsappService, que ya loguea y traga sus propios errores).
+   */
+  private async notifyAssignment(task: Task): Promise<void> {
+    if (!task.assignedToId && !task.collaboratorId) return;
+
+    const project = await this.projectsRepository.findOne({ where: { id: task.projectId } });
+    if (!project) return;
+
+    if (task.assignedToId) {
+      const assignee = await this.usersRepository.findOne({ where: { id: task.assignedToId } });
+      if (assignee) {
+        this.whatsapp.sendTaskAssigned({
+          phone: assignee.phone,
+          recipientName: assignee.firstName,
+          projectName: project.name,
+          taskTitle: task.title,
+          dueDate: task.dueDate,
+        });
+      }
+    }
+
+    if (task.collaboratorId) {
+      const collaborator = await this.collaboratorsRepository.findOne({ where: { id: task.collaboratorId } });
+      if (collaborator) {
+        this.whatsapp.sendTaskAssigned({
+          phone: collaborator.phone,
+          recipientName: collaborator.firstName,
+          projectName: project.name,
+          taskTitle: task.title,
+          dueDate: task.dueDate,
+        });
+      }
+    }
   }
 
   // ── Acceso ────────────────────────────────────────────────────────────────

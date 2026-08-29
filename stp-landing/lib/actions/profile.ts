@@ -12,6 +12,7 @@ export interface ActionResult {
 export async function updateMe(input: {
   firstName?: string
   lastName?: string
+  phone?: string
 }): Promise<ActionResult> {
   const body = Object.fromEntries(
     Object.entries(input).filter(([, v]) => v !== '' && v !== undefined),

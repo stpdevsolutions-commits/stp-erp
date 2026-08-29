@@ -37,6 +37,10 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
+  /** Para notificaciones por WhatsApp (asignación de tareas, etc.). Cualquier formato; se normaliza al enviar. */
+  @Column({ type: 'varchar', nullable: true })
+  phone: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -40,6 +40,7 @@ const editSchema = z.object({
   lastName: z.string().min(2, 'Mínimo 2 caracteres').max(100),
   email: z.string().email('Correo inválido'),
   password: z.string().optional(),
+  phone: z.string().optional(),
   role: z.enum(['admin', 'manager', 'user']),
   isActive: z.boolean(),
 })
@@ -74,6 +75,7 @@ function EditDialog({
       lastName: usuario.lastName,
       email: usuario.email,
       password: '',
+      phone: usuario.phone ?? '',
       role: usuario.role,
       isActive: usuario.isActive,
     },
@@ -92,6 +94,7 @@ function EditDialog({
       email: data.email,
       // Only send password if the admin typed one
       ...(data.password ? { password: data.password } : {}),
+      phone: data.phone,
       role: data.role,
       isActive: data.isActive,
     })
@@ -135,6 +138,15 @@ function EditDialog({
             <Label htmlFor="edit-email">Correo electrónico</Label>
             <Input id="edit-email" type="email" {...register('email')} />
             {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-phone">
+              WhatsApp{' '}
+              <span className="text-muted-foreground font-normal">(para avisos de tareas asignadas)</span>
+            </Label>
+            <Input id="edit-phone" placeholder="809-537-6566" {...register('phone')} />
+            {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
           </div>
 
           <div className="space-y-1.5">
