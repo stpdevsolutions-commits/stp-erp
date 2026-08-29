@@ -210,6 +210,17 @@ function electromecanicaHtml(d: Record<string, unknown>): string {
   return html;
 }
 
+const DISPOSITIVO_LABEL: Record<string, string> = {
+  camara: 'Cámara', sensor_movimiento: 'Sensor de movimiento',
+  sensor_puerta_ventana: 'Sensor puerta/ventana', cerradura_inteligente: 'Cerradura inteligente',
+  switch_inteligente: 'Switch inteligente', foco_inteligente: 'Foco inteligente',
+  sirena: 'Sirena', panel_control: 'Panel de control', medidor_energia: 'Medidor de energía',
+  otro: 'Otro',
+};
+const SENAL_WIFI_LABEL: Record<string, string> = {
+  excelente: 'Excelente', buena: 'Buena', debil: 'Débil', sin_senal: 'Sin señal',
+};
+
 function levantamientoHtml(d: Record<string, unknown>): string {
   const propositoLabel: Record<string, string> = {
     presupuesto: 'Presupuesto', inventario: 'Inventario',
@@ -218,10 +229,85 @@ function levantamientoHtml(d: Record<string, unknown>): string {
   const estadoLabel: Record<string, string> = {
     bueno: 'Bueno', regular: 'Regular', malo: 'Malo',
   };
+  const tipoConexionLabel: Record<string, string> = {
+    fibra: 'Fibra', cable: 'Cable', dsl: 'DSL', satelital: 'Satelital', otro: 'Otro',
+  };
+  const neutroLabel: Record<string, string> = {
+    si: 'Sí', no: 'No', revisar: 'Revisar en sitio',
+  };
 
   let html = section('Información general', `<table>
     ${row('Propósito', propositoLabel[d.proposito as string] ?? esc(d.proposito))}
   </table>`);
+
+  const conectividad = d.conectividad as Record<string, unknown> | undefined;
+  if (conectividad && Object.values(conectividad).some((v) => v != null && v !== '')) {
+    html += section('Conectividad', `<table>
+      ${conectividad.proveedorInternet ? row('Proveedor de internet', conectividad.proveedorInternet) : ''}
+      ${conectividad.tipoConexion ? row('Tipo de conexión', tipoConexionLabel[conectividad.tipoConexion as string] ?? esc(conectividad.tipoConexion)) : ''}
+      ${conectividad.velocidadMbps != null ? row('Velocidad contratada', `${esc(conectividad.velocidadMbps)} Mbps`) : ''}
+      ${conectividad.ubicacionRouter ? row('Ubicación del router', conectividad.ubicacionRouter) : ''}
+      ${conectividad.requiereRepetidor != null ? row('Requiere repetidor/AP adicional', bool(conectividad.requiereRepetidor)) : ''}
+      ${conectividad.observaciones ? row('Observaciones', conectividad.observaciones) : ''}
+    </table>`);
+  }
+
+  const electrico = d.electrico as Record<string, unknown> | undefined;
+  if (electrico && Object.values(electrico).some((v) => v != null && v !== '')) {
+    html += section('Eléctrico', `<table>
+      ${electrico.capacidadPanelA != null ? row('Capacidad del panel', `${esc(electrico.capacidadPanelA)} A`) : ''}
+      ${electrico.breakersLibres != null ? row('Breakers libres', electrico.breakersLibres) : ''}
+      ${electrico.tieneNeutroInterruptores ? row('Neutro en interruptores', neutroLabel[electrico.tieneNeutroInterruptores as string] ?? esc(electrico.tieneNeutroInterruptores)) : ''}
+      ${electrico.tomasCercaDePuntos != null ? row('Tomas cerca de los puntos', bool(electrico.tomasCercaDePuntos)) : ''}
+      ${electrico.observaciones ? row('Observaciones', electrico.observaciones) : ''}
+    </table>`);
+  }
+
+  const ambientes = (d.ambientes as Record<string, unknown>[] | undefined) ?? [];
+  if (ambientes.length) {
+    const items = ambientes.map((a) => {
+      const dispositivos = ((a.dispositivos as string[] | undefined) ?? [])
+        .map((v) => DISPOSITIVO_LABEL[v] ?? v)
+        .join(', ');
+      return `
+      <div class="item">
+        <strong>${esc(a.nombre)}</strong>
+        <table>
+          ${dispositivos ? row('Dispositivos planificados', dispositivos) : ''}
+          ${a.tipoPuerta ? row('Tipo de puerta', a.tipoPuerta) : ''}
+          ${a.tipoVentana ? row('Tipo de ventana', a.tipoVentana) : ''}
+          ${a.alturaTechoM != null ? row('Altura de techo', `${esc(a.alturaTechoM)} m`) : ''}
+          ${a.materialPared ? row('Material de pared', a.materialPared) : ''}
+          ${a.senalWifi ? row('Señal WiFi', SENAL_WIFI_LABEL[a.senalWifi as string] ?? esc(a.senalWifi)) : ''}
+          ${a.observaciones ? row('Observaciones', a.observaciones) : ''}
+        </table>
+      </div>`;
+    }).join('');
+    html += section(`Ambientes (${ambientes.length})`, items);
+  }
+
+  const equiposCotizacion = (d.equiposCotizacion as Record<string, unknown>[] | undefined) ?? [];
+  if (equiposCotizacion.length) {
+    const filas = equiposCotizacion.map((e) => {
+      const cantidad = Number(e.cantidad) || 0;
+      const precio = Number(e.precioUnitarioRD) || 0;
+      return `<tr>
+        <td>${esc(e.descripcion)}</td>
+        <td>${cantidad}</td>
+        <td>${precio ? `RD$ ${precio.toLocaleString('es-DO')}` : '—'}</td>
+        <td>${precio ? `RD$ ${(cantidad * precio).toLocaleString('es-DO')}` : '—'}</td>
+      </tr>`;
+    }).join('');
+    const total = equiposCotizacion.reduce(
+      (sum, e) => sum + (Number(e.cantidad) || 0) * (Number(e.precioUnitarioRD) || 0), 0,
+    );
+    html += section(`Cotización estimada (${equiposCotizacion.length} equipos)`, `
+      <table>
+        <thead><tr><th>Descripción</th><th>Cant.</th><th>P. unitario</th><th>Subtotal</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+      ${total > 0 ? `<p style="text-align:right;margin-top:8px;font-weight:700;">Total estimado: RD$ ${total.toLocaleString('es-DO')}</p>` : ''}`);
+  }
 
   const items = (d.items as Record<string, unknown>[] | undefined) ?? [];
   if (items.length) {
