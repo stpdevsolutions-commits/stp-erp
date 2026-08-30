@@ -81,6 +81,23 @@ services:
       stp-redis:
         condition: service_healthy
 
+  # Puente de WhatsApp (Baileys, NO API oficial de Meta) — vincula el WhatsApp
+  # real de +18095376566 como "WhatsApp Web" para que stp-api pueda avisar
+  # asignaciones de tareas. Solo accesible desde la red interna de Docker,
+  # nunca expuesto por Caddy. La sesión vive en el volumen whatsapp-auth; si
+  # se pierde (o la primera vez), hay que escanear un QR:
+  #   docker logs -f stp-whatsapp-bridge
+  stp-whatsapp-bridge:
+    build:
+      context: ./whatsapp-bridge
+      dockerfile: Dockerfile
+    container_name: stp-whatsapp-bridge
+    restart: unless-stopped
+    volumes:
+      - whatsapp-auth:/data/auth
+    networks:
+      - stp-network
+
   # Vaultwarden — gestor de contraseñas
   stp-vaultwarden:
     image: vaultwarden/server:latest
@@ -250,6 +267,7 @@ volumes:
   nextcloud-app:
   uptime-kuma-data:
   vaultwarden-data:
+  whatsapp-auth:
 
 networks:
   stp-network:
