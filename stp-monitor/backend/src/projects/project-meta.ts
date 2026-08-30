@@ -49,9 +49,10 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
       'Facturación electrónica (comprobantes fiscales e-CF) para la DGII — integración real (firma, autenticación/transmisión/estado, QR, RFCE, ANECF) — pensado a futuro como módulo de facturación dentro del ERP de STP.',
     stack: ['NestJS', 'Next.js', 'PostgreSQL', 'Redis'],
     status:
-      'main al día — la rama fix/typescript-and-db-config (que parecía "perdida" con 2 meses de atraso) en realidad ya estaba fusionada a main 4 veces; solo el docker-compose.yml y el Dockerfile del frontend le faltaban commitear, y quedaron fusionados el 30 de agosto. El healthcheck que marcaba el contenedor "unhealthy" (pegaba a /health pero el prefijo global lo movió a /api/health) también se corrigió el mismo día.',
+      'main al día — la rama fix/typescript-and-db-config (que parecía "perdida" con 2 meses de atraso) en realidad ya estaba fusionada a main 4 veces; solo el docker-compose.yml y el Dockerfile del frontend le faltaban commitear, y quedaron fusionados el 30 de agosto. El contenedor ya reporta "healthy" de verdad, después de dos causas encontradas y arregladas el mismo día.',
     recentWork: [
-      'fix: healthcheck de ecf-api — /health y /version excluidos del prefijo global /api, para que coincida con lo que pega el HEALTHCHECK del Dockerfile.',
+      'fix: HEALTHCHECK del Dockerfile con wget en vez de "node -e" — levantar un proceso de Node nuevo cada 30s competía por CPU con el resto del servidor y superaba el timeout de 3s aunque la API respondiera bien.',
+      'fix: /health y /version excluidos del prefijo global /api (el HEALTHCHECK pegaba a /health sin prefijo y daba 404).',
       'Merge de docker-compose.yml/Dockerfile del frontend a main; rama fix/typescript-and-db-config cerrada y borrada por estar 100% fusionada.',
       'fix: seguridad/consistencia DGII por empresa, tasa de ITBIS seleccionable y rediseño de líneas de detalle.',
       'feat: consulta de comprobantes con filtros avanzados, formulario e-CF completo y logo de empresa.',
