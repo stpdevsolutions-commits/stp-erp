@@ -46,12 +46,15 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
   },
   'ecf-saas': {
     purpose:
-      'Facturación electrónica (comprobantes fiscales e-CF) para la DGII — pensado a futuro como módulo de facturación dentro del ERP de STP.',
+      'Facturación electrónica (comprobantes fiscales e-CF) para la DGII — integración real (firma, autenticación/transmisión/estado, QR, RFCE, ANECF) — pensado a futuro como módulo de facturación dentro del ERP de STP.',
     stack: ['NestJS', 'Next.js', 'PostgreSQL', 'Redis'],
     status:
-      'Desarrollo pausado. La rama activa nunca se fusionó a main y el último commit real tiene casi dos meses. El contenedor de la API funciona bien pero Docker lo marca "unhealthy" por un healthcheck que apunta a una ruta que no existe (bug conocido, no afecta el uso real).',
+      'main al día — la rama fix/typescript-and-db-config (que parecía "perdida" con 2 meses de atraso) en realidad ya estaba fusionada a main 4 veces; solo el docker-compose.yml y el Dockerfile del frontend le faltaban commitear, y quedaron fusionados el 30 de agosto. El contenedor de la API funciona bien pero Docker lo marca "unhealthy" por un healthcheck que apunta a una ruta que no existe (bug conocido, no afecta el uso real).',
     recentWork: [
-      'fix: seguridad/consistencia DGII por empresa, tasa de ITBIS seleccionable y rediseño de líneas de detalle (4 de julio).',
+      'Merge de docker-compose.yml/Dockerfile del frontend a main; rama fix/typescript-and-db-config cerrada y borrada por estar 100% fusionada.',
+      'fix: seguridad/consistencia DGII por empresa, tasa de ITBIS seleccionable y rediseño de líneas de detalle.',
+      'feat: consulta de comprobantes con filtros avanzados, formulario e-CF completo y logo de empresa.',
+      'feat: anulación real de e-CF (ANECF), transmisión RFCE para facturas <RD$250k, integración real con dgii-ecf (firma/auth/transmisión/estado/QR).',
     ],
   },
   'mi-dia': {
