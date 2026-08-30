@@ -16,6 +16,12 @@ http://gw.stpsoluciones.com {
 		reverse_proxy stp-api:3001
 	}
 
+	# Webhook publico de WhatsApp Cloud API (Meta necesita llegar aqui desde
+	# internet, sin VPN). Ver stp-api/src/notifications/whatsapp-webhook.controller.ts
+	handle /whatsapp/webhook* {
+		reverse_proxy stp-api:3001
+	}
+
 	handle {
 		respond 404
 	}

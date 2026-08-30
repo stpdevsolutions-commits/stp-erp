@@ -2,36 +2,47 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 /**
- * Envío de WhatsApp. PENDIENTE DE PROVEEDOR: se probó un puente propio no
- * oficial (Baileys, "WhatsApp Web" en otro dispositivo) y se abandonó el
- * 2026-08-30 — los mensajes salían "enviados" del lado del bridge pero el
- * receptor nunca lograba descifrarlos ("Esperando este mensaje"), incluso
- * tras reconstruir la sesión desde cero y probar Baileys 6.x y 7.0-rc; se
- * descartó por ser un problema de la librería, no de configuración. El plan
- * es usar la API oficial de Meta (WhatsApp Cloud API) en cuanto se resuelva
- * el registro de Meta for Developers.
+ * Envío de WhatsApp vía la API oficial de Meta (WhatsApp Cloud API).
  *
- * Sin WHATSAPP_BRIDGE_URL configurado (caso actual), el envío queda
- * desactivado — mismo patrón que NotificationsService con Resend: nunca
- * lanza, solo loguea y sigue. El resto de la feature (checkbox de notificar,
- * normalizePhone, etc.) queda intacto para cuando haya un proveedor real.
+ * Se probó antes un puente propio no oficial (Baileys, "WhatsApp Web" en otro
+ * dispositivo) y se abandonó el 2026-08-30 — los mensajes salían "enviados"
+ * del lado del bridge pero el receptor nunca lograba descifrarlos, incluso
+ * tras reconstruir la sesión desde cero y probar Baileys 6.x y 7.0-rc; se
+ * descartó por ser un problema de la librería, no de configuración.
+ *
+ * Usa una plantilla de mensaje aprobada por Meta ("tarea_asignada"), no texto
+ * libre: el destinatario (colaborador) normalmente no le ha escrito antes al
+ * número de negocio, así que un mensaje de texto libre fallaría en silencio
+ * por la regla de la ventana de servicio de 24h. Las plantillas de tipo
+ * "utility" sí se pueden enviar en cualquier momento.
+ *
+ * Sin WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID configurados, el envío
+ * queda desactivado — mismo patrón que NotificationsService con Resend:
+ * nunca lanza, solo loguea y sigue.
  */
 @Injectable()
 export class WhatsappService {
   private readonly logger = new Logger(WhatsappService.name);
-  private readonly bridgeUrl?: string;
+  private readonly accessToken?: string;
+  private readonly phoneNumberId?: string;
+  private static readonly GRAPH_API_VERSION = 'v21.0';
+  private static readonly TEMPLATE_NAME = 'tarea_asignada';
+  private static readonly TEMPLATE_LANGUAGE = 'es';
 
   constructor(private readonly config: ConfigService) {
-    this.bridgeUrl = this.config.get<string>('WHATSAPP_BRIDGE_URL');
-    if (!this.bridgeUrl) {
-      this.logger.warn('WHATSAPP_BRIDGE_URL no configurado — notificaciones por WhatsApp desactivadas');
+    this.accessToken = this.config.get<string>('WHATSAPP_ACCESS_TOKEN');
+    this.phoneNumberId = this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID');
+    if (!this.accessToken || !this.phoneNumberId) {
+      this.logger.warn(
+        'WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID no configurados — notificaciones por WhatsApp desactivadas',
+      );
     }
   }
 
   /**
    * Notifica a un técnico/colaborador que se le asignó una tarea. Si no hay
-   * teléfono o no hay puente configurado, no hace nada silenciosamente (nunca
-   * debe tumbar la creación/actualización de la tarea).
+   * teléfono o no hay credenciales configuradas, no hace nada silenciosamente
+   * (nunca debe tumbar la creación/actualización de la tarea).
    */
   sendTaskAssigned(params: {
     phone?: string | null;
@@ -43,36 +54,60 @@ export class WhatsappService {
     const { phone, recipientName, projectName, taskTitle, dueDate } = params;
     if (!phone) return;
 
-    const text =
-      `Hola ${recipientName}, se te asignó una nueva tarea en STP.\n\n` +
-      `Proyecto: ${projectName}\n` +
-      `Tarea: ${taskTitle}\n` +
-      `Fecha límite: ${dueDate ? formatDate(dueDate) : 'Sin fecha límite'}\n\n` +
-      `Ingresa a la app STP Técnicos para ver los detalles.`;
-
-    void this.send(phone, text);
+    void this.sendTemplate(phone, WhatsappService.TEMPLATE_NAME, WhatsappService.TEMPLATE_LANGUAGE, [
+      recipientName,
+      projectName,
+      taskTitle,
+      dueDate ? formatDate(dueDate) : 'Sin fecha límite',
+    ]);
   }
 
-  private async send(rawPhone: string, text: string): Promise<void> {
-    if (!this.bridgeUrl) return;
+  /** Manda una plantilla aprobada con parámetros posicionales en el body ({{1}}, {{2}}, ...). */
+  private async sendTemplate(
+    rawPhone: string,
+    templateName: string,
+    languageCode: string,
+    bodyParams: string[],
+  ): Promise<void> {
+    if (!this.accessToken || !this.phoneNumberId) return;
     const to = normalizePhone(rawPhone);
     if (!to) {
       this.logger.warn(`Teléfono inválido, no se envía WhatsApp: "${rawPhone}"`);
       return;
     }
 
+    const url = `https://graph.facebook.com/${WhatsappService.GRAPH_API_VERSION}/${this.phoneNumberId}/messages`;
+    const body = {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+        components: [
+          {
+            type: 'body',
+            parameters: bodyParams.map((text) => ({ type: 'text', text })),
+          },
+        ],
+      },
+    };
+
     try {
-      const res = await fetch(`${this.bridgeUrl}/send`, {
+      const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, text }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const body = await res.text();
-        this.logger.error(`Puente de WhatsApp respondió ${res.status} para ${to}: ${body}`);
+        const errBody = await res.text();
+        this.logger.error(`WhatsApp Cloud API respondió ${res.status} para ${to}: ${errBody}`);
         return;
       }
-      this.logger.log(`WhatsApp enviado a ${to}`);
+      this.logger.log(`WhatsApp (plantilla "${templateName}") enviado a ${to}`);
     } catch (err) {
       this.logger.error(`Fallo enviando WhatsApp a ${to}: ${(err as Error).message}`);
     }
@@ -89,8 +124,8 @@ function formatDate(iso: string): string {
 /**
  * Deja solo dígitos y antepone el código de país de RD (1) si el número trae
  * los 10 dígitos locales sin código ("809-537-6566" → "18095376566"), como
- * exige Baileys (número completo con código de país, sin "+"). Devuelve null
- * si el resultado no parece un número real.
+ * exige la API de WhatsApp (número completo con código de país, sin "+").
+ * Devuelve null si el resultado no parece un número real.
  */
 function normalizePhone(raw: string): string | null {
   const digits = raw.replace(/\D/g, '');
