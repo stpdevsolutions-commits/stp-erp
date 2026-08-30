@@ -339,7 +339,9 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
       for (const cost of quote.indirectCosts) {
         y = checkBreak(y, 14);
         const pctLabel = cost.kind === 'itbis'
-          ? `${cost.name} (${cost.pct}% Dir. Técnica)`
+          ? cost.baseMode === 'total'
+            ? `${cost.name} (${cost.pct}% del total)`
+            : `${cost.name} (${cost.pct}% gravables)`
           : `${cost.name} (${cost.pct}%)`;
         doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8.5)
           .text(pctLabel, tLabelX, y, { width: tLabelW, lineBreak: false });

@@ -22,4 +22,11 @@ export class IndirectCostDto {
   @IsOptional()
   @IsBoolean()
   taxable?: boolean;
+
+  /** Solo aplica a kind='itbis'. 'gravables' (default) = base = suma de los
+   * conceptos marcados taxable. 'total' = base = subtotal + todos los demás
+   * gastos indirectos (o sea, ITBIS sobre la factura completa). */
+  @IsOptional()
+  @IsIn(['gravables', 'total'])
+  baseMode?: 'gravables' | 'total';
 }

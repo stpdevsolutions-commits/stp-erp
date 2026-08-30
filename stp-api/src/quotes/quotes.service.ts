@@ -865,7 +865,7 @@ export class QuotesService implements OnModuleInit {
     total: number;
   } {
     let taxBase = 0;
-    // 1ª pasada: gastos normales (porcentaje del base). Acumula la base del ITBIS.
+    // 1ª pasada: gastos normales (porcentaje del base). Acumula la base del ITBIS "gravables".
     const computed: IndirectCost[] = costs
       .filter((c) => c.kind !== 'itbis')
       .map((c) => {
@@ -874,12 +874,18 @@ export class QuotesService implements OnModuleInit {
         return { name: c.name, pct: Number(c.pct) || 0, amount, taxable: c.taxable || undefined };
       });
 
-    // 2ª pasada: entradas ITBIS (porcentaje sobre la base gravada, p.ej. Dirección Técnica).
+    // Base alternativa "total": subtotal + todos los demás gastos indirectos
+    // (o sea, ITBIS sobre la factura completa, no solo sobre lo gravable).
+    const sumOtherCosts = computed.reduce((s, c) => s + c.amount, 0);
+    const totalBase = base + sumOtherCosts;
+
+    // 2ª pasada: entradas ITBIS (porcentaje sobre la base gravada o sobre el total, según baseMode).
     let taxAmount = 0;
     for (const c of costs.filter((c) => c.kind === 'itbis')) {
-      const amount = this.round2(taxBase * (Number(c.pct) || 0) / 100);
+      const effectiveBase = c.baseMode === 'total' ? totalBase : taxBase;
+      const amount = this.round2(effectiveBase * (Number(c.pct) || 0) / 100);
       taxAmount += amount;
-      computed.push({ name: c.name, pct: Number(c.pct) || 0, amount, kind: 'itbis' });
+      computed.push({ name: c.name, pct: Number(c.pct) || 0, amount, kind: 'itbis', baseMode: c.baseMode });
     }
 
     const sumCosts = computed.reduce((s, c) => s + c.amount, 0);

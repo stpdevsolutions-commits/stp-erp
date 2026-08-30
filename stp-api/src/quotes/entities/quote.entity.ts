@@ -29,8 +29,11 @@ const dec = {
 /**
  * Gasto indirecto aplicado sobre el subtotal de costos directos (los items).
  * - `kind` undefined = gasto normal (amount = base * pct/100).
- * - `kind` 'itbis'  = entrada especial: amount = pct% del monto de los gastos
- *                     marcados como `taxable` (por defecto, Dirección Técnica).
+ * - `kind` 'itbis'  = entrada especial: amount = pct% de la base de `baseMode`.
+ *   - `baseMode` 'gravables' (default) = base = suma de los gastos marcados
+ *     `taxable` (por defecto, Dirección Técnica) — ITBIS solo sobre servicios.
+ *   - `baseMode` 'total' = base = subtotal + todos los demás gastos
+ *     indirectos — ITBIS sobre la factura completa.
  * El backend SIEMPRE recalcula `amount` server-side; el valor recibido se ignora.
  */
 export interface IndirectCost {
@@ -39,6 +42,7 @@ export interface IndirectCost {
   amount: number;
   kind?: 'itbis';
   taxable?: boolean;
+  baseMode?: 'gravables' | 'total';
 }
 
 /** Resumen ligero de una revisión, para el historial del detalle. */
