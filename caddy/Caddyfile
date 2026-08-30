@@ -138,16 +138,6 @@ http://gw.stpsoluciones.com {
 		reverse_proxy ecf-api:3000
 	}
 
-	# Emparejamiento del puente de WhatsApp (Baileys) — página con el QR que se
-	# auto-refresca, solo mientras se vincula la sesión. Ver whatsapp-bridge/.
-	@whatsappqr {
-		host whatsapp-qr.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
-	}
-	handle @whatsappqr {
-		reverse_proxy stp-whatsapp-bridge:3900
-	}
-
 	# STP Tickets — bugs/cambios/mejoras de todos los proyectos
 	@tickets {
 		host tickets.stpsoluciones.com

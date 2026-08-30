@@ -25,9 +25,8 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     status:
       'En producción, uso diario del equipo. Base de todo lo demás: la app móvil de técnicos, el catálogo de descargas y Vigía mismo viven en el mismo servidor y comparten esta infraestructura.',
     recentWork: [
-      'Checkbox "Notificar por WhatsApp al colaborador" en crear/editar tarea, para decidir por tarea si se manda el aviso (evita spam en reasignaciones o pruebas).',
-      'WhatsApp de asignación de tareas: el número siempre sale del Colaborador (persona real en obra), nunca del Usuario (cuenta de acceso) — evita duplicar avisos o notificar al teléfono equivocado.',
-      'WhatsApp de asignación de tareas vía puente propio (Baileys) — sesión vinculada y probada de punta a punta (mensaje de prueba confirmado recibido).',
+      'WhatsApp de asignación de tareas: puente propio (Baileys) probado y descartado — los mensajes salían pero el receptor nunca lograba descifrarlos, ni con Baileys 6.x ni 7.0-rc. Notificación queda desactivada (WhatsappService no-op) hasta usar la API oficial de Meta.',
+      'Checkbox "Notificar por WhatsApp al colaborador" y el resto de la feature (número siempre del Colaborador, nunca de Usuario) quedan listos en el código para cuando haya un proveedor real.',
       'Login con Google y reestructuración de fichas (Domótica separada de Levantamiento) en la app móvil.',
       'Vigía ampliado con el módulo de Proyectos y más servicios monitoreados.',
     ],

@@ -2,19 +2,19 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 /**
- * Envío de WhatsApp vía un puente propio (Baileys, ver `whatsapp-bridge/` en
- * la raíz del repo) que mantiene una sesión vinculada al WhatsApp real de la
- * empresa (+18095376566) como si fuera "WhatsApp Web" desde otro dispositivo.
+ * Envío de WhatsApp. PENDIENTE DE PROVEEDOR: se probó un puente propio no
+ * oficial (Baileys, "WhatsApp Web" en otro dispositivo) y se abandonó el
+ * 2026-08-30 — los mensajes salían "enviados" del lado del bridge pero el
+ * receptor nunca lograba descifrarlos ("Esperando este mensaje"), incluso
+ * tras reconstruir la sesión desde cero y probar Baileys 6.x y 7.0-rc; se
+ * descartó por ser un problema de la librería, no de configuración. El plan
+ * es usar la API oficial de Meta (WhatsApp Cloud API) en cuanto se resuelva
+ * el registro de Meta for Developers.
  *
- * Decisión consciente de STP: NO es la API oficial de Meta (esa requiere
- * verificación de negocio + plantillas de mensaje pre-aprobadas, y el registro
- * de Meta for Developers estaba bloqueado). Esto es texto libre, sin
- * plantillas, con el riesgo real de que Meta detecte el patrón automatizado y
- * banee el número — riesgo que STP decidió asumir.
- *
- * Sin WHATSAPP_BRIDGE_URL configurado, o si el puente no está conectado
- * (sesión sin escanear/perdida), el envío queda desactivado — mismo patrón
- * que NotificationsService con Resend: nunca lanza, solo loguea y sigue.
+ * Sin WHATSAPP_BRIDGE_URL configurado (caso actual), el envío queda
+ * desactivado — mismo patrón que NotificationsService con Resend: nunca
+ * lanza, solo loguea y sigue. El resto de la feature (checkbox de notificar,
+ * normalizePhone, etc.) queda intacto para cuando haya un proveedor real.
  */
 @Injectable()
 export class WhatsappService {
