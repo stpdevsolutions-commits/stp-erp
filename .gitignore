@@ -49,3 +49,6 @@ Thumbs.db
 *.tsbuildinfo
 immich/.env
 caddy/downloads/
+
+# Config local de Claude Code (permisos/ajustes por usuario, no del proyecto)
+.claude/settings.local.json
