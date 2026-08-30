@@ -124,24 +124,30 @@ export class ProjectsService {
   }
 
   async reportLocal(reports: LocalProjectReport[]): Promise<{ received: number }> {
-    const rows = reports.map((r) =>
-      this.repo.create({
-        key: `local:${r.id}`,
-        id: r.id,
-        name: r.name,
-        location: 'local' as const,
-        path: r.path,
-        branch: r.branch ?? null,
-        ahead: r.ahead ?? 0,
-        behind: r.behind ?? 0,
-        dirtyFiles: r.dirtyFiles ?? 0,
-        lastCommitHash: r.lastCommitHash ?? null,
-        lastCommitMessage: r.lastCommitMessage ?? null,
-        lastCommitDate: r.lastCommitDate ?? null,
-        error: r.error ?? null,
-      }),
-    );
-    await this.repo.save(rows);
+    // upsert(), no save(): save() compara contra el valor ya guardado y SE
+    // SALTA el UPDATE (incluido reportedAt) cuando nada cambió — que es
+    // exactamente lo normal cuando un repo no tiene commits nuevos en 15 min.
+    // El resultado real fue reportedAt congelado por horas en proyectos sin
+    // actividad, aunque el agente sí reportaba bien cada vez. upsert() hace
+    // un INSERT ... ON CONFLICT DO UPDATE incondicional: reportedAt siempre
+    // se pone al valor de "ahora", haya cambiado el contenido o no.
+    const rows = reports.map((r) => ({
+      key: `local:${r.id}`,
+      id: r.id,
+      name: r.name,
+      location: 'local' as const,
+      path: r.path,
+      branch: r.branch ?? null,
+      ahead: r.ahead ?? 0,
+      behind: r.behind ?? 0,
+      dirtyFiles: r.dirtyFiles ?? 0,
+      lastCommitHash: r.lastCommitHash ?? null,
+      lastCommitMessage: r.lastCommitMessage ?? null,
+      lastCommitDate: r.lastCommitDate ?? null,
+      error: r.error ?? null,
+      reportedAt: new Date(),
+    }));
+    await this.repo.upsert(rows, ['key']);
     this.logger.log(`Reporte local recibido: ${rows.length} proyecto(s)`);
     return { received: rows.length };
   }

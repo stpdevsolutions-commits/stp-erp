@@ -39,6 +39,8 @@ const DEFAULT_SERVICES: ServiceDef[] = [
   { id: 'mi-dia-api', name: 'Mi Día API', url: 'mi-dia-api:3000', type: 'tcp' },
   { id: 'mi-dia-frontend', name: 'Mi Día', url: 'http://mi-dia-frontend:80', type: 'http' },
   { id: 'whatsapp-bridge', name: 'Puente WhatsApp', url: 'http://stp-whatsapp-bridge:3900/health', type: 'http' },
+  { id: 'tickets-api', name: 'Tickets API', url: 'http://stp-tickets-api:3003/health', type: 'http' },
+  { id: 'tickets-web', name: 'Tickets', url: 'http://stp-tickets-web:3000', type: 'http' },
   { id: 'immich', name: 'Immich', url: 'immich_server:2283', type: 'tcp' },
   { id: 'uptime-kuma', name: 'Uptime Kuma', url: 'http://stp-uptime-kuma:3001', type: 'http' },
 ];
