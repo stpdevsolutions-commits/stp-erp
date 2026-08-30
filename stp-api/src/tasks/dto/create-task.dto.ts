@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsUUID,
   IsNumber,
+  IsBoolean,
   IsDateString,
   MinLength,
   MaxLength,
@@ -40,6 +41,11 @@ export class CreateTaskDto {
   @IsOptional()
   @IsUUID()
   collaboratorId?: string;
+
+  /** Avisar por WhatsApp al colaborador asignado. Default true — false solo si se pide explícito. */
+  @IsOptional()
+  @IsBoolean()
+  notifyCollaborator?: boolean;
 
   @IsOptional()
   @IsDateString()

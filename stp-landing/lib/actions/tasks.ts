@@ -18,6 +18,7 @@ export interface CreateTaskInput {
   dueDate?: string
   assignedToId?: string
   collaboratorId?: string
+  notifyCollaborator?: boolean
 }
 
 export interface UpdateTaskInput {
@@ -29,6 +30,7 @@ export interface UpdateTaskInput {
   dueDate?: string | null
   assignedToId?: string | null
   collaboratorId?: string | null
+  notifyCollaborator?: boolean
 }
 
 export async function createTask(input: CreateTaskInput): Promise<ActionResult> {

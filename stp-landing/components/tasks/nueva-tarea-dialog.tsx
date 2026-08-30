@@ -42,6 +42,8 @@ const schema = z.object({
   dueDate: z.string().optional(),
   /** Valor combinado del selector: `col:<id>`, `user:<id>` o SIN_ASIGNAR. */
   asignado: z.string().optional(),
+  /** Avisar por WhatsApp al colaborador asignado. Solo aplica si hay colaborador. */
+  notificar: z.boolean().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -87,7 +89,7 @@ export function NuevaTareaDialog({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { status: 'pending', priority: 'medium', asignado: SIN_ASIGNAR },
+    defaultValues: { status: 'pending', priority: 'medium', asignado: SIN_ASIGNAR, notificar: true },
   })
 
   const projectId = watch('projectId')
@@ -134,6 +136,7 @@ export function NuevaTareaDialog({
       dueDate: data.dueDate || undefined,
       assignedToId: asignacion.assignedToId ?? undefined,
       collaboratorId: asignacion.collaboratorId ?? undefined,
+      notifyCollaborator: data.notificar,
     })
     if (!result.ok) {
       setServerError(result.error ?? 'Error desconocido')
@@ -270,6 +273,17 @@ export function NuevaTareaDialog({
               />
             </div>
           </div>
+
+          {parseAsignacion(watch('asignado')).collaboratorId && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4 rounded border-input"
+                {...register('notificar')}
+              />
+              Notificar por WhatsApp al colaborador
+            </label>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="description">Descripción</Label>

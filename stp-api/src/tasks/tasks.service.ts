@@ -43,7 +43,7 @@ export class TasksService {
 
     const task = this.tasksRepository.create({ ...dto, createdById });
     const saved = await this.tasksRepository.save(task);
-    void this.notifyAssignment(saved);
+    if (dto.notifyCollaborator !== false) void this.notifyAssignment(saved);
     return saved;
   }
 
@@ -148,7 +148,7 @@ export class TasksService {
     // tocar el colaborador NO reenvía el mensaje.
     const reassignedToNewCollaborator =
       dto.collaboratorId !== undefined && dto.collaboratorId !== previousCollaboratorId && dto.collaboratorId;
-    if (reassignedToNewCollaborator) {
+    if (reassignedToNewCollaborator && dto.notifyCollaborator !== false) {
       void this.notifyAssignment(updated);
     }
 

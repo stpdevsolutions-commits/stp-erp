@@ -50,6 +50,8 @@ const editSchema = z.object({
   dueDate: z.string().optional(),
   /** Valor combinado del selector: `col:<id>`, `user:<id>` o SIN_ASIGNAR. */
   asignado: z.string().optional(),
+  /** Avisar por WhatsApp al colaborador asignado. Solo aplica si hay colaborador. */
+  notificar: z.boolean().optional(),
 })
 
 type EditFormValues = z.infer<typeof editSchema>
@@ -107,6 +109,7 @@ function EditDialog({
         collaboratorId: tarea.collaborator?.id ?? tarea.collaboratorId,
         assignedToId: tarea.assignedTo?.id,
       }),
+      notificar: true,
     },
   })
 
@@ -132,6 +135,7 @@ function EditDialog({
       dueDate: data.dueDate || null,
       assignedToId: asignacion.assignedToId,
       collaboratorId: asignacion.collaboratorId,
+      notifyCollaborator: data.notificar,
     })
     if (!result.ok) {
       setServerError(result.error ?? 'Error desconocido')
@@ -239,6 +243,17 @@ function EditDialog({
               />
             </div>
           </div>
+
+          {parseAsignacion(watch('asignado')).collaboratorId && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4 rounded border-input"
+                {...register('notificar')}
+              />
+              Notificar por WhatsApp al colaborador
+            </label>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="edit-description">Descripción</Label>
