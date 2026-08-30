@@ -114,7 +114,6 @@ export class TasksService {
       // también al proyecto de destino.
       await this.access.assertProjectAccess(user, dto.projectId);
     }
-    const previousAssignedToId = task.assignedToId;
     const previousCollaboratorId = task.collaboratorId;
     if (dto.assignedToId && dto.assignedToId !== task.assignedToId) {
       await this.assertUserExists(dto.assignedToId);
@@ -144,13 +143,12 @@ export class TasksService {
     const updated = await this.findOne(id, user);
 
     // Reasignación (incluye pasar de "sin asignar" a alguien): mismo aviso
-    // que al crear la tarea. Un cambio de dueDate/status/etc. sin tocar la
-    // asignación NO reenvía el mensaje.
-    const reassignedToNewUser =
-      dto.assignedToId !== undefined && dto.assignedToId !== previousAssignedToId && dto.assignedToId;
+    // que al crear la tarea. El aviso depende solo del colaborador (ver
+    // notifyAssignment): un cambio de assignedToId/dueDate/status/etc. sin
+    // tocar el colaborador NO reenvía el mensaje.
     const reassignedToNewCollaborator =
       dto.collaboratorId !== undefined && dto.collaboratorId !== previousCollaboratorId && dto.collaboratorId;
-    if (reassignedToNewUser || reassignedToNewCollaborator) {
+    if (reassignedToNewCollaborator) {
       void this.notifyAssignment(updated);
     }
 
@@ -169,36 +167,24 @@ export class TasksService {
    * (ver WhatsappService, que ya loguea y traga sus propios errores).
    */
   private async notifyAssignment(task: Task): Promise<void> {
-    if (!task.assignedToId && !task.collaboratorId) return;
+    // El número siempre sale de Colaborador, nunca de Usuario — un usuario es
+    // una cuenta de acceso al sistema, el colaborador es la persona real en
+    // obra (con su teléfono real), aunque la tarea también tenga assignedToId.
+    if (!task.collaboratorId) return;
 
     const project = await this.projectsRepository.findOne({ where: { id: task.projectId } });
     if (!project) return;
 
-    if (task.assignedToId) {
-      const assignee = await this.usersRepository.findOne({ where: { id: task.assignedToId } });
-      if (assignee) {
-        this.whatsapp.sendTaskAssigned({
-          phone: assignee.phone,
-          recipientName: assignee.firstName,
-          projectName: project.name,
-          taskTitle: task.title,
-          dueDate: task.dueDate,
-        });
-      }
-    }
+    const collaborator = await this.collaboratorsRepository.findOne({ where: { id: task.collaboratorId } });
+    if (!collaborator) return;
 
-    if (task.collaboratorId) {
-      const collaborator = await this.collaboratorsRepository.findOne({ where: { id: task.collaboratorId } });
-      if (collaborator) {
-        this.whatsapp.sendTaskAssigned({
-          phone: collaborator.phone,
-          recipientName: collaborator.firstName,
-          projectName: project.name,
-          taskTitle: task.title,
-          dueDate: task.dueDate,
-        });
-      }
-    }
+    this.whatsapp.sendTaskAssigned({
+      phone: collaborator.phone,
+      recipientName: collaborator.firstName,
+      projectName: project.name,
+      taskTitle: task.title,
+      dueDate: task.dueDate,
+    });
   }
 
   // ── Acceso ────────────────────────────────────────────────────────────────
