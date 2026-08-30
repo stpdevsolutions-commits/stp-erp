@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Generated,
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
@@ -36,6 +37,12 @@ export enum TicketPriority {
 export class Ticket {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /** Número correlativo simple ("#7") para poder referirse a un ticket sin
+   * usar el UUID — independiente del id, autogenerado por Postgres (SERIAL). */
+  @Column({ unique: true })
+  @Generated('increment')
+  number: number;
 
   @Column()
   projectId: string;

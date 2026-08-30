@@ -11,6 +11,7 @@ export interface Project {
 
 export interface Ticket {
   id: string
+  number: number
   projectId: string
   project?: Project
   title: string

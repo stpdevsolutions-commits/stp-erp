@@ -105,6 +105,7 @@ export function TicketsBoard({
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>N°</TableHead>
             <TableHead>Título</TableHead>
             <TableHead>Proyecto</TableHead>
             <TableHead>Tipo</TableHead>
@@ -117,13 +118,14 @@ export function TicketsBoard({
         <TableBody>
           {tickets.length === 0 && (
             <TableRow>
-              <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+              <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                 No hay tickets con estos filtros.
               </TableCell>
             </TableRow>
           )}
           {tickets.map((t) => (
             <TableRow key={t.id}>
+              <TableCell className="font-mono text-muted-foreground">#{t.number}</TableCell>
               <TableCell className="whitespace-normal font-medium">{t.title}</TableCell>
               <TableCell>{projectById.get(t.projectId)?.name ?? '—'}</TableCell>
               <TableCell>{TYPE_LABELS[t.type]}</TableCell>
