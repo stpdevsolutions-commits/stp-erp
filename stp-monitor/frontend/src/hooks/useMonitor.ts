@@ -31,6 +31,12 @@ export interface DashboardData {
   alerts: Array<{
     id: string; serviceName: string; type: string; message: string; createdAt: string;
   }>;
+  projects: Array<{
+    id: string; name: string; location: 'local' | 'server'; path: string;
+    branch: string | null; ahead: number; behind: number; dirtyFiles: number;
+    lastCommitHash: string | null; lastCommitMessage: string | null; lastCommitDate: string | null;
+    error: string | null; reportedAt: string; stale: boolean;
+  }>;
   timestamp: string;
 }
 

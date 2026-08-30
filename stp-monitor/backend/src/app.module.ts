@@ -8,8 +8,10 @@ import { ContainersModule } from './containers/containers.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { ProjectsModule } from './projects/projects.module';
 import { ServiceCheck } from './services/entities/service-check.entity';
 import { Alert } from './alerts/entities/alert.entity';
+import { ProjectStatus } from './projects/entities/project-status.entity';
 
 @Module({
   imports: [
@@ -24,7 +26,7 @@ import { Alert } from './alerts/entities/alert.entity';
         username: config.get('DB_USER', 'stp_user'),
         password: config.get('DB_PASS'),
         database: config.get('DB_NAME', 'vigia_db'),
-        entities: [ServiceCheck, Alert],
+        entities: [ServiceCheck, Alert, ProjectStatus],
         synchronize: true,
       }),
     }),
@@ -33,6 +35,7 @@ import { Alert } from './alerts/entities/alert.entity';
     ContainersModule,
     AlertsModule,
     NotificationsModule,
+    ProjectsModule,
     GatewayModule,
   ],
 })

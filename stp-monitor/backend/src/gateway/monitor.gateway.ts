@@ -11,6 +11,7 @@ import { MetricsService } from '../metrics/metrics.service';
 import { ServicesService } from '../services/services.service';
 import { ContainersService } from '../containers/containers.service';
 import { AlertsService } from '../alerts/alerts.service';
+import { ProjectsService } from '../projects/projects.service';
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/monitor' })
 export class MonitorGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -21,6 +22,7 @@ export class MonitorGateway implements OnGatewayConnection, OnGatewayDisconnect 
     private readonly services: ServicesService,
     private readonly containers: ContainersService,
     private readonly alerts: AlertsService,
+    private readonly projects: ProjectsService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -43,16 +45,18 @@ export class MonitorGateway implements OnGatewayConnection, OnGatewayDisconnect 
   }
 
   private async buildPayload() {
-    const [metrics, containers, recentAlerts] = await Promise.all([
+    const [metrics, containers, recentAlerts, projects] = await Promise.all([
       this.metrics.getMetrics(),
       this.containers.getContainers(),
       this.alerts.getAlerts(5),
+      this.projects.getAll(),
     ]);
     return {
       metrics,
       services: this.services.getStatuses(),
       containers,
       alerts: recentAlerts,
+      projects,
       timestamp: new Date().toISOString(),
     };
   }

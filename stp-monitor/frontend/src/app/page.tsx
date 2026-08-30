@@ -229,6 +229,66 @@ export default function Dashboard() {
               </div>
             </section>
 
+            {/* ── PROYECTOS ── */}
+            <section>
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Proyectos
+                <span className="ml-2 text-xs font-normal text-gray-500">
+                  {data.projects.filter(p => p.dirtyFiles === 0 && !p.error).length} limpios de {data.projects.length}
+                </span>
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {data.projects.map((p) => {
+                  const dirty = p.dirtyFiles > 0;
+                  const hasError = !!p.error;
+                  const dotColor = hasError ? '#ef4444' : p.stale ? '#6b7280' : dirty ? '#f59e0b' : '#10b981';
+                  return (
+                    <div key={`${p.location}:${p.id}`} className="rounded-xl p-4 border"
+                      style={{ backgroundColor: '#111827', borderColor: hasError ? '#ef444433' : '#1f2937' }}>
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="font-medium text-white text-sm truncate">{p.name}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0" style={{
+                          color: p.location === 'server' ? '#60a5fa' : '#c084fc',
+                          backgroundColor: p.location === 'server' ? '#60a5fa22' : '#c084fc22',
+                        }}>
+                          {p.location === 'server' ? 'Servidor' : 'Local'}
+                        </span>
+                      </div>
+
+                      {hasError ? (
+                        <p className="text-xs mt-2" style={{ color: '#ef4444' }}>{p.error}</p>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <span className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: dotColor, boxShadow: `0 0 6px ${dotColor}` }} />
+                            <span className="font-mono">{p.branch ?? '—'}</span>
+                            {p.ahead > 0 && <span style={{ color: '#60a5fa' }}>↑{p.ahead}</span>}
+                            {p.behind > 0 && <span style={{ color: '#f59e0b' }}>↓{p.behind}</span>}
+                            {dirty && <span style={{ color: dotColor }}>{p.dirtyFiles} sin commitear</span>}
+                          </div>
+                          {p.lastCommitMessage && (
+                            <p className="text-xs text-gray-500 mt-2 truncate" title={p.lastCommitMessage}>
+                              <span className="font-mono text-gray-600">{p.lastCommitHash}</span> {p.lastCommitMessage}
+                            </p>
+                          )}
+                        </>
+                      )}
+
+                      <div className="text-xs text-gray-600 mt-2 flex items-center justify-between gap-2">
+                        <span className="truncate">{p.lastCommitDate ? formatRelativeTime(p.lastCommitDate) : ''}</span>
+                        {p.location === 'local' && (
+                          <span className="flex-shrink-0" style={{ color: p.stale ? '#f59e0b' : undefined }}>
+                            {p.stale ? '⚠ sin reportar' : `reportado ${formatRelativeTime(p.reportedAt)}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
             {/* ── CONTENEDORES ── */}
             <section>
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">

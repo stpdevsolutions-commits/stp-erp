@@ -34,6 +34,13 @@ const DEFAULT_SERVICES: ServiceDef[] = [
   { id: 'vaultwarden', name: 'Vaultwarden', url: 'http://stp-vaultwarden:80', type: 'http' },
   { id: 'adguard', name: 'AdGuard Home', url: 'https://stp-adguard:3443', type: 'http' },
   { id: 'estructuralrd', name: 'EstrucCalc RD', url: 'http://estructural_nginx:80', type: 'http' },
+  { id: 'ecf-api', name: 'eCF API', url: 'ecf-api:3000', type: 'tcp' },
+  { id: 'ecf-frontend', name: 'eCF Frontend', url: 'http://ecf-frontend:3000', type: 'http' },
+  { id: 'mi-dia-api', name: 'Mi Día API', url: 'mi-dia-api:3000', type: 'tcp' },
+  { id: 'mi-dia-frontend', name: 'Mi Día', url: 'http://mi-dia-frontend:80', type: 'http' },
+  { id: 'whatsapp-bridge', name: 'Puente WhatsApp', url: 'http://stp-whatsapp-bridge:3900/health', type: 'http' },
+  { id: 'immich', name: 'Immich', url: 'immich_server:2283', type: 'tcp' },
+  { id: 'uptime-kuma', name: 'Uptime Kuma', url: 'http://stp-uptime-kuma:3001', type: 'http' },
 ];
 
 @Injectable()

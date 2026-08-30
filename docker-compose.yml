@@ -234,10 +234,17 @@ services:
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       ALERT_TO_EMAIL: ${ALERT_TO_EMAIL:-pedroangss@gmail.com}
+      LOCAL_AGENT_KEY: ${LOCAL_AGENT_KEY:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /data:/data:ro
       - /storage:/storage:ro
+      # Solo lectura: ProjectsService corre git status/log ahí adentro (ver
+      # src/projects/projects.service.ts). /data/estructuralrd ya viene con el
+      # mount de /data de arriba.
+      - /home/stp/stp:/repos/stp:ro
+      - /home/stp/ecf-saas:/repos/ecf-saas:ro
+      - /home/stp/mi-dia:/repos/mi-dia:ro
     networks:
       - stp-network
       - estructuralrd_net
