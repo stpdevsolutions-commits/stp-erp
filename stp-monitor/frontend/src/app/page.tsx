@@ -1,7 +1,7 @@
 'use client';
 import Image from 'next/image';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useMonitor, DashboardData } from '@/hooks/useMonitor';
+import { useMonitor, DashboardData, ProjectEntry } from '@/hooks/useMonitor';
 import { formatBytes, formatUptime, formatRelativeTime, getProgressColor, getStatusColor } from '@/lib/format';
 
 // --- Sparkline SVG (sin librería, cero overhead) ---
@@ -50,8 +50,131 @@ function useHistory(value: number | undefined, max = 30) {
   return history;
 }
 
+// --- Detalle de proyecto (modal) ---
+function ProjectDetailModal({ project, onClose }: { project: ProjectEntry; onClose: () => void }) {
+  const dirty = project.dirtyFiles > 0;
+  const hasError = !!project.error;
+  const dotColor = hasError ? '#ef4444' : project.stale ? '#6b7280' : dirty ? '#f59e0b' : '#10b981';
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: '#00000090' }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl border w-full max-w-lg max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: '#111827', borderColor: '#1f2937' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b"
+          style={{ backgroundColor: '#111827', borderColor: '#1f2937' }}>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: dotColor, boxShadow: `0 0 6px ${dotColor}` }} />
+              <h3 className="text-base font-bold text-white">{project.name}</h3>
+            </div>
+            <span className="text-xs px-1.5 py-0.5 rounded font-medium mt-1.5 inline-block" style={{
+              color: project.location === 'server' ? '#60a5fa' : '#c084fc',
+              backgroundColor: project.location === 'server' ? '#60a5fa22' : '#c084fc22',
+            }}>
+              {project.location === 'server' ? 'Servidor' : 'Local'}
+            </span>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl leading-none px-1" aria-label="Cerrar">✕</button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {project.meta ? (
+            <>
+              <p className="text-sm text-gray-300 leading-relaxed">{project.meta.purpose}</p>
+
+              <div className="flex flex-wrap gap-1.5">
+                {project.meta.stack.map((s) => (
+                  <span key={s} className="text-xs px-2 py-0.5 rounded font-mono" style={{ backgroundColor: '#1f2937', color: '#93c5fd' }}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Estado</div>
+                <p className="text-sm text-gray-300 leading-relaxed">{project.meta.status}</p>
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Lo último que se hizo</div>
+                <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside marker:text-gray-600">
+                  {project.meta.recentWork.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </div>
+
+              {project.meta.links && project.meta.links.length > 0 && (
+                <div className="flex flex-wrap gap-3 pt-1">
+                  {project.meta.links.map((l) => (
+                    <a key={l.url} href={l.url} target="_blank" rel="noreferrer"
+                      className="text-xs font-medium" style={{ color: '#60a5fa' }}>
+                      {l.label} ↗
+                    </a>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-gray-500 italic">Sin ficha técnica escrita todavía para este proyecto.</p>
+          )}
+
+          <div className="border-t pt-3" style={{ borderColor: '#1f2937' }}>
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Detalle técnico en vivo</div>
+            {hasError ? (
+              <p className="text-xs" style={{ color: '#ef4444' }}>{project.error}</p>
+            ) : (
+              <div className="text-xs text-gray-400 font-mono space-y-1">
+                <div>Rama: <span className="text-gray-300">{project.branch ?? '—'}</span></div>
+                <div>Ruta: <span className="text-gray-300">{project.path}</span></div>
+                {project.lastCommitHash && (
+                  <div className="break-words">
+                    Último commit: <span className="text-gray-300">{project.lastCommitHash}</span> — {project.lastCommitMessage}
+                    {project.lastCommitDate && <span className="text-gray-600"> ({formatRelativeTime(project.lastCommitDate)})</span>}
+                  </div>
+                )}
+                <div>
+                  {dirty ? <span style={{ color: dotColor }}>{project.dirtyFiles} archivo(s) sin commitear</span> : 'Working tree limpio'}
+                  {project.ahead > 0 && <span style={{ color: '#60a5fa' }}> · ↑{project.ahead} sin subir</span>}
+                  {project.behind > 0 && <span style={{ color: '#f59e0b' }}> · ↓{project.behind} detrás del remoto</span>}
+                </div>
+                {project.location === 'local' && (
+                  <div className={project.stale ? '' : 'text-gray-600'} style={project.stale ? { color: '#f59e0b' } : undefined}>
+                    {project.stale ? '⚠ el agente local no reporta hace rato' : `reportado ${formatRelativeTime(project.reportedAt)}`}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { data, isConnected, lastUpdate } = useMonitor();
+  const [selectedProject, setSelectedProject] = useState<ProjectEntry | null>(null);
+
+  // Si Vigía manda un dato más fresco del mismo proyecto mientras el modal está abierto, que se actualice en vivo en vez de quedar congelado.
+  useEffect(() => {
+    if (!selectedProject || !data) return;
+    const fresh = data.projects.find((p) => p.id === selectedProject.id && p.location === selectedProject.location);
+    if (fresh && fresh !== selectedProject) setSelectedProject(fresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   const cpuHistory = useHistory(data?.metrics.cpu.percent);
   const ramHistory = useHistory(data?.metrics.ram.percent);
@@ -243,8 +366,13 @@ export default function Dashboard() {
                   const hasError = !!p.error;
                   const dotColor = hasError ? '#ef4444' : p.stale ? '#6b7280' : dirty ? '#f59e0b' : '#10b981';
                   return (
-                    <div key={`${p.location}:${p.id}`} className="rounded-xl p-4 border"
-                      style={{ backgroundColor: '#111827', borderColor: hasError ? '#ef444433' : '#1f2937' }}>
+                    <div key={`${p.location}:${p.id}`}
+                      className="rounded-xl p-4 border cursor-pointer transition-colors hover:border-gray-600"
+                      style={{ backgroundColor: '#111827', borderColor: hasError ? '#ef444433' : '#1f2937' }}
+                      onClick={() => setSelectedProject(p)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedProject(p); }}>
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <span className="font-medium text-white text-sm truncate">{p.name}</span>
                         <span className="text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0" style={{
@@ -283,6 +411,7 @@ export default function Dashboard() {
                           </span>
                         )}
                       </div>
+                      {p.meta && <div className="text-xs mt-2" style={{ color: '#3b82f6' }}>Ver detalle →</div>}
                     </div>
                   );
                 })}
@@ -369,6 +498,10 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      {selectedProject && (
+        <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} />
+      )}
     </div>
   );
 }

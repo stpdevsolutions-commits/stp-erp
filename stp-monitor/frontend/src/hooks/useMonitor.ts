@@ -36,9 +36,15 @@ export interface DashboardData {
     branch: string | null; ahead: number; behind: number; dirtyFiles: number;
     lastCommitHash: string | null; lastCommitMessage: string | null; lastCommitDate: string | null;
     error: string | null; reportedAt: string; stale: boolean;
+    meta: {
+      purpose: string; stack: string[]; status: string; recentWork: string[];
+      links?: { label: string; url: string }[];
+    } | null;
   }>;
   timestamp: string;
 }
+
+export type ProjectEntry = DashboardData['projects'][number];
 
 export function useMonitor() {
   const [data, setData] = useState<DashboardData | null>(null);

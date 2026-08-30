@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Interval } from '@nestjs/schedule';
 import simpleGit from 'simple-git';
 import { ProjectStatus, ProjectLocation } from './entities/project-status.entity';
+import { PROJECT_META, ProjectMeta } from './project-meta';
 
 interface ServerProjectDef {
   id: string;
@@ -56,6 +57,8 @@ export interface ProjectStatusDto {
   reportedAt: string;
   /** Local no reportó en la última ventana esperada (agente apagado/sin VPN). Server nunca es "stale": se recalcula cada minuto. */
   stale: boolean;
+  /** Ficha técnica escrita a mano (para qué sirve, estado real, último trabajo) — ver project-meta.ts. Puede no existir para un id nuevo. */
+  meta: ProjectMeta | null;
 }
 
 /** Si un reporte local es más viejo que esto, se marca "desactualizado" en vez de fallar silenciosamente. */
@@ -86,6 +89,7 @@ export class ProjectsService {
       path: def.path,
       reportedAt: new Date().toISOString(),
       stale: false,
+      meta: PROJECT_META[def.id] ?? null,
     };
     try {
       const git = simpleGit(def.path);
@@ -160,6 +164,7 @@ export class ProjectsService {
       error: r.error,
       reportedAt: r.reportedAt.toISOString(),
       stale: now - r.reportedAt.getTime() > LOCAL_STALE_AFTER_MS,
+      meta: PROJECT_META[r.id] ?? null,
     }));
     return [...this.serverCache, ...local];
   }

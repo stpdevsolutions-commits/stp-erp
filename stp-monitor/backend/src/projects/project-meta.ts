@@ -1,0 +1,100 @@
+export interface ProjectMeta {
+  /** Para qué sirve el proyecto, en una o dos frases. */
+  purpose: string;
+  /** Tags cortos de stack técnico. */
+  stack: string[];
+  /** Párrafo del estado actual — no es lo que dice git, es el contexto real. */
+  status: string;
+  /** Lo último que se hizo, más reciente primero. Actualizar a mano cuando cambie mucho. */
+  recentWork: string[];
+  /** Enlaces útiles (app en vivo, panel admin, etc.), opcional. */
+  links?: { label: string; url: string }[];
+}
+
+/**
+ * Ficha técnica de cada proyecto — contenido escrito a mano, no calculado.
+ * Git dice la rama y el último commit; esto dice para qué sirve, en qué
+ * estado real está y qué se hizo últimamente. Se actualiza cuando cambie algo
+ * importante, no en cada commit.
+ */
+export const PROJECT_META: Record<string, ProjectMeta> = {
+  'stp-erp': {
+    purpose:
+      'ERP interno de STP: proyectos, clientes, cotizaciones, tareas, fichas técnicas de campo, nómina, catálogo de costos/materiales y facturación.',
+    stack: ['NestJS', 'TypeORM', 'PostgreSQL', 'Next.js', 'Docker', 'Caddy'],
+    status:
+      'En producción, uso diario del equipo. Base de todo lo demás: la app móvil de técnicos, el catálogo de descargas y Vigía mismo viven en el mismo servidor y comparten esta infraestructura.',
+    recentWork: [
+      'WhatsApp de asignación de tareas vía puente propio (Baileys) — código listo, pausado esperando vincular el teléfono original de +1 809-537-6566.',
+      'Campo de teléfono en el perfil de usuario, para poder notificar a los técnicos.',
+      'Login con Google y reestructuración de fichas (Domótica separada de Levantamiento) en la app móvil.',
+      'Vigía ampliado con el módulo de Proyectos y más servicios monitoreados.',
+    ],
+    links: [{ label: 'ERP', url: 'https://erp.stpsoluciones.com' }],
+  },
+  'stp-mobile': {
+    purpose:
+      'App móvil para los técnicos de campo de STP: llenar fichas técnicas (eléctrico, civil, electromecánico, levantamiento, domótica, evaluación de daños) desde el sitio, con fotos, firma y GPS.',
+    stack: ['Expo', 'React Native', 'TypeScript', 'expo-router'],
+    status:
+      'Al día, distribuida por apk.stpsoluciones.com (no Play Store). Login con Google funcionando además del de correo/contraseña.',
+    recentWork: [
+      'Corregido el redirect_uri del login con Google (Error 400 invalid_request de Meta).',
+      'Levantamiento general separado de Domótica: puntos eléctricos (cajitas/tomas/interruptores/luminarias) y materiales tomados del catálogo real del ERP.',
+      'Nueva ficha de Domótica independiente (conectividad, panel eléctrico, ambientes, cotización).',
+    ],
+  },
+  'ecf-saas': {
+    purpose:
+      'Facturación electrónica (comprobantes fiscales e-CF) para la DGII — pensado a futuro como módulo de facturación dentro del ERP de STP.',
+    stack: ['NestJS', 'Next.js', 'PostgreSQL', 'Redis'],
+    status:
+      'Desarrollo pausado. La rama activa nunca se fusionó a main y el último commit real tiene casi dos meses. El contenedor de la API funciona bien pero Docker lo marca "unhealthy" por un healthcheck que apunta a una ruta que no existe (bug conocido, no afecta el uso real).',
+    recentWork: [
+      'fix: seguridad/consistencia DGII por empresa, tasa de ITBIS seleccionable y rediseño de líneas de detalle (4 de julio).',
+    ],
+  },
+  'mi-dia': {
+    purpose: 'PWA personal de tareas y notas del día a día, con su propio backend — no depende del ERP.',
+    stack: ['React', 'PWA', 'API propia', 'PostgreSQL'],
+    status: 'En vivo y estable, uso diario. Es la única app deliberadamente pública (sin exigir VPN) porque tiene que abrir desde el celular en cualquier red.',
+    recentWork: ['feat(ui): paleta verde salvia en vez de azul/turquesa.'],
+    links: [{ label: 'Mi Día', url: 'https://dia.stpsoluciones.com' }],
+  },
+  estructuralrd: {
+    purpose:
+      'Calculadora estructural para ingeniería civil en RD: vigas, columnas, torsión, columna corta, muro especial (§18.10), irregularidades sísmicas.',
+    stack: ['React', 'Node.js', 'PostgreSQL', 'nginx'],
+    status:
+      'Activo. Se unificó con vigacalc-rd (la calculadora standalone anterior) el 29 de agosto, quedando como la única herramienta de cálculo estructural del equipo.',
+    recentWork: ['Módulo de Grilla: ejes, tramos por sección, huecos y castillos, con eliminación granular real por ítem.'],
+  },
+  fiscord: {
+    purpose:
+      'SaaS de facturación y gestión de NCF/DGII para negocios en RD, con app móvil vía Capacitor — proyecto aparte del servidor de STP.',
+    stack: ['React', 'Vite', 'Supabase', 'Capacitor'],
+    status: 'Web al día en Vercel. APK Android firmado con keystore real, publicado en apk.stpsoluciones.com.',
+    recentWork: [
+      'docs(legal): corregida la razón social y el RNC en Términos/Privacidad.',
+      'fix: la recuperación de contraseña daba acceso completo a la cuenta sin pedir una nueva.',
+      'feat(superadmin): envío de códigos de descuento desde el detalle de la empresa.',
+    ],
+    links: [{ label: 'Web', url: 'https://fiscord.app' }],
+  },
+  'red-bendicion': {
+    purpose: 'Plataforma para una red de iglesias en casa: directorio de hubs, mapa y panel administrativo interno.',
+    stack: ['Next.js', 'Supabase'],
+    status: 'Al día, sin pendientes abiertos.',
+    recentWork: [
+      '"Una red de redes" agregado arriba de la jerarquía en el login.',
+      'Corregido el watermark de los mapas (cambio de proveedor de tiles a OSM/OpenTopoMap).',
+      'Rediseño del login y filtro de tipo de mapa en el panel interno.',
+    ],
+  },
+  vigacalc: {
+    purpose: 'Calculadora de vigas standalone — la herramienta original antes de unificarse en EstrucCalc RD Pro.',
+    stack: ['HTML/JS'],
+    status: 'Retirado. Ya no es donde se trabaja; toda su funcionalidad vive ahora en EstrucCalc RD Pro.',
+    recentWork: ['(sin cambios recientes — repo de referencia, no activo)'],
+  },
+};
