@@ -25,8 +25,8 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     status:
       'En producción, uso diario del equipo. Base de todo lo demás: la app móvil de técnicos, el catálogo de descargas y Vigía mismo viven en el mismo servidor y comparten esta infraestructura.',
     recentWork: [
-      'WhatsApp de asignación de tareas vía puente propio (Baileys) — sesión vinculada y probada de punta a punta (mensaje de prueba confirmado recibido). Falta que los técnicos tengan su teléfono cargado en el perfil para empezar a recibir avisos de verdad.',
-      'Campo de teléfono en el perfil de usuario, para poder notificar a los técnicos.',
+      'WhatsApp de asignación de tareas: el número siempre sale del Colaborador (persona real en obra), nunca del Usuario (cuenta de acceso) — evita duplicar avisos o notificar al teléfono equivocado.',
+      'WhatsApp de asignación de tareas vía puente propio (Baileys) — sesión vinculada y probada de punta a punta (mensaje de prueba confirmado recibido).',
       'Login con Google y reestructuración de fichas (Domótica separada de Levantamiento) en la app móvil.',
       'Vigía ampliado con el módulo de Proyectos y más servicios monitoreados.',
     ],
