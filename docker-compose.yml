@@ -272,6 +272,50 @@ services:
     depends_on:
       - vigia-backend
 
+
+  # STP Tickets — backend (NestJS). Rastrea bugs/cambios/mejoras de TODOS los
+  # proyectos de STP, no solo el ERP; por eso es su propio servicio en vez de
+  # un módulo dentro de stp-api. Comparte el Postgres de siempre (tickets_db,
+  # igual que Vigía usa vigia_db). Puerto en 127.0.0.1 para poder curl-earlo
+  # directo por SSH (así lo uso yo) sin pasar por Caddy/VPN.
+  stp-tickets-api:
+    build:
+      context: ./stp-tickets-api
+      dockerfile: Dockerfile
+    container_name: stp-tickets-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3003:3003"
+    environment:
+      PORT: 3003
+      DB_HOST: stp-postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASS: ${POSTGRES_PASSWORD}
+      DB_NAME: tickets_db
+      TICKETS_AGENT_KEY: ${TICKETS_AGENT_KEY}
+    networks:
+      - stp-network
+    depends_on:
+      stp-postgres:
+        condition: service_healthy
+
+  # STP Tickets — frontend (Next.js, sin login). Gateado por Caddy remote_ip
+  # igual que Vigía: se abre del cel con Tailscale, sin pantalla de acceso.
+  stp-tickets-web:
+    build:
+      context: ./stp-tickets-web
+      dockerfile: Dockerfile
+    container_name: stp-tickets-web
+    restart: unless-stopped
+    environment:
+      TICKETS_API_URL: http://stp-tickets-api:3003/api
+      TICKETS_AGENT_KEY: ${TICKETS_AGENT_KEY}
+    networks:
+      - stp-network
+    depends_on:
+      - stp-tickets-api
+
 volumes:
   postgres-data:
   redis-data:

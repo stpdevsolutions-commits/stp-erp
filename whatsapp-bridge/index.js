@@ -29,6 +29,25 @@ const AUTH_DIR = process.env.AUTH_DIR || '/data/auth';
 let sock = null;
 let connectionStatus = 'disconnected';
 
+// Almacén mínimo de mensajes enviados, en memoria: cuando el teléfono
+// receptor no logra descifrar un mensaje a la primera (normal al abrir una
+// sesión nueva), WhatsApp pide un reintento y Baileys llama a `getMessage`
+// para volver a cifrar y reenviar el mismo contenido. Sin esto, el mensaje
+// se queda para siempre como "Esperando este mensaje" en el teléfono — es un
+// problema documentado de Baileys, no de la sesión en sí. Se limita el
+// tamaño para no crecer sin límite en un proceso de larga duración.
+const sentMessages = new Map();
+const MAX_STORED_MESSAGES = 500;
+
+function rememberSentMessage(key, message) {
+  if (!key?.id) return;
+  sentMessages.set(key.id, message);
+  if (sentMessages.size > MAX_STORED_MESSAGES) {
+    const oldestKey = sentMessages.keys().next().value;
+    sentMessages.delete(oldestKey);
+  }
+}
+
 async function startSock() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
@@ -41,6 +60,9 @@ async function startSock() {
     // Manejamos el QR nosotros (abajo) para poder loguear instrucciones claras
     // junto a él — printQRInTerminal queda deprecado en versiones nuevas.
     printQRInTerminal: false,
+    // Ver comentario de `sentMessages` arriba: sin esto, un reintento de
+    // descifrado del receptor no tiene forma de completarse.
+    getMessage: async (key) => sentMessages.get(key.id),
   });
 
   sock.ev.on('creds.update', saveCreds);
@@ -155,7 +177,8 @@ app.post('/send', async (req, res) => {
   }
   try {
     const jid = `${to}@s.whatsapp.net`;
-    await sock.sendMessage(jid, { text });
+    const sent = await sock.sendMessage(jid, { text });
+    rememberSentMessage(sent?.key, sent?.message);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
