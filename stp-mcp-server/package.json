@@ -1,0 +1,16 @@
+{
+  "name": "stp-mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servidor MCP a la medida: le da a Hermes Agent acceso a los Tickets de STP (crear/consultar) por HTTP.",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "express": "^4.19.2",
+    "zod": "^3.24.1"
+  }
+}

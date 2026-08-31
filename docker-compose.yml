@@ -299,6 +299,27 @@ services:
     depends_on:
       - stp-tickets-api
 
+
+  # Servidor MCP propio — le da a Hermes Agent (u otro cliente MCP) acceso de
+  # herramientas sobre Tickets de STP. Puerto en 127.0.0.1 porque Hermes corre
+  # con network_mode: host y lo alcanza por localhost, sin pasar por Caddy.
+  stp-mcp-server:
+    build:
+      context: ./stp-mcp-server
+      dockerfile: Dockerfile
+    container_name: stp-mcp-server
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3005:3005"
+    environment:
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN}
+      TICKETS_API_URL: http://stp-tickets-api:3003/api
+      TICKETS_AGENT_KEY: ${TICKETS_AGENT_KEY}
+    networks:
+      - stp-network
+    depends_on:
+      - stp-tickets-api
+
 volumes:
   postgres-data:
   redis-data:
