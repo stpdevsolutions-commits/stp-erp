@@ -5,6 +5,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { Project } from './projects/entities/project.entity';
 import { Ticket } from './tickets/entities/ticket.entity';
+import { TicketComment } from './tickets/entities/ticket-comment.entity';
 import { HealthController } from './common/health.controller';
 
 @Module({
@@ -19,7 +20,7 @@ import { HealthController } from './common/health.controller';
         username: config.get('DB_USER', 'stp_user'),
         password: config.get('DB_PASS'),
         database: config.get('DB_NAME', 'tickets_db'),
-        entities: [Project, Ticket],
+        entities: [Project, Ticket, TicketComment],
         synchronize: true,
       }),
     }),

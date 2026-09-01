@@ -5,15 +5,18 @@ import {
   Generated,
   ManyToOne,
   JoinColumn,
+  OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
+import { TicketComment } from './ticket-comment.entity';
 
 export enum TicketType {
   BUG = 'bug',
   MEJORA = 'mejora',
   CAMBIO = 'cambio',
+  DESARROLLO = 'desarrollo',
 }
 
 /** Mismo vocabulario que TaskStatus en stp-erp — un solo idioma de estados
@@ -38,11 +41,19 @@ export class Ticket {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  /** Número correlativo simple ("#7") para poder referirse a un ticket sin
-   * usar el UUID — independiente del id, autogenerado por Postgres (SERIAL). */
+  /** Número correlativo GLOBAL ("#7") — se mantiene por compatibilidad y
+   * como referencia cronológica absoluta, pero ya no es el identificador
+   * principal que se muestra: eso es el código (ver projectNumber). */
   @Column({ unique: true })
   @Generated('increment')
   number: number;
+
+  /** Número correlativo DENTRO del proyecto (FRD-1, FRD-2...) — este es el
+   * identificador que se muestra. Se asigna en TicketsService.create con un
+   * UPDATE atómico sobre Project.nextTicketNumber, nunca con @Generated,
+   * porque necesita reiniciar en 1 por cada proyecto, no ser global. */
+  @Column({ type: 'int' })
+  projectNumber: number;
 
   @Column()
   projectId: string;
@@ -71,6 +82,11 @@ export class Ticket {
   @Column({ default: 'Pedro' })
   reportedBy: string;
 
+  /** Texto libre también — quién lo está trabajando. Sin sistema de
+   * usuarios real, así que no hay nada que validar contra una tabla. */
+  @Column({ type: 'varchar', nullable: true })
+  assignedTo: string;
+
   @Column({ type: 'date', nullable: true })
   resolvedAt: string;
 
@@ -79,4 +95,7 @@ export class Ticket {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => TicketComment, (comment) => comment.ticket)
+  comments: TicketComment[];
 }

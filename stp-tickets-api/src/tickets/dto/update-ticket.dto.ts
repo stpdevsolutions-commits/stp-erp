@@ -27,4 +27,8 @@ export class UpdateTicketDto {
   @IsOptional()
   @IsEnum(TicketPriority)
   priority?: TicketPriority;
+
+  @IsOptional()
+  @IsString()
+  assignedTo?: string | null;
 }

@@ -24,4 +24,8 @@ export class CreateTicketDto {
   @IsOptional()
   @IsString()
   reportedBy?: string;
+
+  @IsOptional()
+  @IsString()
+  assignedTo?: string;
 }

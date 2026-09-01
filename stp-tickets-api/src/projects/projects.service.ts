@@ -22,7 +22,7 @@ export class ProjectsService {
 
   /** Crea el catálogo inicial si la tabla está vacía — evita un paso manual
    * de seed la primera vez que arranca el servicio. */
-  async seedIfEmpty(defaults: { slug: string; name: string }[]): Promise<void> {
+  async seedIfEmpty(defaults: { slug: string; name: string; code: string }[]): Promise<void> {
     const count = await this.projectsRepository.count();
     if (count > 0) return;
     await this.projectsRepository.save(
