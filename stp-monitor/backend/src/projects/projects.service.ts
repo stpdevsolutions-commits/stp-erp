@@ -24,6 +24,7 @@ const SERVER_PROJECTS: ServerProjectDef[] = [
   { id: 'ecf-saas', name: 'eCF-SaaS', path: '/repos/ecf-saas' },
   { id: 'mi-dia', name: 'Mi Día', path: '/repos/mi-dia' },
   { id: 'estructuralrd', name: 'EstrucCalc RD Pro', path: '/data/estructuralrd' },
+  { id: 'hermes-agent', name: 'Hermes Agent (asistente personal)', path: '/repos/hermes-agent' },
 ];
 
 /** Reporte que manda el agente local (ver scripts/local-agent en el repo). */

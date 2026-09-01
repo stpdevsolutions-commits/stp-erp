@@ -228,6 +228,7 @@ services:
       - /home/stp/stp:/repos/stp:ro
       - /home/stp/ecf-saas:/repos/ecf-saas:ro
       - /home/stp/mi-dia:/repos/mi-dia:ro
+      - /home/stp/hermes-agent:/repos/hermes-agent:ro
       # /proc del HOST (no el propio del contenedor) para medir Red de verdad:
       # las interfaces de red SIEMPRE están namespaced por contenedor en Linux
       # (a diferencia de CPU/RAM), así que sin esto MetricsService solo veía

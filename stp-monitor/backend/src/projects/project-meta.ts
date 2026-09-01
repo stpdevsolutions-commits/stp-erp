@@ -25,10 +25,10 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     status:
       'En producción, uso diario del equipo. Base de todo lo demás: la app móvil de técnicos, el catálogo de descargas y Vigía mismo viven en el mismo servidor y comparten esta infraestructura.',
     recentWork: [
-      'WhatsApp de asignación de tareas: puente propio (Baileys) probado y descartado — los mensajes salían pero el receptor nunca lograba descifrarlos, ni con Baileys 6.x ni 7.0-rc. Notificación queda desactivada (WhatsappService no-op) hasta usar la API oficial de Meta.',
-      'Checkbox "Notificar por WhatsApp al colaborador" y el resto de la feature (número siempre del Colaborador, nunca de Usuario) quedan listos en el código para cuando haya un proveedor real.',
+      'WhatsApp de asignación de tareas migrado a la API oficial de Meta (Cloud API) — número real conectado, token permanente, webhook de estado, plantilla "tarea_asignada" aprobada y confirmada de punta a punta. Se abandonó del todo el puente no oficial (Baileys) por un problema real de la librería, no de configuración.',
+      'STP Tickets (sistema propio de bugs/cambios/mejoras): número de reporte correlativo por ticket, y ahora conectado a Hermes Agent vía MCP — se puede crear/consultar tickets por chat de Telegram.',
+      'Cotizaciones: el ITBIS de gastos indirectos ahora es removible y con base elegible (gravables o total de la factura) — antes quedaba fijo en "Dirección Técnica" sin poder quitarse.',
       'Login con Google y reestructuración de fichas (Domótica separada de Levantamiento) en la app móvil.',
-      'Vigía ampliado con el módulo de Proyectos y más servicios monitoreados.',
     ],
     links: [{ label: 'ERP', url: 'https://erp.stpsoluciones.com' }],
   },
@@ -101,5 +101,17 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: ['HTML/JS'],
     status: 'Retirado. Ya no es donde se trabaja; toda su funcionalidad vive ahora en EstrucCalc RD Pro.',
     recentWork: ['(sin cambios recientes — repo de referencia, no activo)'],
+  },
+  'hermes-agent': {
+    purpose:
+      'Asistente personal de Pedro por Telegram (@stp_asistente_bot) — open source de Nous Research, no desarrollado por STP, solo desplegado y conectado a los sistemas propios.',
+    stack: ['Python', 'Docker', 'OpenRouter (nvidia/nemotron-3-super-120b-a12b:free)', 'MCP'],
+    status:
+      'En producción. Conectado a STP Tickets vía un servidor MCP propio (stp-mcp-server, en el repo de stp-erp) — puede crear y consultar tickets por chat. Probado de punta a punta con un ticket real.',
+    recentWork: [
+      'Vinculado a Telegram y a OpenRouter (modelo gratis) — 2026-09-01.',
+      'Servidor MCP propio construido y conectado: list_projects, list_tickets, create_ticket, update_ticket_status sobre la API real de Tickets.',
+      'Pendiente para más adelante (identificado, no construido): sumar Tareas del ERP y Vigía de solo lectura al mismo MCP.',
+    ],
   },
 };
