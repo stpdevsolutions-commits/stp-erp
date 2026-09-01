@@ -28,8 +28,14 @@ import type { Project } from '@/lib/types'
 import { createTicket } from '@/lib/actions/tickets'
 import { TYPE_LABELS, PRIORITY_LABELS } from './labels'
 
+/** Sentinel para "sin proyecto" — el proyecto es opcional porque un ticket
+ * de tipo "desarrollo" puede reportar un sistema que todavía no existe en
+ * la lista. El Select de base-ui no acepta value="", así que usamos esto y
+ * lo convertimos a undefined al enviar. */
+const SIN_PROYECTO = '__sin_proyecto__'
+
 const schema = z.object({
-  projectId: z.string().min(1, 'Selecciona un proyecto'),
+  projectId: z.string().optional(),
   title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
   description: z.string().optional(),
   type: z.enum(['bug', 'mejora', 'cambio', 'desarrollo']),
@@ -52,13 +58,13 @@ export function NuevoTicketDialog({ projects }: { projects: Project[] }) {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { type: 'mejora', priority: 'medium' },
+    defaultValues: { type: 'mejora', priority: 'medium', projectId: SIN_PROYECTO },
   })
 
   async function onSubmit(data: FormValues) {
     setServerError(null)
     const result = await createTicket({
-      projectId: data.projectId,
+      projectId: data.projectId === SIN_PROYECTO ? undefined : data.projectId,
       title: data.title,
       description: data.description || undefined,
       type: data.type,
@@ -98,27 +104,22 @@ export function NuevoTicketDialog({ projects }: { projects: Project[] }) {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label>
-              Proyecto <span className="text-destructive">*</span>
-            </Label>
+            <Label>Tipo</Label>
             <Select
-              value={watch('projectId')}
-              onValueChange={(v) => v && setValue('projectId', v, { shouldValidate: true })}
+              value={watch('type')}
+              onValueChange={(v) => v && setValue('type', v as FormValues['type'])}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleccionar proyecto" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
+                {Object.entries(TYPE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {errors.projectId && (
-              <p className="text-xs text-destructive">{errors.projectId.message}</p>
-            )}
           </div>
 
           <div className="space-y-1.5">
@@ -129,26 +130,30 @@ export function NuevoTicketDialog({ projects }: { projects: Project[] }) {
             {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Tipo</Label>
-              <Select
-                value={watch('type')}
-                onValueChange={(v) => v && setValue('type', v as FormValues['type'])}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TYPE_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-1.5">
+            <Label>Proyecto</Label>
+            <Select
+              value={watch('projectId')}
+              onValueChange={(v) => v && setValue('projectId', v)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Seleccionar proyecto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_PROYECTO}>Sin proyecto (nuevo desarrollo)</SelectItem>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Déjalo en &quot;Sin proyecto&quot; si es un sistema nuevo que todavía no existe en la lista.
+            </p>
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Prioridad</Label>
               <Select
@@ -167,11 +172,11 @@ export function NuevoTicketDialog({ projects }: { projects: Project[] }) {
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="assignedTo">Asignado a</Label>
-            <Input id="assignedTo" placeholder="Opcional" {...register('assignedTo')} />
+            <div className="space-y-1.5">
+              <Label htmlFor="assignedTo">Asignado a</Label>
+              <Input id="assignedTo" placeholder="Opcional" {...register('assignedTo')} />
+            </div>
           </div>
 
           <div className="space-y-1.5">

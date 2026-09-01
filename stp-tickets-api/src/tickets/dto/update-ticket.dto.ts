@@ -2,9 +2,12 @@ import { IsString, IsOptional, IsEnum, IsUUID, MinLength, MaxLength } from 'clas
 import { TicketType, TicketStatus, TicketPriority } from '../entities/ticket.entity';
 
 export class UpdateTicketDto {
+  // @IsOptional() en class-validator también deja pasar null, no solo
+  // undefined — así se puede desasignar el proyecto de un ticket (PATCH con
+  // projectId: null) sin que @IsUUID() lo rechace.
   @IsOptional()
   @IsUUID()
-  projectId?: string;
+  projectId?: string | null;
 
   @IsOptional()
   @IsString()

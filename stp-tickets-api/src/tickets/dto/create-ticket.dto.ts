@@ -2,8 +2,11 @@ import { IsString, IsOptional, IsEnum, IsUUID, MinLength, MaxLength } from 'clas
 import { TicketType, TicketPriority } from '../entities/ticket.entity';
 
 export class CreateTicketDto {
+  /** Opcional: un ticket de tipo "desarrollo" puede reportar un sistema
+   * nuevo que aún no existe en la lista de proyectos. */
+  @IsOptional()
   @IsUUID()
-  projectId: string;
+  projectId?: string;
 
   @IsString()
   @MinLength(2)

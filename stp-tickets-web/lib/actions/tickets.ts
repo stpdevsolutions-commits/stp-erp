@@ -48,7 +48,9 @@ export async function getTicket(id: string): Promise<Ticket | null> {
 }
 
 export interface CreateTicketInput {
-  projectId: string
+  /** Opcional: un ticket de tipo "desarrollo" puede reportar un sistema
+   * nuevo que aún no existe en la lista de proyectos. */
+  projectId?: string
   title: string
   description?: string
   type: TicketType
@@ -71,7 +73,8 @@ export async function createTicket(input: CreateTicketInput): Promise<ActionResu
 }
 
 export interface UpdateTicketInput {
-  projectId?: string
+  /** null explícito para desasignar el proyecto (ver ticket-actions.tsx). */
+  projectId?: string | null
   title?: string
   description?: string | null
   type?: TicketType

@@ -34,6 +34,21 @@ export class TicketsService {
   ) {}
 
   async create(dto: CreateTicketDto): Promise<Ticket> {
+    // Sin proyecto es válido (p.ej. tipo "desarrollo" para un sistema que
+    // todavía no existe en la lista) — en ese caso no hay contador de
+    // proyecto que tocar, se guarda tal cual y se muestra por su número
+    // global (#7) en vez de un código FRD-7.
+    if (!dto.projectId) {
+      const ticket = this.ticketsRepository.create({ ...dto, projectId: null, projectNumber: null });
+      const saved = await this.ticketsRepository.save(ticket);
+      const full = await this.findOne(saved.id);
+      this.notify.send(
+        `🎫 Ticket nuevo #${full.number}: ${full.title}\n` +
+          `(sin proyecto) · ${full.type} · prioridad ${full.priority}`,
+      );
+      return full;
+    }
+
     const project = await this.projectsRepository.findOne({ where: { id: dto.projectId } });
     if (!project) throw new NotFoundException('Project not found');
 
@@ -96,6 +111,14 @@ export class TicketsService {
     const ticket = await this.findOne(id);
     const wasOpen = ticket.status !== TicketStatus.DONE && ticket.status !== TicketStatus.CANCELLED;
     Object.assign(ticket, dto);
+    // Desasignar el proyecto (projectId: null) deja projectNumber sin
+    // sentido — sin proyecto, el código vuelve a ser el número global.
+    // No cubre reasignar a OTRO proyecto (ese caso ya existía sin resolver
+    // antes de este cambio y no lo tocamos aquí: requeriría el mismo
+    // UPDATE...RETURNING atómico de create() para tomar un número nuevo).
+    if (dto.projectId === null) {
+      ticket.projectNumber = null;
+    }
     if (dto.status === TicketStatus.DONE && !ticket.resolvedAt) {
       ticket.resolvedAt = new Date().toISOString().split('T')[0];
     } else if (dto.status !== undefined && dto.status !== TicketStatus.DONE) {
@@ -105,7 +128,8 @@ export class TicketsService {
     const full = await this.findOne(id);
 
     if (wasOpen && dto.status === TicketStatus.DONE) {
-      this.notify.send(`✅ Resuelto ${full.project.code}-${full.projectNumber}: ${full.title}`);
+      const code = full.project ? `${full.project.code}-${full.projectNumber}` : `#${full.number}`;
+      this.notify.send(`✅ Resuelto ${code}: ${full.title}`);
     }
 
     return full;

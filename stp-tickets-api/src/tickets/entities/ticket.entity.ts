@@ -51,16 +51,21 @@ export class Ticket {
   /** Número correlativo DENTRO del proyecto (FRD-1, FRD-2...) — este es el
    * identificador que se muestra. Se asigna en TicketsService.create con un
    * UPDATE atómico sobre Project.nextTicketNumber, nunca con @Generated,
-   * porque necesita reiniciar en 1 por cada proyecto, no ser global. */
-  @Column({ type: 'int' })
-  projectNumber: number;
+   * porque necesita reiniciar en 1 por cada proyecto, no ser global. Null si
+   * el ticket no tiene proyecto (ver projectId) — en ese caso se muestra el
+   * número global (number) en su lugar. */
+  @Column({ type: 'int', nullable: true })
+  projectNumber: number | null;
 
-  @Column()
-  projectId: string;
+  /** Nullable a propósito: un ticket de tipo "desarrollo" puede reportar un
+   * sistema que todavía no existe como proyecto — no tiene sentido forzar
+   * a elegir uno de la lista. */
+  @Column({ nullable: true })
+  projectId: string | null;
 
-  @ManyToOne(() => Project, (project) => project.tickets, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Project, (project) => project.tickets, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'projectId' })
-  project: Project;
+  project: Project | null;
 
   @Column()
   title: string;

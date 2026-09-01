@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { ChevronDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -19,7 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Project, Ticket } from '@/lib/types'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import type { Project, Ticket, TicketStatus } from '@/lib/types'
 import { NuevoTicketDialog } from './nuevo-ticket-dialog'
 import { TicketActions } from './ticket-actions'
 import { TYPE_LABELS, STATUS_LABELS, PRIORITY_LABELS, PRIORITY_BADGE, STATUS_BADGE, PRIORITY_WEIGHT } from './labels'
@@ -51,7 +59,10 @@ export function TicketsBoard({
 }) {
   const [projectFilter, setProjectFilter] = useState(TODOS)
   const [typeFilter, setTypeFilter] = useState(TODOS)
-  const [statusFilter, setStatusFilter] = useState(TODOS)
+  // Array vacío = sin filtro (todos los estados) — a diferencia de
+  // proyecto/tipo, acá sí queremos poder marcar varios a la vez (p.ej.
+  // "pendiente" + "en progreso" para ver todo lo abierto de un vistazo).
+  const [statusFilters, setStatusFilters] = useState<TicketStatus[]>([])
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortKey>('number_desc')
 
@@ -62,7 +73,7 @@ export function TicketsBoard({
     const filtered = initialTickets.filter((t) => {
       if (projectFilter !== TODOS && t.projectId !== projectFilter) return false
       if (typeFilter !== TODOS && t.type !== typeFilter) return false
-      if (statusFilter !== TODOS && t.status !== statusFilter) return false
+      if (statusFilters.length > 0 && !statusFilters.includes(t.status)) return false
       if (q && !t.title.toLowerCase().includes(q) && !(t.description ?? '').toLowerCase().includes(q)) {
         return false
       }
@@ -84,7 +95,11 @@ export function TicketsBoard({
         sorted.sort((a, b) => b.number - a.number)
     }
     return sorted
-  }, [initialTickets, projectFilter, typeFilter, statusFilter, search, sort])
+  }, [initialTickets, projectFilter, typeFilter, statusFilters, search, sort])
+
+  function toggleStatus(status: TicketStatus, checked: boolean) {
+    setStatusFilters((prev) => (checked ? [...prev, status] : prev.filter((s) => s !== status)))
+  }
 
   return (
     <div className="space-y-4">
@@ -134,19 +149,33 @@ export function TicketsBoard({
           </SelectContent>
         </Select>
 
-        <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={TODOS}>Todos los estados</SelectItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="outline" className="h-8 w-40 justify-between font-normal" />
+            }
+          >
+            <span className={statusFilters.length === 0 ? 'text-muted-foreground' : ''}>
+              {statusFilters.length === 0
+                ? 'Todos los estados'
+                : statusFilters.length === 1
+                  ? STATUS_LABELS[statusFilters[0]]
+                  : `${statusFilters.length} estados`}
+            </span>
+            <ChevronDown className="size-4 opacity-50" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
             {Object.entries(STATUS_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
+              <DropdownMenuCheckboxItem
+                key={value}
+                checked={statusFilters.includes(value as TicketStatus)}
+                onCheckedChange={(checked) => toggleStatus(value as TicketStatus, checked)}
+              >
                 {label}
-              </SelectItem>
+              </DropdownMenuCheckboxItem>
             ))}
-          </SelectContent>
-        </Select>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Select value={sort} onValueChange={(v) => v && setSort(v as SortKey)}>
           <SelectTrigger className="w-48">
@@ -184,7 +213,7 @@ export function TicketsBoard({
             </TableRow>
           )}
           {tickets.map((t) => {
-            const project = projectById.get(t.projectId)
+            const project = t.projectId ? projectById.get(t.projectId) : undefined
             return (
               <TableRow key={t.id}>
                 <TableCell className="font-mono text-muted-foreground">

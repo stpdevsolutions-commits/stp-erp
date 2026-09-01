@@ -35,8 +35,12 @@ import type { Project, Ticket } from '@/lib/types'
 import { updateTicket, deleteTicket } from '@/lib/actions/tickets'
 import { TYPE_LABELS, STATUS_LABELS, PRIORITY_LABELS } from './labels'
 
+/** Ver nuevo-ticket-dialog.tsx: mismo sentinel para "sin proyecto" — el
+ * Select de base-ui no acepta value="". */
+const SIN_PROYECTO = '__sin_proyecto__'
+
 const editSchema = z.object({
-  projectId: z.string().min(1, 'Selecciona un proyecto'),
+  projectId: z.string().optional(),
   title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
   description: z.string().optional(),
   type: z.enum(['bug', 'mejora', 'cambio', 'desarrollo']),
@@ -69,7 +73,7 @@ function EditDialog({
   } = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
     defaultValues: {
-      projectId: ticket.projectId,
+      projectId: ticket.projectId ?? SIN_PROYECTO,
       title: ticket.title,
       description: ticket.description ?? '',
       type: ticket.type,
@@ -87,7 +91,10 @@ function EditDialog({
   async function onSubmit(data: EditFormValues) {
     setServerError(null)
     const result = await updateTicket(ticket.id, {
-      projectId: data.projectId,
+      // null explícito, no undefined: el action arma el PATCH con
+      // Object.entries, y una clave en undefined desaparece del body por
+      // JSON.stringify — "Sin proyecto" no se guardaría nunca.
+      projectId: data.projectId === SIN_PROYECTO ? null : data.projectId,
       title: data.title,
       description: data.description || null,
       type: data.type,
@@ -120,12 +127,32 @@ function EditDialog({
           </div>
 
           <div className="space-y-1.5">
+            <Label>Tipo</Label>
+            <Select
+              value={watch('type')}
+              onValueChange={(v) => v && setValue('type', v as EditFormValues['type'])}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(TYPE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
             <Label>Proyecto</Label>
             <Select value={watch('projectId')} onValueChange={(v) => v && setValue('projectId', v)}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={SIN_PROYECTO}>Sin proyecto (nuevo desarrollo)</SelectItem>
                 {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
@@ -135,26 +162,7 @@ function EditDialog({
             </Select>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label>Tipo</Label>
-              <Select
-                value={watch('type')}
-                onValueChange={(v) => v && setValue('type', v as EditFormValues['type'])}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TYPE_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Estado</Label>
               <Select
