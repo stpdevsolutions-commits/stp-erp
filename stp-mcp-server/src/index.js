@@ -1,7 +1,7 @@
 // Servidor MCP a la medida para STP — le da a Hermes Agent (u otro cliente
-// MCP) acceso de herramientas sobre los sistemas reales de STP. Empieza
-// acotado a Tickets (bajo riesgo) — Tareas/Vigía se pueden sumar después
-// con el mismo patrón.
+// MCP) acceso de herramientas sobre los sistemas reales de STP: Tickets
+// (crear/consultar), Vigía (solo lectura) y Cotizaciones/Clientes del ERP
+// (solo lectura). Mi Día queda para sumar después con el mismo patrón.
 //
 // Transporte: streamable HTTP (el que Hermes soporta vía `url` + `headers`
 // en su config.yaml). Protegido con un bearer token propio (MCP_AUTH_TOKEN),
@@ -17,6 +17,9 @@ const PORT = process.env.PORT || 3005;
 const MCP_AUTH_TOKEN = process.env.MCP_AUTH_TOKEN;
 const TICKETS_API_URL = process.env.TICKETS_API_URL || 'http://stp-tickets-api:3003/api';
 const TICKETS_AGENT_KEY = process.env.TICKETS_AGENT_KEY;
+const VIGIA_API_URL = process.env.VIGIA_API_URL || 'http://vigia-backend:3002/api';
+const ERP_API_URL = process.env.ERP_API_URL || 'http://stp-api:3001';
+const HERMES_ERP_JWT = process.env.HERMES_ERP_JWT;
 
 if (!MCP_AUTH_TOKEN) {
   console.error('MCP_AUTH_TOKEN no configurado — abortando.');
@@ -39,8 +42,38 @@ async function ticketsFetch(path, init = {}) {
   return body;
 }
 
+// Vigía no exige ningún secreto para leer — ya está gateado por red (VPN
+// para la web, red interna de Docker para esto). Solo lectura, nunca se
+// escribe nada aquí.
+async function vigiaFetch(path) {
+  const res = await fetch(`${VIGIA_API_URL}${path}`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`API de Vigía respondió ${res.status}: ${JSON.stringify(body)}`);
+  }
+  return body;
+}
+
+// ERP (Cotizaciones/Clientes) — SOLO LECTURA, a propósito. Usa el JWT de la
+// cuenta de sistema hermes-agent@stpsoluciones.com (rol admin, ver memoria
+// del proyecto) para pasar por la seguridad REAL del ERP, con la misma
+// visibilidad que tendría Pedro — no un atajo paralelo como el de Tickets.
+// Nunca se agrega aquí un endpoint de escritura: crear/editar cotizaciones
+// tiene consecuencias de dinero y debe seguir pasando por el ERP directo.
+async function erpFetch(path) {
+  if (!HERMES_ERP_JWT) throw new Error('HERMES_ERP_JWT no configurado');
+  const res = await fetch(`${ERP_API_URL}${path}`, {
+    headers: { Authorization: `Bearer ${HERMES_ERP_JWT}` },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`API del ERP respondió ${res.status}: ${JSON.stringify(body)}`);
+  }
+  return body;
+}
+
 function buildServer() {
-  const server = new McpServer({ name: 'stp-tickets', version: '1.0.0' });
+  const server = new McpServer({ name: 'stp-tools', version: '1.0.0' });
 
   server.registerTool(
     'list_projects',
@@ -112,6 +145,109 @@ function buildServer() {
         body: JSON.stringify({ status }),
       });
       return { content: [{ type: 'text', text: JSON.stringify(ticket) }] };
+    },
+  );
+
+  // ── Vigía (solo lectura) ──────────────────────────────────────────────
+
+  server.registerTool(
+    'get_services_status',
+    {
+      description:
+        'Estado de todos los servicios monitoreados por Vigía (ERP, Tickets, WhatsApp, bases de datos, etc.) — cuáles están arriba/abajo, latencia, % de uptime.',
+      inputSchema: {},
+    },
+    async () => {
+      const services = await vigiaFetch('/services');
+      return { content: [{ type: 'text', text: JSON.stringify(services) }] };
+    },
+  );
+
+  server.registerTool(
+    'get_dev_projects_status',
+    {
+      description:
+        'Estado de git de los proyectos de desarrollo de STP (rama, commits pendientes de subir/bajar, archivos sin commitear, último commit) — tanto del servidor como de las PCs locales con el agente instalado.',
+      inputSchema: {},
+    },
+    async () => {
+      const projects = await vigiaFetch('/projects');
+      return { content: [{ type: 'text', text: JSON.stringify(projects) }] };
+    },
+  );
+
+  server.registerTool(
+    'get_alerts',
+    {
+      description: 'Alertas recientes de Vigía (servicios caídos, problemas detectados).',
+      inputSchema: {},
+    },
+    async () => {
+      const alerts = await vigiaFetch('/alerts');
+      return { content: [{ type: 'text', text: JSON.stringify(alerts) }] };
+    },
+  );
+
+  server.registerTool(
+    'get_server_metrics',
+    {
+      description: 'Snapshot actual de recursos del servidor: CPU, RAM, disco, red.',
+      inputSchema: {},
+    },
+    async () => {
+      const metrics = await vigiaFetch('/metrics/current');
+      return { content: [{ type: 'text', text: JSON.stringify(metrics) }] };
+    },
+  );
+
+  // ── ERP: Cotizaciones y Clientes (SOLO LECTURA) ─────────────────────────
+
+  server.registerTool(
+    'list_clients',
+    {
+      description: 'Lista clientes del ERP de STP. Solo lectura.',
+      inputSchema: {
+        search: z.string().optional().describe('Buscar por nombre'),
+      },
+    },
+    async ({ search }) => {
+      const qs = new URLSearchParams(Object.entries({ search }).filter(([, v]) => v)).toString();
+      const clients = await erpFetch(`/clients${qs ? `?${qs}` : ''}`);
+      return { content: [{ type: 'text', text: JSON.stringify(clients) }] };
+    },
+  );
+
+  server.registerTool(
+    'list_quotes',
+    {
+      description:
+        'Lista cotizaciones del ERP de STP, con filtros opcionales (por cliente, proyecto, estado, o texto de búsqueda). Solo lectura.',
+      inputSchema: {
+        search: z.string().optional(),
+        status: z.enum(['draft', 'sent', 'approved', 'rejected', 'expired']).optional(),
+        clientId: z.string().optional().describe('UUID del cliente (usar list_clients para obtenerlo)'),
+      },
+    },
+    async ({ search, status, clientId }) => {
+      const qs = new URLSearchParams(
+        Object.entries({ search, status, clientId }).filter(([, v]) => v),
+      ).toString();
+      const quotes = await erpFetch(`/quotes${qs ? `?${qs}` : ''}`);
+      return { content: [{ type: 'text', text: JSON.stringify(quotes) }] };
+    },
+  );
+
+  server.registerTool(
+    'get_quote',
+    {
+      description: 'Detalle completo de una cotización por su ID (items, totales, cliente). Solo lectura.',
+      inputSchema: {
+        quoteId: z.string().describe('UUID de la cotización (usar list_quotes para encontrarla)'),
+      },
+    },
+    async ({ quoteId }) => {
+      const quote = await erpFetch(`/quotes/${quoteId}`);
+      return { content: [{ type: 'text', text: JSON.stringify(quote) }] };
     },
   );
 

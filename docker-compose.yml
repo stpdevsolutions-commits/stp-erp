@@ -278,6 +278,9 @@ services:
       DB_PASS: ${POSTGRES_PASSWORD}
       DB_NAME: tickets_db
       TICKETS_AGENT_KEY: ${TICKETS_AGENT_KEY}
+      VIGIA_API_URL: http://vigia-backend:3002/api
+      ERP_API_URL: http://stp-api:3001
+      HERMES_ERP_JWT: ${HERMES_ERP_JWT}
     networks:
       - stp-network
     depends_on:
@@ -295,6 +298,9 @@ services:
     environment:
       TICKETS_API_URL: http://stp-tickets-api:3003/api
       TICKETS_AGENT_KEY: ${TICKETS_AGENT_KEY}
+      VIGIA_API_URL: http://vigia-backend:3002/api
+      ERP_API_URL: http://stp-api:3001
+      HERMES_ERP_JWT: ${HERMES_ERP_JWT}
     networks:
       - stp-network
     depends_on:
@@ -316,10 +322,14 @@ services:
       MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN}
       TICKETS_API_URL: http://stp-tickets-api:3003/api
       TICKETS_AGENT_KEY: ${TICKETS_AGENT_KEY}
+      VIGIA_API_URL: http://vigia-backend:3002/api
+      ERP_API_URL: http://stp-api:3001
+      HERMES_ERP_JWT: ${HERMES_ERP_JWT}
     networks:
       - stp-network
     depends_on:
       - stp-tickets-api
+      - vigia-backend
 
 volumes:
   postgres-data:
