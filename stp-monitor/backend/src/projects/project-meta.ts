@@ -107,11 +107,12 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
       'Asistente personal de Pedro por Telegram (@stp_asistente_bot) — open source de Nous Research, no desarrollado por STP, solo desplegado y conectado a los sistemas propios.',
     stack: ['Python', 'Docker', 'OpenRouter (nvidia/nemotron-3-super-120b-a12b:free)', 'MCP'],
     status:
-      'En producción. Conectado a STP Tickets vía un servidor MCP propio (stp-mcp-server, en el repo de stp-erp) — puede crear y consultar tickets por chat. Probado de punta a punta con un ticket real.',
+      'En producción. Conectado a Tickets, Vigía (solo lectura), Cotizaciones/Clientes del ERP (solo lectura) y Mi Día app vía un servidor MCP propio (stp-mcp-server, en el repo de stp-erp) — 13 herramientas en total. Probado de punta a punta en cada una.',
     recentWork: [
+      'Sumadas Vigía (solo lectura: servicios, proyectos, alertas, métricas), Cotizaciones/Clientes del ERP (solo lectura, con una cuenta de sistema propia de rol admin) y Mi Día app (agregar tareas/notas, vía endpoints quick-add nuevos para no chocar con la sincronización del celular).',
       'Vinculado a Telegram y a OpenRouter (modelo gratis) — 2026-09-01.',
-      'Servidor MCP propio construido y conectado: list_projects, list_tickets, create_ticket, update_ticket_status sobre la API real de Tickets.',
-      'Pendiente para más adelante (identificado, no construido): sumar Tareas del ERP y Vigía de solo lectura al mismo MCP.',
+      'Servidor MCP propio construido y conectado, empezando por Tickets: list_projects, list_tickets, create_ticket, update_ticket_status.',
+      'A propósito, nunca se expone escritura sobre Cotizaciones/Clientes por chat — solo consulta.',
     ],
   },
 };
