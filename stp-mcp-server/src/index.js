@@ -114,11 +114,14 @@ function buildServer() {
   server.registerTool(
     'list_tickets',
     {
-      description: 'Lista tickets de STP (bugs/cambios/mejoras), con filtros opcionales.',
+      description: 'Lista tickets de STP (bugs/cambios/mejoras/nuevos desarrollos), con filtros opcionales.',
       inputSchema: {
         projectId: z.string().optional().describe('UUID del proyecto (usar list_projects para obtenerlo)'),
         status: z.enum(['pending', 'in_progress', 'review', 'done', 'cancelled']).optional(),
-        type: z.enum(['bug', 'mejora', 'cambio']).optional(),
+        // TIX-7: faltaba 'desarrollo' aquí -- Zod rechazaba la llamada antes
+        // de que llegara a la API cuando se pedía ese tipo por chat, y el
+        // bot lo reportaba como "no encuentra la categoría".
+        type: z.enum(['bug', 'mejora', 'cambio', 'desarrollo']).optional(),
         priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
       },
     },
@@ -135,14 +138,17 @@ function buildServer() {
     'create_ticket',
     {
       description:
-        'Crea un ticket nuevo en STP Tickets (bug, cambio o mejora) para un proyecto. Usa list_projects primero si no tienes el projectId.',
+        'Crea un ticket nuevo en STP Tickets (bug, cambio, mejora o nuevo desarrollo) para un proyecto. Usa list_projects primero si no tienes el projectId. Para un sistema/proyecto que todavía no existe en la lista, usa type "desarrollo" y omite projectId.',
       inputSchema: {
-        projectId: z.string().describe('UUID del proyecto'),
+        // Opcional desde TIX-5: un ticket "desarrollo" puede reportar un
+        // sistema que aún no existe como proyecto.
+        projectId: z.string().optional().describe('UUID del proyecto (omitir si es un sistema nuevo que no existe todavía)'),
         title: z.string().min(2).max(200),
         description: z.string().optional(),
-        type: z.enum(['bug', 'mejora', 'cambio']),
+        type: z.enum(['bug', 'mejora', 'cambio', 'desarrollo']),
         priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
         reportedBy: z.string().optional().describe('Quién lo reporta (nombre de la persona en el chat)'),
+        assignedTo: z.string().optional().describe('Quién lo va a trabajar, si se sabe'),
       },
     },
     async (args) => {
