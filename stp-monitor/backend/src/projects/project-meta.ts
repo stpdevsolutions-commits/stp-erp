@@ -115,4 +115,19 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
       'A propósito, nunca se expone escritura sobre Cotizaciones/Clientes por chat — solo consulta.',
     ],
   },
+  'stp-tickets-app': {
+    purpose:
+      'Sistema propio de tickets (bugs/cambios/mejoras/nuevos desarrollos) para todos los proyectos de STP — construido a medida en vez de adoptar Jira/Vikunja/Plane, evaluados y descartados por pesados para este servidor.',
+    stack: ['NestJS', 'TypeORM', 'PostgreSQL', 'Next.js', 'Docker', 'Caddy'],
+    status:
+      'En producción, tickets.stpsoluciones.com, sin login (gateado por VPN). Conectado a Hermes Agent vía MCP — se puede crear/consultar tickets por chat de Telegram, incluso por nota de voz.',
+    recentWork: [
+      'Código de ticket por proyecto (FRD-1, ERP-2...) en vez de solo un número global.',
+      'Bug real corregido: el orden por prioridad era alfabético ("urgent" > "medium" > "low" > "high"), no por severidad — ahora es el orden real.',
+      'Comentarios por ticket, campo "Asignado a", tipo nuevo "Nuevo desarrollo", buscador de texto, selector de orden, y página de detalle propia por ticket.',
+      'Aviso a Telegram (mismo bot de Hermes) cuando se crea o se resuelve un ticket.',
+      'Pendiente identificado, no construido: adjuntar capturas de pantalla (necesita almacenamiento de archivos que todavía no está montado para este servicio).',
+    ],
+    links: [{ label: 'Tickets', url: 'https://tickets.stpsoluciones.com' }],
+  },
 };

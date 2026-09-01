@@ -25,6 +25,7 @@ const SERVER_PROJECTS: ServerProjectDef[] = [
   { id: 'mi-dia', name: 'Mi Día', path: '/repos/mi-dia' },
   { id: 'estructuralrd', name: 'EstrucCalc RD Pro', path: '/data/estructuralrd' },
   { id: 'hermes-agent', name: 'Hermes Agent (asistente personal)', path: '/repos/hermes-agent' },
+  { id: 'stp-tickets-app', name: 'STP Tickets', path: '/repos/stp' },
 ];
 
 /** Reporte que manda el agente local (ver scripts/local-agent en el repo). */
