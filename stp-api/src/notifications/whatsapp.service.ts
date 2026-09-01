@@ -48,16 +48,23 @@ export class WhatsappService {
     phone?: string | null;
     recipientName: string;
     projectName: string;
-    taskTitle: string;
+    /** Lo que debe decir la tarea en el mensaje (placeholder "Tarea:" de la
+     * plantilla) — normalmente la descripción, no el título (ver TicketsService
+     * ERP-3: el título suele ser una etiqueta corta, la descripción es la
+     * instrucción real que el colaborador necesita leer). */
+    taskText: string;
     dueDate?: string | null;
   }): void {
-    const { phone, recipientName, projectName, taskTitle, dueDate } = params;
+    const { phone, recipientName, projectName, taskText, dueDate } = params;
     if (!phone) return;
 
     void this.sendTemplate(phone, WhatsappService.TEMPLATE_NAME, WhatsappService.TEMPLATE_LANGUAGE, [
       recipientName,
       projectName,
-      taskTitle,
+      // Meta rechaza parámetros de plantilla con saltos de línea/tabs/4+
+      // espacios seguidos — una descripción con varias líneas tumbaría el
+      // envío completo si no se aplana primero.
+      sanitizeTemplateParam(taskText),
       dueDate ? formatDate(dueDate) : 'Sin fecha límite',
     ]);
   }
@@ -112,6 +119,17 @@ export class WhatsappService {
       this.logger.error(`Fallo enviando WhatsApp a ${to}: ${(err as Error).message}`);
     }
   }
+}
+
+/**
+ * Aplana un texto para que sirva como parámetro de plantilla de WhatsApp:
+ * Meta rechaza el envío completo si un parámetro trae salto de línea, tab, o
+ * 4+ espacios seguidos. También lo recorta a un largo razonable para que el
+ * mensaje no quede gigante en la pantalla del colaborador.
+ */
+function sanitizeTemplateParam(text: string, maxLength = 300): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > maxLength ? `${flat.slice(0, maxLength - 1)}…` : flat;
 }
 
 /** "15 de marzo de 2026" a partir de un date ISO (YYYY-MM-DD). Si el formato no es el esperado, devuelve el valor tal cual. */

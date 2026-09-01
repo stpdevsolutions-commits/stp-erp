@@ -182,7 +182,12 @@ export class TasksService {
       phone: collaborator.phone,
       recipientName: collaborator.firstName,
       projectName: project.name,
-      taskTitle: task.title,
+      // ERP-3: la plantilla mostraba el título (una etiqueta corta, p.ej.
+      // "Instalación eléctrica") en vez de la instrucción real que el
+      // colaborador necesita leer, que va en la descripción. description es
+      // nullable — si la tarea no tiene una, se cae de vuelta al título en
+      // vez de mandar el mensaje vacío.
+      taskText: task.description || task.title,
       dueDate: task.dueDate,
     });
   }
