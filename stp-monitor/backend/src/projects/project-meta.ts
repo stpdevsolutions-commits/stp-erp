@@ -130,4 +130,16 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     ],
     links: [{ label: 'Tickets', url: 'https://tickets.stpsoluciones.com' }],
   },
+  'fantasy-nba-assistant': {
+    purpose:
+      'Asistente personal (no de STP, de Pedro) para su liga de fantasy de NBA en ESPN — ayuda en el draft, analiza enfrentamientos semanales y recomienda cambios de jugadores, conectado a Hermes Agent por Telegram.',
+    stack: ['Node.js', 'MCP', 'Docker'],
+    status:
+      'En producción, probado por Pedro vía Telegram. Habla directo con la API no oficial de ESPN Fantasy (con las cookies de sesión de Pedro) — de solo lectura, nunca hace drafts ni cambios de roster por sí solo.',
+    recentWork: [
+      'Herramientas iniciales: info de liga, posiciones, roster propio y ranking de jugadores disponibles por ADP (sirve para preparar el draft y para buscar agentes libres).',
+      'Confirmado en vivo contra la liga real de Pedro: el draft de la temporada 2026-27 todavía no se ha hecho.',
+      'Pendiente a propósito, no construido: análisis de enfrentamientos semanales por categoría — los IDs de estadísticas de ESPN no están documentados (la liga usa 15 categorías, no las 9 típicas) y confirmarlos mal daría recomendaciones equivocadas; se valida contra un resultado real cuando arranque la temporada.',
+    ],
+  },
 };
