@@ -1,7 +1,7 @@
 // Servidor MCP a la medida para STP — le da a Hermes Agent (u otro cliente
 // MCP) acceso de herramientas sobre los sistemas reales de STP: Tickets
-// (crear/consultar), Vigía (solo lectura) y Cotizaciones/Clientes del ERP
-// (solo lectura). Mi Día queda para sumar después con el mismo patrón.
+// (crear/consultar), Vigía (solo lectura), Cotizaciones/Clientes del ERP
+// (solo lectura) y Mi Día app (agregar tareas/notas de Pedro).
 //
 // Transporte: streamable HTTP (el que Hermes soporta vía `url` + `headers`
 // en su config.yaml). Protegido con un bearer token propio (MCP_AUTH_TOKEN),
@@ -20,6 +20,8 @@ const TICKETS_AGENT_KEY = process.env.TICKETS_AGENT_KEY;
 const VIGIA_API_URL = process.env.VIGIA_API_URL || 'http://vigia-backend:3002/api';
 const ERP_API_URL = process.env.ERP_API_URL || 'http://stp-api:3001';
 const HERMES_ERP_JWT = process.env.HERMES_ERP_JWT;
+const MIDIA_API_URL = process.env.MIDIA_API_URL || 'http://mi-dia-api:3000';
+const MIDIA_JWT = process.env.MIDIA_JWT;
 
 if (!MCP_AUTH_TOKEN) {
   console.error('MCP_AUTH_TOKEN no configurado — abortando.');
@@ -68,6 +70,28 @@ async function erpFetch(path) {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(`API del ERP respondió ${res.status}: ${JSON.stringify(body)}`);
+  }
+  return body;
+}
+
+// Mi Día app (tareas/notas personales de Pedro). Usa los endpoints
+// quick-add (agregados junto con esta integración) en vez de los PUT que ya
+// existían — esos reemplazan la lista COMPLETA (borran todo e insertan de
+// nuevo), lo cual crearía una condición de carrera real si el celular
+// sincroniza al mismo tiempo que Hermes agrega algo por chat.
+async function midiaFetch(path, init = {}) {
+  if (!MIDIA_JWT) throw new Error('MIDIA_JWT no configurado');
+  const res = await fetch(`${MIDIA_API_URL}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${MIDIA_JWT}`,
+      ...(init.headers || {}),
+    },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`API de Mi Día respondió ${res.status}: ${JSON.stringify(body)}`);
   }
   return body;
 }
@@ -248,6 +272,43 @@ function buildServer() {
     async ({ quoteId }) => {
       const quote = await erpFetch(`/quotes/${quoteId}`);
       return { content: [{ type: 'text', text: JSON.stringify(quote) }] };
+    },
+  );
+
+  // ── Mi Día app (tareas/notas personales) ────────────────────────────────
+
+  server.registerTool(
+    'add_task_midia',
+    {
+      description: 'Agrega una tarea a "Mi Día" (la app personal de tareas de Pedro).',
+      inputSchema: {
+        title: z.string().min(1),
+        description: z.string().optional(),
+        dueDate: z.string().optional().describe('YYYY-MM-DD, por defecto hoy'),
+        priority: z.enum(['low', 'medium', 'high']).optional(),
+        tag: z.string().optional(),
+      },
+    },
+    async (args) => {
+      const task = await midiaFetch('/tasks/quick-add', { method: 'POST', body: JSON.stringify(args) });
+      return { content: [{ type: 'text', text: JSON.stringify(task) }] };
+    },
+  );
+
+  server.registerTool(
+    'add_note_midia',
+    {
+      description: 'Agrega una nota a "Mi Día" (la app personal de notas de Pedro).',
+      inputSchema: {
+        title: z.string().min(1),
+        content: z.string().optional(),
+        tag: z.string().optional(),
+        color: z.enum(['mint', 'ocean', 'seafoam', 'yellow', 'ice']).optional(),
+      },
+    },
+    async (args) => {
+      const note = await midiaFetch('/notes/quick-add', { method: 'POST', body: JSON.stringify(args) });
+      return { content: [{ type: 'text', text: JSON.stringify(note) }] };
     },
   );
 

@@ -281,6 +281,8 @@ services:
       VIGIA_API_URL: http://vigia-backend:3002/api
       ERP_API_URL: http://stp-api:3001
       HERMES_ERP_JWT: ${HERMES_ERP_JWT}
+      MIDIA_API_URL: http://mi-dia-api:3000
+      MIDIA_JWT: ${MIDIA_JWT}
     networks:
       - stp-network
     depends_on:
@@ -301,6 +303,8 @@ services:
       VIGIA_API_URL: http://vigia-backend:3002/api
       ERP_API_URL: http://stp-api:3001
       HERMES_ERP_JWT: ${HERMES_ERP_JWT}
+      MIDIA_API_URL: http://mi-dia-api:3000
+      MIDIA_JWT: ${MIDIA_JWT}
     networks:
       - stp-network
     depends_on:
@@ -325,6 +329,8 @@ services:
       VIGIA_API_URL: http://vigia-backend:3002/api
       ERP_API_URL: http://stp-api:3001
       HERMES_ERP_JWT: ${HERMES_ERP_JWT}
+      MIDIA_API_URL: http://mi-dia-api:3000
+      MIDIA_JWT: ${MIDIA_JWT}
     networks:
       - stp-network
     depends_on:
