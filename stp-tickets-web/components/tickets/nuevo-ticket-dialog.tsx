@@ -32,8 +32,9 @@ const schema = z.object({
   projectId: z.string().min(1, 'Selecciona un proyecto'),
   title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
   description: z.string().optional(),
-  type: z.enum(['bug', 'mejora', 'cambio']),
+  type: z.enum(['bug', 'mejora', 'cambio', 'desarrollo']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
+  assignedTo: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -63,6 +64,7 @@ export function NuevoTicketDialog({ projects }: { projects: Project[] }) {
       type: data.type,
       priority: data.priority,
       reportedBy: 'Pedro',
+      assignedTo: data.assignedTo || undefined,
     })
     if (!result.ok) {
       setServerError(result.error ?? 'Error desconocido')
@@ -91,7 +93,7 @@ export function NuevoTicketDialog({ projects }: { projects: Project[] }) {
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo ticket</DialogTitle>
-          <DialogDescription>Reporta un bug, cambio o mejora para un proyecto.</DialogDescription>
+          <DialogDescription>Reporta un bug, cambio, mejora o propuesta de nuevo desarrollo.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
@@ -165,6 +167,11 @@ export function NuevoTicketDialog({ projects }: { projects: Project[] }) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="assignedTo">Asignado a</Label>
+            <Input id="assignedTo" placeholder="Opcional" {...register('assignedTo')} />
           </div>
 
           <div className="space-y-1.5">

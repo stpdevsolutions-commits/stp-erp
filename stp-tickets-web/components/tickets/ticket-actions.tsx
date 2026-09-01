@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { MoreHorizontal, Pencil, Trash2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -38,9 +39,10 @@ const editSchema = z.object({
   projectId: z.string().min(1, 'Selecciona un proyecto'),
   title: z.string().min(2, 'Mínimo 2 caracteres').max(200),
   description: z.string().optional(),
-  type: z.enum(['bug', 'mejora', 'cambio']),
+  type: z.enum(['bug', 'mejora', 'cambio', 'desarrollo']),
   status: z.enum(['pending', 'in_progress', 'review', 'done', 'cancelled']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
+  assignedTo: z.string().optional(),
 })
 
 type EditFormValues = z.infer<typeof editSchema>
@@ -73,6 +75,7 @@ function EditDialog({
       type: ticket.type,
       status: ticket.status,
       priority: ticket.priority,
+      assignedTo: ticket.assignedTo ?? '',
     },
   })
 
@@ -90,6 +93,7 @@ function EditDialog({
       type: data.type,
       status: data.status,
       priority: data.priority,
+      assignedTo: data.assignedTo || null,
     })
     if (!result.ok) {
       setServerError(result.error ?? 'Error desconocido')
@@ -191,6 +195,11 @@ function EditDialog({
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="edit-assignedTo">Asignado a</Label>
+            <Input id="edit-assignedTo" placeholder="Opcional" {...register('assignedTo')} />
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="edit-description">Descripción</Label>
             <textarea
               id="edit-description"
@@ -285,6 +294,10 @@ export function TicketActions({ ticket, projects }: { ticket: Ticket; projects: 
           <span className="sr-only">Acciones</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem render={<Link href={`/tickets/${ticket.id}`} />}>
+            <ExternalLink className="size-4" />
+            Ver detalle
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <Pencil className="size-4" />
             Editar

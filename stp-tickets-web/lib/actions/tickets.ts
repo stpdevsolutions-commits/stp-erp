@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { apiError } from '@/lib/utils'
-import type { Project, Ticket, TicketPriority, TicketStatus, TicketType } from '@/lib/types'
+import type { Project, Ticket, TicketComment, TicketPriority, TicketStatus, TicketType } from '@/lib/types'
 
 // Server-only: nunca llega al navegador. Sin sistema de login (el servicio
 // entero queda gateado por red — Caddy remote_ip para la web, red interna de
@@ -41,6 +41,12 @@ export async function getTickets(): Promise<Ticket[]> {
   return res.json()
 }
 
+export async function getTicket(id: string): Promise<Ticket | null> {
+  const res = await apiFetch(`/tickets/${id}`)
+  if (!res.ok) return null
+  return res.json()
+}
+
 export interface CreateTicketInput {
   projectId: string
   title: string
@@ -48,6 +54,7 @@ export interface CreateTicketInput {
   type: TicketType
   priority?: TicketPriority
   reportedBy?: string
+  assignedTo?: string
 }
 
 export async function createTicket(input: CreateTicketInput): Promise<ActionResult> {
@@ -70,6 +77,7 @@ export interface UpdateTicketInput {
   type?: TicketType
   status?: TicketStatus
   priority?: TicketPriority
+  assignedTo?: string | null
 }
 
 export async function updateTicket(id: string, input: UpdateTicketInput): Promise<ActionResult> {
@@ -82,6 +90,7 @@ export async function updateTicket(id: string, input: UpdateTicketInput): Promis
     return { ok: false, error: apiError(err, 'Error al actualizar el ticket') }
   }
   revalidatePath('/')
+  revalidatePath(`/tickets/${id}`)
   return { ok: true }
 }
 
@@ -92,5 +101,24 @@ export async function deleteTicket(id: string): Promise<ActionResult> {
     return { ok: false, error: apiError(err, 'Error al eliminar el ticket') }
   }
   revalidatePath('/')
+  return { ok: true }
+}
+
+export async function getComments(ticketId: string): Promise<TicketComment[]> {
+  const res = await apiFetch(`/tickets/${ticketId}/comments`)
+  if (!res.ok) return []
+  return res.json()
+}
+
+export async function addComment(ticketId: string, body: string, author?: string): Promise<ActionResult> {
+  const res = await apiFetch(`/tickets/${ticketId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ body, author }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    return { ok: false, error: apiError(err, 'Error al agregar el comentario') }
+  }
+  revalidatePath(`/tickets/${ticketId}`)
   return { ok: true }
 }

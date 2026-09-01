@@ -4,6 +4,7 @@ export const TYPE_LABELS: Record<TicketType, string> = {
   bug: 'Bug',
   mejora: 'Mejora',
   cambio: 'Cambio',
+  desarrollo: 'Nuevo desarrollo',
 }
 
 export const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -34,4 +35,12 @@ export const STATUS_BADGE: Record<TicketStatus, 'secondary' | 'info' | 'success'
   review: 'info',
   done: 'success',
   cancelled: 'outline',
+}
+
+/** Para ordenar por severidad real, no alfabético (mismo criterio que el backend). */
+export const PRIORITY_WEIGHT: Record<TicketPriority, number> = {
+  urgent: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
 }
