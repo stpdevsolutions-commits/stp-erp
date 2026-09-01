@@ -110,14 +110,41 @@ export class TicketsService {
   async update(id: string, dto: UpdateTicketDto): Promise<Ticket> {
     const ticket = await this.findOne(id);
     const wasOpen = ticket.status !== TicketStatus.DONE && ticket.status !== TicketStatus.CANCELLED;
+
+    // Reasignar a OTRO proyecto (bug real encontrado organizando tickets:
+    // mover un ticket sin proyecto a uno con proyecto dejaba el código como
+    // "HRM-null" -- projectNumber nunca se tocaba en un update, solo en
+    // create()). Mismo UPDATE...RETURNING atómico que create(), para tomar
+    // un número nuevo del proyecto destino y no arrastrar uno de otro lado.
+    let newProject: Project | null | undefined;
+    let newProjectNumber: number | undefined;
+    if (dto.projectId != null && dto.projectId !== ticket.projectId) {
+      const project = await this.projectsRepository.findOne({ where: { id: dto.projectId } });
+      if (!project) throw new NotFoundException('Project not found');
+      newProject = project;
+      newProjectNumber = await this.dataSource.transaction(async (manager) => {
+        const result = await manager.query(
+          `UPDATE projects SET "nextTicketNumber" = "nextTicketNumber" + 1 WHERE id = $1 RETURNING "nextTicketNumber" - 1 AS assigned`,
+          [dto.projectId],
+        );
+        return result[0][0].assigned as number;
+      });
+    } else if (dto.projectId === null) {
+      newProject = null;
+    }
+
     Object.assign(ticket, dto);
-    // Desasignar el proyecto (projectId: null) deja projectNumber sin
-    // sentido — sin proyecto, el código vuelve a ser el número global.
-    // No cubre reasignar a OTRO proyecto (ese caso ya existía sin resolver
-    // antes de este cambio y no lo tocamos aquí: requeriría el mismo
-    // UPDATE...RETURNING atómico de create() para tomar un número nuevo).
-    if (dto.projectId === null) {
-      ticket.projectNumber = null;
+    // Segundo bug real encontrado en el mismo cambio: `ticket` viene de
+    // findOne() con la relación `project` ya cargada (apuntando al proyecto
+    // VIEJO). TypeORM usa esa relación cargada para escribir la FK al
+    // guardar, no el valor que Object.assign() le puso a projectId a mano
+    // -- sin esto, ni desasignar ni reasignar de proyecto se guardaba de
+    // verdad, aunque projectNumber sí cambiaba (columna simple, sin este
+    // problema). Confirmado en vivo: dos PATCH seguidos (a null y de vuelta)
+    // no movieron el ticket para nada, solo projectNumber quedó en null.
+    if (newProject !== undefined) {
+      ticket.project = newProject;
+      ticket.projectNumber = newProject ? newProjectNumber! : null;
     }
     if (dto.status === TicketStatus.DONE && !ticket.resolvedAt) {
       ticket.resolvedAt = new Date().toISOString().split('T')[0];
