@@ -93,10 +93,10 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
   'red-bendicion': {
     purpose: 'Plataforma para una red de iglesias en casa: directorio de hubs, mapa y panel administrativo interno.',
     stack: ['Next.js', 'Supabase'],
-    status: 'Activo. En STP Tickets hay pendientes: mejoras del mapa general y modo oscuro (en marcha), e internacionalización ES/EN (RBN-3, sin empezar).',
+    status: 'Activo. Único pendiente en STP Tickets: internacionalización ES/EN (RBN-3, sin empezar).',
     recentWork: [
-      'Modo claro/oscuro con next-themes (la paleta oscura ya existía en el CSS, solo faltaba conectar el provider y el botón).',
-      'Leyenda del mapa: selector de redes (Red Bendición y aliadas) que hace zoom a la red elegida y muestra sus conteos en una tarjeta.',
+      'Modo claro/oscuro con next-themes (la paleta oscura ya existía en el CSS, solo faltaba conectar el provider y el botón del header).',
+      'Selector de redes en la leyenda del mapa (portada pública y panel interno): al elegir una red, el mapa vuela a ella y muestra sus conteos en una tarjeta.',
       '"Una red de redes" agregado arriba de la jerarquía en el login.',
       'Corregido el watermark de los mapas (cambio de proveedor de tiles a OSM/OpenTopoMap).',
       'Rediseño del login y filtro de tipo de mapa en el panel interno.',
