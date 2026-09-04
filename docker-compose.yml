@@ -324,6 +324,7 @@ services:
       HERMES_ERP_JWT: ${HERMES_ERP_JWT}
       MIDIA_API_URL: http://mi-dia-api:3000
       MIDIA_JWT: ${MIDIA_JWT}
+      GMAIL_ACCOUNTS: ${GMAIL_ACCOUNTS}
     networks:
       - stp-network
     depends_on:

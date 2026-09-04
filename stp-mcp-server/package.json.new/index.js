@@ -1,8 +1,8 @@
 // Servidor MCP a la medida para STP — le da a Hermes Agent (u otro cliente
 // MCP) acceso de herramientas sobre los sistemas reales de STP: Tickets
 // (crear/consultar), Vigía (solo lectura), Cotizaciones/Clientes del ERP
-// (solo lectura), Mi Día app (leer y agregar tareas/notas de Pedro) y el
-// correo de Pedro (IMAP Gmail/Workspace, SOLO LECTURA — para el resumen diario).
+// (solo lectura), Mi Día app (agregar tareas/notas de Pedro) y el correo de
+// Pedro (IMAP Gmail/Workspace, SOLO LECTURA — para el resumen diario).
 //
 // Transporte: streamable HTTP (el que Hermes soporta vía `url` + `headers`
 // en su config.yaml). Protegido con un bearer token propio (MCP_AUTH_TOKEN),
@@ -331,22 +331,6 @@ function buildServer() {
   );
 
   // ── Mi Día app (tareas/notas personales) ────────────────────────────────
-
-  server.registerTool(
-    'list_tasks_midia',
-    {
-      description:
-        'Lista las tareas de "Mi Día" (la app personal de Pedro). Devuelve id, título, descripción, si está completada, dueDate, priority, tag y si es recordatorio. Solo lectura.',
-      inputSchema: {
-        pendingOnly: z.boolean().optional().describe('solo las no completadas (default true)'),
-      },
-    },
-    async ({ pendingOnly = true }) => {
-      const tasks = await midiaFetch('/tasks');
-      const list = pendingOnly ? tasks.filter((t) => !t.completed) : tasks;
-      return { content: [{ type: 'text', text: JSON.stringify(list) }] };
-    },
-  );
 
   server.registerTool(
     'add_task_midia',
