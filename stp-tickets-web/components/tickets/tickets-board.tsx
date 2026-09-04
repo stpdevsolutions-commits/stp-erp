@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ChevronDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +43,37 @@ const SORT_LABELS: Record<SortKey, string> = {
   priority_asc: 'Prioridad: baja a alta',
 }
 
+const FILTERS_KEY = 'stp-tickets:filters:v1'
+
+type PersistedFilters = {
+  projectFilter: string
+  typeFilter: string
+  statusFilters: TicketStatus[]
+  search: string
+  sort: SortKey
+}
+
+const DEFAULT_FILTERS: PersistedFilters = {
+  projectFilter: TODOS,
+  typeFilter: TODOS,
+  statusFilters: [],
+  search: '',
+  sort: 'number_desc',
+}
+
+/** Lee los filtros guardados en localStorage. Devuelve los defaults si no hay
+ * nada, si el JSON está corrupto o si corremos en el server (SSR). */
+function loadFilters(): PersistedFilters {
+  if (typeof window === 'undefined') return DEFAULT_FILTERS
+  try {
+    const raw = window.localStorage.getItem(FILTERS_KEY)
+    if (!raw) return DEFAULT_FILTERS
+    return { ...DEFAULT_FILTERS, ...(JSON.parse(raw) as Partial<PersistedFilters>) }
+  } catch {
+    return DEFAULT_FILTERS
+  }
+}
+
 /** "FRD-7" si el proyecto ya tiene código, o "#7" (número global) si por lo
  * que sea no vino el proyecto en la respuesta — nunca deja la celda vacía. */
 function ticketCode(t: Ticket, project?: Project): string {
@@ -65,6 +96,38 @@ export function TicketsBoard({
   const [statusFilters, setStatusFilters] = useState<TicketStatus[]>([])
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortKey>('number_desc')
+  // Los filtros persisten en localStorage y se recuperan al reabrir la página,
+  // aunque se haya cerrado el navegador (TIX-8). La carga va en un effect y no
+  // en el init de useState: el HTML del server siempre trae los defaults, así
+  // que inicializar distinto en el cliente daría un mismatch de hidratación.
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    const saved = loadFilters()
+    // Un proyecto guardado que ya no existe (borrado) dejaría el Select en
+    // blanco y ocultaría todo — si no está en la lista, se vuelve a "todos".
+    setProjectFilter(projects.some((p) => p.id === saved.projectFilter) ? saved.projectFilter : TODOS)
+    setTypeFilter(saved.typeFilter)
+    setStatusFilters(saved.statusFilters)
+    setSearch(saved.search)
+    setSort(saved.sort)
+    setHydrated(true)
+    // Solo al montar: los filtros guardados se aplican una vez y de ahí en
+    // adelante manda el estado en memoria.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!hydrated) return
+    try {
+      window.localStorage.setItem(
+        FILTERS_KEY,
+        JSON.stringify({ projectFilter, typeFilter, statusFilters, search, sort }),
+      )
+    } catch {
+      /* localStorage lleno o bloqueado — los filtros solo no persisten */
+    }
+  }, [hydrated, projectFilter, typeFilter, statusFilters, search, sort])
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
 
