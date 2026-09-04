@@ -111,10 +111,9 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
       'Asistente personal de Pedro por Telegram (@stp_asistente_bot) — open source de Nous Research, no desarrollado por STP, solo desplegado y conectado a los sistemas propios.',
     stack: ['Python', 'Docker', 'OpenRouter (nvidia/nemotron-3-super-120b-a12b:free)', 'MCP'],
     status:
-      'En producción. Conectado a Tickets, Vigía (solo lectura), Cotizaciones/Clientes del ERP (solo lectura) y Mi Día app vía un servidor MCP propio (stp-mcp-server, en el repo de stp-erp) — 13 herramientas en total. Probado de punta a punta en cada una.',
+      'En producción. Conectado a Tickets, Vigía (solo lectura), Cotizaciones/Clientes del ERP (solo lectura) y Mi Día app vía un servidor MCP propio (stp-mcp-server, en el repo de stp-erp) — 17 herramientas en total. Probado de punta a punta en cada una.',
     recentWork: [
       'Acceso de correo (IMAP, solo lectura) a las 6 cuentas de Pedro y lectura de tareas de Mi Dia agregados al stp-mcp-server. Cron job "Resumen diario" (7am): revisa correos + tareas + tickets abiertos y manda el resumen a Telegram.',
-
       'Sumadas Vigía (solo lectura: servicios, proyectos, alertas, métricas), Cotizaciones/Clientes del ERP (solo lectura, con una cuenta de sistema propia de rol admin) y Mi Día app (agregar tareas/notas, vía endpoints quick-add nuevos para no chocar con la sincronización del celular).',
       'Vinculado a Telegram y a OpenRouter (modelo gratis) — 2026-09-01.',
       'Servidor MCP propio construido y conectado, empezando por Tickets: list_projects, list_tickets, create_ticket, update_ticket_status.',
