@@ -125,6 +125,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     status:
       'En producción, tickets.stpsoluciones.com, sin login (gateado por VPN). Conectado a Hermes Agent vía MCP — se puede crear/consultar tickets por chat de Telegram, incluso por nota de voz.',
     recentWork: [
+      'Los filtros del tablero (proyecto, tipo, estado, búsqueda, orden) ahora persisten en localStorage y se recuperan al reabrir, aunque se cierre el navegador.',
       'Código de ticket por proyecto (FRD-1, ERP-2...) en vez de solo un número global.',
       'Bug real corregido: el orden por prioridad era alfabético ("urgent" > "medium" > "low" > "high"), no por severidad — ahora es el orden real.',
       'Comentarios por ticket, campo "Asignado a", tipo nuevo "Nuevo desarrollo", buscador de texto, selector de orden, y página de detalle propia por ticket.',
