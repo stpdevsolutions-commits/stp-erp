@@ -80,6 +80,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: ['React', 'Vite', 'Supabase', 'Capacitor'],
     status: 'Web al día en Vercel. APK Android firmado con keystore real, publicado en apk.stpsoluciones.com. Ahora con entorno de staging real (Supabase + rama de Vercel propios), separado de producción por primera vez.',
     recentWork: [
+      'Correos de ciclo de vida automatizados en email-cron: oferta de descuento a empresas free (10% primer mes, 3 correos/semana, con win-back a los 60 días de vuelta en free), recordatorio a empresas de pago que dejan de registrar facturas (3 correos), y exclusión de cuentas de prueba/internas de todas las campañas.',
       'Entorno de staging completo (FRD-11): proyecto Supabase propio (esquema, datos de referencia, storage y RLS replicados), 19 Edge Functions, PayPal en modo sandbox con sus propios planes, y una rama de Vercel dedicada con sus propias variables — antes todo cambio se probaba directo en producción.',
       'Bug real corregido: dos funciones (auth-email-hook, emailBrand.ts) tenían la URL de producción fija — cualquier ambiente que no fuera producción mandaría correos con links apuntando siempre a fiscord.lat.',
       'Hueco real encontrado y documentado: los 4 triggers de auth.users (los que crean el perfil al registrarse) nunca habían quedado en ningún archivo de migración, ni en producción — ahora sí, y de forma idempotente.',
