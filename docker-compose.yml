@@ -170,6 +170,8 @@ services:
       - ./caddy/downloads:/srv/downloads:ro
       - caddy-data:/data
       - caddy-config:/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - stp-network
     depends_on:

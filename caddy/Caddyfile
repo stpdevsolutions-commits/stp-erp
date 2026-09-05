@@ -167,6 +167,18 @@ http://gw.stpsoluciones.com {
 		file_server browse
 	}
 
+	# Dashboard de Hermes Agent (config/API keys/sesiones) — corre en el host
+	# (network_mode: host) puerto 9119, ya solo alcanzable por Tailscale segun
+	# el firewall (ufw); esta ruta es comodidad (nombre + TLS), no la unica
+	# barrera. Requiere host.docker.internal (extra_hosts en stp-caddy).
+	@hermes {
+		host hermes.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
+	}
+	handle @hermes {
+		reverse_proxy host.docker.internal:9119
+	}
+
 	# Mi Día — PWA personal de tareas/notas. Única app de esta lista que es
 	# PÚBLICA a propósito (sin remote_ip): tiene su propio login (JWT) porque
 	# no puede depender de la VPN para usarse desde el celular fuera de casa.
