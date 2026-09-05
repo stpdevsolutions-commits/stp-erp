@@ -80,6 +80,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: ['React', 'Vite', 'Supabase', 'Capacitor'],
     status: 'Web al día en Vercel. APK Android firmado con keystore real, publicado en apk.stpsoluciones.com. Ahora con entorno de staging real (Supabase + rama de Vercel propios), separado de producción por primera vez.',
     recentWork: [
+      'Checkbox de aceptación de Términos y Condiciones / Privacidad en los 3 flujos de registro (empresa, contador, empleado, incluido el camino de Google) -- antes se creaba la cuenta sin pedirla nunca (FRD-3).',
       'Correos de ciclo de vida automatizados en email-cron: oferta de descuento a empresas free (10% primer mes, 3 correos/semana, con win-back a los 60 días de vuelta en free), recordatorio a empresas de pago que dejan de registrar facturas (3 correos), y exclusión de cuentas de prueba/internas de todas las campañas.',
       'Entorno de staging completo (FRD-11): proyecto Supabase propio (esquema, datos de referencia, storage y RLS replicados), 19 Edge Functions, PayPal en modo sandbox con sus propios planes, y una rama de Vercel dedicada con sus propias variables — antes todo cambio se probaba directo en producción.',
       'Bug real corregido: dos funciones (auth-email-hook, emailBrand.ts) tenían la URL de producción fija — cualquier ambiente que no fuera producción mandaría correos con links apuntando siempre a fiscord.lat.',
@@ -115,6 +116,8 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     status:
       'En producción. Conectado a Tickets, Vigía (solo lectura), Cotizaciones/Clientes del ERP (solo lectura) y Mi Día app vía un servidor MCP propio (stp-mcp-server, en el repo de stp-erp) — 17 herramientas en total. Probado de punta a punta en cada una.',
     recentWork: [
+      'Dashboard web propio activado (ya venía incluido en hermes-agent, solo hacía falta prenderlo): contenedor dedicado con auth básica, expuesto en hermes.stpsoluciones.com vía Caddy restringido a VPN/LAN.',
+      'Bug real encontrado y arreglado: stp-mcp-server crasheaba completo (las 13 herramientas, no solo correo) por un socket IMAP con error no manejado -- root cause del resumen diario incompleto del 2026-09-04.',
       'Acceso de correo (IMAP, solo lectura) a las 6 cuentas de Pedro y lectura de tareas de Mi Dia agregados al stp-mcp-server. Cron job "Resumen diario" (7am): revisa correos + tareas + tickets abiertos y manda el resumen a Telegram.',
       'Sumadas Vigía (solo lectura: servicios, proyectos, alertas, métricas), Cotizaciones/Clientes del ERP (solo lectura, con una cuenta de sistema propia de rol admin) y Mi Día app (agregar tareas/notas, vía endpoints quick-add nuevos para no chocar con la sincronización del celular).',
       'Vinculado a Telegram y a OpenRouter (modelo gratis) — 2026-09-01.',
