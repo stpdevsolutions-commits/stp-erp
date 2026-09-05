@@ -155,4 +155,15 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     ],
     links: [{ label: 'Dashboard', url: 'https://fantasy.stpsoluciones.com' }],
   },
+  vigia: {
+    purpose:
+      'Panel propio de monitoreo de todo lo que corre en el servidor de STP — estado de contenedores, healthchecks de servicios, estatus de git de cada proyecto y alertas por Telegram/email. Reemplazó a Uptime Kuma.',
+    stack: ['NestJS', 'TypeORM', 'PostgreSQL', 'Next.js', 'Docker', 'Caddy'],
+    status:
+      'En producción, uso diario para revisar el estado real de todo el servidor. Además de sus propios healthchecks, expone lectura (proyectos, servicios, alertas, métricas) a Hermes Agent vía MCP.',
+    recentWork: [
+      'Quitado el healthcheck huérfano de Uptime Kuma en services.service.ts — el contenedor se dio de baja el 2026-09-05 pero el monitor seguía registrado y marcaba "down" permanente sin representar una falla real.',
+    ],
+    links: [{ label: 'Vigía', url: 'https://monitor.stpsoluciones.com' }],
+  },
 };
