@@ -69,15 +69,6 @@ http://gw.stpsoluciones.com {
 		reverse_proxy stp-nextcloud:80
 	}
 
-	# Uptime Kuma
-	@uptime {
-		host status.stpsoluciones.com
-		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
-	}
-	handle @uptime {
-		reverse_proxy stp-uptime-kuma:3001
-	}
-
 	# AdGuard
 	@adguard {
 		host dns.stpsoluciones.com

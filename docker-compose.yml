@@ -153,16 +153,6 @@ services:
     networks:
       - stp-network
 
-  # Uptime Kuma — monitoreo de servicios
-  stp-uptime-kuma:
-    image: louislam/uptime-kuma:2
-    container_name: stp-uptime-kuma
-    restart: unless-stopped
-    volumes:
-      - uptime-kuma-data:/app/data
-    networks:
-      - stp-network
-
   # Caddy — reverse proxy interno (build personalizado con plugin cloudflare-dns)
   stp-caddy:
     build:
@@ -337,7 +327,6 @@ volumes:
   caddy-data:
   caddy-config:
   nextcloud-app:
-  uptime-kuma-data:
   vaultwarden-data:
 
 networks:
