@@ -63,7 +63,10 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     purpose: 'PWA personal de tareas y notas del día a día, con su propio backend — no depende del ERP.',
     stack: ['React', 'PWA', 'API propia', 'PostgreSQL'],
     status: 'En vivo y estable, uso diario. Es la única app deliberadamente pública (sin exigir VPN) porque tiene que abrir desde el celular en cualquier red.',
-    recentWork: ['feat(ui): paleta verde salvia en vez de azul/turquesa.'],
+    recentWork: [
+      'Recordatorios con alarma real (DIA-1): Web Push con Service Worker (VAPID) — la notificación suena aunque la PWA esté cerrada, no solo en primer plano. Backend revisa cada 60s las tareas con isReminder vencidas (en hora de RD) y empuja la notificación a todos los dispositivos suscritos.',
+      'feat(ui): paleta verde salvia en vez de azul/turquesa.',
+    ],
     links: [{ label: 'Mi Día', url: 'https://dia.stpsoluciones.com' }],
   },
   estructuralrd: {
