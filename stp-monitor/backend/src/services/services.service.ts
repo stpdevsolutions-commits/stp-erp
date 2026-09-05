@@ -41,7 +41,6 @@ const DEFAULT_SERVICES: ServiceDef[] = [
   { id: 'tickets-api', name: 'Tickets API', url: 'http://stp-tickets-api:3003/health', type: 'http' },
   { id: 'tickets-web', name: 'Tickets', url: 'http://stp-tickets-web:3000', type: 'http' },
   { id: 'immich', name: 'Immich', url: 'immich_server:2283', type: 'tcp' },
-  { id: 'uptime-kuma', name: 'Uptime Kuma', url: 'http://stp-uptime-kuma:3001', type: 'http' },
 ];
 
 @Injectable()
