@@ -83,6 +83,8 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: ['React', 'Vite', 'Supabase', 'Capacitor'],
     status: 'Web al día en Vercel. APK Android firmado con keystore real, publicado en apk.stpsoluciones.com. Ahora con entorno de staging real (Supabase + rama de Vercel propios), separado de producción por primera vez.',
     recentWork: [
+      'Exportar todos los datos (facturas + fotos, con enlaces firmados válidos 30 días) por correo al dar de baja una empresa (FRD-5) -- nuevo tipo company_data_export en send-email, reusando la misma autorización admin/owner que ya existía. Probado de punta a punta en producción.',
+      'Selector opcional "¿Cómo nos conociste?" en el registro de empresa (FRD-8) -- nueva columna companies.referral_source, register_company actualizada.',
       'Checkbox de aceptación de Términos y Condiciones / Privacidad en los 3 flujos de registro (empresa, contador, empleado, incluido el camino de Google) -- antes se creaba la cuenta sin pedirla nunca (FRD-3).',
       'Correos de ciclo de vida automatizados en email-cron: oferta de descuento a empresas free (10% primer mes, 3 correos/semana, con win-back a los 60 días de vuelta en free), recordatorio a empresas de pago que dejan de registrar facturas (3 correos), y exclusión de cuentas de prueba/internas de todas las campañas.',
       'Entorno de staging completo (FRD-11): proyecto Supabase propio (esquema, datos de referencia, storage y RLS replicados), 19 Edge Functions, PayPal en modo sandbox con sus propios planes, y una rama de Vercel dedicada con sus propias variables — antes todo cambio se probaba directo en producción.',
