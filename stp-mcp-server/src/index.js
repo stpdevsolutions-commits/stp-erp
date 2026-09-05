@@ -60,6 +60,16 @@ async function withMailbox(key, fn) {
     auth: { user: acc.email, pass: acc.pass },
     logger: false,
   });
+  // ImapFlow emite 'error' en el socket subyacente (ej. timeout) de forma
+  // asincrona, fuera de cualquier await pendiente — sin este listener, Node
+  // trata ese 'error' como no manejado y tumba TODO el proceso (no solo esta
+  // llamada), afectando las 13 herramientas del servidor MCP hasta que Docker
+  // lo reinicia. Visto en produccion: crasheo el server durante el cron de
+  // resumen diario de las 7am, dejando timeouts en cascada en las demas
+  // herramientas justo mientras se reiniciaba.
+  client.on('error', (err) => {
+    console.error('IMAP error de fondo en cuenta "' + key + '":', err.message);
+  });
   await client.connect();
   try {
     const lock = await client.getMailboxLock('INBOX');
