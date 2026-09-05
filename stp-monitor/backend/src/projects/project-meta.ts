@@ -83,6 +83,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: ['React', 'Vite', 'Supabase', 'Capacitor'],
     status: 'Web al día en Vercel. APK Android firmado con keystore real, publicado en apk.stpsoluciones.com. Ahora con entorno de staging real (Supabase + rama de Vercel propios), separado de producción por primera vez.',
     recentWork: [
+      'FRD-14: fallos silenciosos corregidos en Dashboard/ContadorDashboard/Settings/TeamPage/HistoryPage (antes fallaban sin avisar al usuario), y botones sin protección de doble clic (cancelar suscripción, revocar invitación, reintentar escaneo, verificación de NCF duplicado sin debounce). Pendiente aparte (FRD-17, pospuesto a propósito): componente compartido de Loading/Error/Empty state -- hoy cada pantalla reinventa el suyo.',
       'Exportar todos los datos (facturas + fotos, con enlaces firmados válidos 30 días) por correo al dar de baja una empresa (FRD-5) -- nuevo tipo company_data_export en send-email, reusando la misma autorización admin/owner que ya existía. Probado de punta a punta en producción.',
       'Selector opcional "¿Cómo nos conociste?" en el registro de empresa (FRD-8) -- nueva columna companies.referral_source, register_company actualizada.',
       'Checkbox de aceptación de Términos y Condiciones / Privacidad en los 3 flujos de registro (empresa, contador, empleado, incluido el camino de Google) -- antes se creaba la cuenta sin pedirla nunca (FRD-3).',
