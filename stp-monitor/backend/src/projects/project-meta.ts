@@ -81,8 +81,9 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     purpose:
       'SaaS de facturación y gestión de NCF/DGII para negocios en RD, con app móvil vía Capacitor — proyecto aparte del servidor de STP.',
     stack: ['React', 'Vite', 'Supabase', 'Capacitor'],
-    status: 'Web al día en Vercel. APK Android firmado con keystore real, publicado en apk.stpsoluciones.com. Ahora con entorno de staging real (Supabase + rama de Vercel propios), separado de producción por primera vez.',
+    status: 'Web al día en Vercel. APK Android firmado con keystore real, publicado en apk.stpsoluciones.com. Identidad visual de los mockups migrada a producción pantalla por pantalla (auth, núcleo, equipo/ajustes, sistema, importar, bloqueados) — solo queda Super Admin, ya aprobado. Entorno de staging real (Supabase + rama de Vercel propios), separado de producción.',
     recentWork: [
+      'Migración de identidad de los mockups (canvas de diseño) a producción, pantalla por pantalla, verificada en vivo con la cuenta real de STP y 2 cuentas throwaway (contador y plan Free): panel de auth (decoración, centrado, logo, íconos) que se creía terminado en una sesión anterior en realidad seguía con la tarjeta vieja; Nueva Factura reorganizada (Tipo de gasto/Método de pago/Notas agrupados en su propia tarjeta "Clasificación para el 606"); botón de Reporte de Gastos (606) ahora resalta como elemento fuerte; barra de progreso "X de 30 facturas" agregada al widget de Plan Free; una decena de tokens de color hardcodeados (rojo/verde) migrados a los tokens reales danger/valid/destructive. 16 commits, todos verificados en vivo antes de darlos por buenos.',
       'FRD-15 ("hacer la app asincrónica" → carga inicial más rápida): lazy-loading de todas las rutas + carga bajo demanda de xlsx/jspdf al exportar. El chunk de entrada bajó de 858KB a 315KB; las librerías de exportar (1.8MB) ya no se precargan si el usuario nunca exporta.',
       'FRD-16: componentes compartidos LoadingState/ErrorState/EmptyState + hook useDebouncedValue, reemplazando las ~8 implementaciones ad hoc que cada pantalla reinventaba por su cuenta (y las 5 copias casi idénticas del mismo patrón de debounce). Puramente de presentación -- ningún cambio de lógica o comportamiento.',
       'FRD-14: fallos silenciosos corregidos en Dashboard/ContadorDashboard/Settings/TeamPage/HistoryPage (antes fallaban sin avisar al usuario), y botones sin protección de doble clic (cancelar suscripción, revocar invitación, reintentar escaneo, verificación de NCF duplicado sin debounce). Pendiente aparte (FRD-17, pospuesto a propósito): componente compartido de Loading/Error/Empty state -- hoy cada pantalla reinventa el suyo.',
@@ -140,8 +141,9 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
       'Sistema propio de tickets (bugs/cambios/mejoras/nuevos desarrollos) para todos los proyectos de STP — construido a medida en vez de adoptar Jira/Vikunja/Plane, evaluados y descartados por pesados para este servidor.',
     stack: ['NestJS', 'TypeORM', 'PostgreSQL', 'Next.js', 'Docker', 'Caddy'],
     status:
-      'En producción, tickets.stpsoluciones.com, sin login (gateado por VPN). Conectado a Hermes Agent vía MCP — se puede crear/consultar tickets por chat de Telegram, incluso por nota de voz.',
+      'En producción, tickets.stpsoluciones.com, sin login (gateado por VPN). Dos secciones: el tablero de tickets y el Roadmap (etapas + línea de tiempo). Conectado a Hermes Agent vía MCP — se puede crear/consultar tickets por chat de Telegram, incluso por nota de voz.',
     recentWork: [
+      'Sección Roadmap nueva: entidad Sprint (etapas con fecha de inicio/fin y objetivo), timeline tipo Gantt en CSS puro, changelog de lo entregado por semana y avance por proyecto — para ver qué se hizo y cuánto falta. Sembradas 5 etapas reales.',
       'Los filtros del tablero (proyecto, tipo, estado, búsqueda, orden) ahora persisten en localStorage y se recuperan al reabrir, aunque se cierre el navegador.',
       'Código de ticket por proyecto (FRD-1, ERP-2...) en vez de solo un número global.',
       'Bug real corregido: el orden por prioridad era alfabético ("urgent" > "medium" > "low" > "high"), no por severidad — ahora es el orden real.',
