@@ -82,6 +82,10 @@ export class Task {
   @Column({ type: 'uuid', nullable: true })
   createdById: string;
 
+  /** Inicio previsto de la actividad, para la vista semanal de Cronograma. */
+  @Column({ type: 'date', nullable: true })
+  startDate: string;
+
   @Column({ type: 'date', nullable: true })
   dueDate: string;
 

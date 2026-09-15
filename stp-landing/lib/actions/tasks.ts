@@ -15,6 +15,7 @@ export interface CreateTaskInput {
   description?: string
   status?: 'pending' | 'in_progress' | 'review' | 'done' | 'cancelled'
   priority?: 'low' | 'medium' | 'high' | 'urgent'
+  startDate?: string
   dueDate?: string
   assignedToId?: string
   collaboratorId?: string
@@ -27,6 +28,7 @@ export interface UpdateTaskInput {
   description?: string | null
   status?: 'pending' | 'in_progress' | 'review' | 'done' | 'cancelled'
   priority?: 'low' | 'medium' | 'high' | 'urgent'
+  startDate?: string | null
   dueDate?: string | null
   assignedToId?: string | null
   collaboratorId?: string | null
