@@ -1,6 +1,7 @@
 import { IsOptional, IsString, IsEnum, IsUUID, IsDateString } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { PayrollStatus } from '../entities/payroll-entry.entity';
+import { clampPage, clampLimit } from '../../common/pagination';
+import { PayrollPaymentType, PayrollStatus } from '../entities/payroll-entry.entity';
 
 export class QueryPayrollDto {
   /** Busca por número (NOM-…), nombre o cédula del colaborador. */
@@ -20,6 +21,10 @@ export class QueryPayrollDto {
   @IsEnum(PayrollStatus)
   status?: PayrollStatus;
 
+  @IsOptional()
+  @IsEnum(PayrollPaymentType)
+  paymentType?: PayrollPaymentType;
+
   /** Filtran por período trabajado (solapamiento), no por fecha de pago. */
   @IsOptional()
   @IsDateString()
@@ -30,10 +35,10 @@ export class QueryPayrollDto {
   dateTo?: string;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value) || 1)
+  @Transform(({ value }) => clampPage(value))
   page?: number = 1;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value) || 20)
+  @Transform(({ value }) => clampLimit(value))
   limit?: number = 20;
 }

@@ -1,5 +1,6 @@
 import { IsOptional, IsString, IsEnum, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { clampPage, clampLimit } from '../../common/pagination';
 import { ClientType } from '../entities/client.entity';
 
 export class QueryClientsDto {
@@ -17,10 +18,10 @@ export class QueryClientsDto {
   isActive?: boolean;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value) || 1)
+  @Transform(({ value }) => clampPage(value))
   page?: number = 1;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value) || 20)
+  @Transform(({ value }) => clampLimit(value))
   limit?: number = 20;
 }

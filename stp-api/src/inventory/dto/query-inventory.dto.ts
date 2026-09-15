@@ -1,5 +1,6 @@
 import { IsOptional, IsString, IsEnum } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { clampPage, clampLimit } from '../../common/pagination';
 import { InventoryCategory } from '../entities/inventory-item.entity';
 
 export class QueryInventoryDto {
@@ -12,10 +13,10 @@ export class QueryInventoryDto {
   category?: InventoryCategory;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value) || 1)
+  @Transform(({ value }) => clampPage(value))
   page?: number = 1;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value) || 20)
+  @Transform(({ value }) => clampLimit(value))
   limit?: number = 20;
 }

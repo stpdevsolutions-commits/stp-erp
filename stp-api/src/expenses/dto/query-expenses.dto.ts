@@ -1,5 +1,6 @@
 import { IsOptional, IsEnum, IsUUID, IsDateString } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { clampPage, clampLimit } from '../../common/pagination';
 import { ExpenseCategory } from '../entities/expense.entity';
 
 export class QueryExpensesDto {
@@ -20,10 +21,10 @@ export class QueryExpensesDto {
   dateTo?: string;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value) || 1)
+  @Transform(({ value }) => clampPage(value))
   page?: number = 1;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value) || 20)
+  @Transform(({ value }) => clampLimit(value))
   limit?: number = 20;
 }
