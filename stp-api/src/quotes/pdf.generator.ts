@@ -6,6 +6,7 @@ import { rowsToTree, type QuoteTreeRow, type QuoteRowLike } from './quote-tree';
 import {
   drawDocumentHeader, CONTENT_Y,
   DARK_BLUE, TEAL, MID_GRAY, DARK_TEXT, BORDER_GRAY, LEFT, RIGHT, WIDTH,
+  textLine,
 } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
 
@@ -111,23 +112,23 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
       .text('CLIENTE', COL1, r1Y, { lineBreak: false })
       .text('CONTACTO', COL2, r1Y, { lineBreak: false });
 
-    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(8.5)
-      .text(quote.client?.name ?? '—', COL1, r1Y + 9, { width: 222, lineBreak: false });
+    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(8.5);
+    textLine(doc, quote.client?.name ?? '—', COL1, r1Y + 9, 222);
 
     if ((quote.client as any)?.rnc) {
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
-        .text(`RNC/Cédula: ${(quote.client as any).rnc}`, COL1, r1Y + 21, { width: 222, lineBreak: false });
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7);
+      textLine(doc, `RNC/Cédula: ${(quote.client as any).rnc}`, COL1, r1Y + 21, 222);
     }
 
     let ctY = r1Y + 9;
     if (quote.client?.email) {
-      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(7.5)
-        .text(quote.client.email, COL2, ctY, { width: 222, lineBreak: false });
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(7.5);
+      textLine(doc, quote.client.email, COL2, ctY, 222);
       ctY += 11;
     }
     if ((quote.client as any)?.phone) {
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
-        .text(`Tel: ${(quote.client as any).phone}`, COL2, ctY, { width: 222, lineBreak: false });
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7);
+      textLine(doc, `Tel: ${(quote.client as any).phone}`, COL2, ctY, 222);
     }
 
     // Divider inside block
@@ -140,9 +141,9 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text('FECHA DE EMISIÓN', COL1, r2Y, { lineBreak: false })
       .text('VÁLIDA HASTA',     COL2, r2Y, { lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(8.5)
-      .text(dateLong(quote.createdAt),  COL1, r2Y + 9, { width: 222, lineBreak: false })
-      .text(dateLong(quote.validUntil), COL2, r2Y + 9, { width: 222, lineBreak: false });
+    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(8.5);
+    textLine(doc, dateLong(quote.createdAt), COL1, r2Y + 9, 222);
+    textLine(doc, dateLong(quote.validUntil), COL2, r2Y + 9, 222);
 
     y += BLOCK_H + 12;
 
@@ -228,19 +229,12 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
       const bold = depth === 0;
       doc.fillColor(bold ? DARK_BLUE : MID_GRAY)
         .font(bold ? 'Helvetica-Bold' : 'Helvetica')
-        .fontSize(bold ? 8.5 : 8)
-        .text(label, C.desc.x + 3 + indent, y + 3, {
-          width: C.price.x - C.desc.x - indent - 6,
-          lineBreak: false,
-        });
+        .fontSize(bold ? 8.5 : 8);
+      textLine(doc, label, C.desc.x + 3 + indent, y + 3, C.price.x - C.desc.x - indent - 6);
       doc.fillColor(bold ? DARK_BLUE : DARK_TEXT)
         .font('Helvetica-Bold')
-        .fontSize(bold ? 8.5 : 8)
-        .text(money(amount), C.total.x, y + 3, {
-          width: C.total.w,
-          align: 'right',
-          lineBreak: false,
-        });
+        .fontSize(bold ? 8.5 : 8);
+      textLine(doc, money(amount), C.total.x, y + 3, C.total.w, { align: 'right' });
       y += 16;
     };
 
@@ -259,17 +253,14 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
         const sLabel = `PARTIDA ${label}: ${row.description.toUpperCase()}`;
         doc.rect(LEFT, y, WIDTH, 18).fill(SECTION_BG);
         doc.rect(LEFT, y, 4,     18).fill(TEAL);
-        doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(8.5)
-          .text(sLabel, LEFT + 8, y + 5, { width: WIDTH - 16, lineBreak: false });
+        doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(8.5);
+        textLine(doc, sLabel, LEFT + 8, y + 5, WIDTH - 16);
         y += 20;
         y = drawTableHeader(y);
       } else {
         const indent = Math.min(depth, 4) * INDENT_STEP;
-        doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(8)
-          .text(`${label}  ${row.description.toUpperCase()}`, C.desc.x + 3 + indent, y + 3, {
-            width: WIDTH - indent - 6,
-            lineBreak: false,
-          });
+        doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(8);
+        textLine(doc, `${label}  ${row.description.toUpperCase()}`, C.desc.x + 3 + indent, y + 3, WIDTH - indent - 6);
         y += 15;
       }
 
@@ -307,34 +298,51 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
     // ── Totals ─────────────────────────────────────────────────────────────
     y = checkBreak(y, 80);
 
+    // Las líneas del desglose (Subtotal, Descuento, ITBIS, gastos indirectos)
+    // son siempre una FRACCIÓN del total, así que su valor cabe en una caja
+    // angosta — eso le deja aire de sobra a la etiqueta ("Subtotal costos
+    // directos" no cabía si se le restaba el ancho que necesita TOTAL NETO).
+    // TOTAL NETO sí puede llegar a 7-8 cifras y va en letra más grande, así
+    // que tiene su propia caja de valor, más ancha.
     const tLabelX = C.price.x;
-    const tLabelW = C.price.w + C.disc.w + (C.itbis?.w ?? 0);
-    const tValueX = C.total.x;
-    const tValueW = C.total.w;
+    const dValueW = 80;
+    const dValueX = RIGHT - dValueW;
+    const dLabelW = dValueX - tLabelX - 6;
+    // 190pt: a 18pt (mismo tamaño que el monto final en Pagos/Nómina/Gastos,
+    // para que los 4 documentos se vean idénticos) un total de 8 cifras
+    // necesita más ancho que a los 13pt de antes.
+    const totalValueW = 190;
+    const totalValueX = RIGHT - totalValueW;
+    // TOTAL NETO es el número que más importa del documento: se le da su
+    // propia franja a todo lo ancho (como en recibos de pago), no solo el
+    // espacio alineado bajo la columna Precio de la tabla — ahí "TOTAL NETO"
+    // no cabía junto a una caja de valor lo bastante ancha para 7-8 cifras.
+    const totalLabelX = LEFT;
+    const totalLabelW = totalValueX - totalLabelX - 6;
 
     doc.moveTo(tLabelX, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
     y += 7;
 
     const subtotalLabel = hasIndirect ? 'Subtotal costos directos' : 'Subtotal';
-    doc.fillColor(MID_GRAY).font('Helvetica').fontSize(9)
-      .text(subtotalLabel, tLabelX, y, { width: tLabelW, lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9)
-      .text(money(quote.subtotal), tValueX, y, { width: tValueW, align: 'right', lineBreak: false });
+    doc.fillColor(MID_GRAY).font('Helvetica').fontSize(9);
+    textLine(doc, subtotalLabel, tLabelX, y, dLabelW);
+    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9);
+    textLine(doc, money(quote.subtotal), dValueX, y, dValueW, { align: 'right' });
     y += 14;
 
     if (Number(quote.discount ?? 0) > 0) {
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(9)
-        .text('Descuento', tLabelX, y, { width: tLabelW, lineBreak: false });
-      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9)
-        .text('- ' + money(Number(quote.discount)), tValueX, y, { width: tValueW, align: 'right', lineBreak: false });
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(9);
+      textLine(doc, 'Descuento', tLabelX, y, dLabelW);
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9);
+      textLine(doc, '- ' + money(Number(quote.discount)), dValueX, y, dValueW, { align: 'right' });
       y += 14;
     }
 
     if (hasIndirect) {
       // ── Desglose de gastos indirectos ──────────────────────────────────────
       y += 2;
-      doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(8)
-        .text('GASTOS INDIRECTOS', tLabelX, y, { width: tLabelW + tValueW, lineBreak: false });
+      doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(8);
+      textLine(doc, 'GASTOS INDIRECTOS', tLabelX, y, dLabelW + dValueW);
       y += 13;
       for (const cost of quote.indirectCosts) {
         y = checkBreak(y, 14);
@@ -343,31 +351,33 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
             ? `${cost.name} (${cost.pct}% del total)`
             : `${cost.name} (${cost.pct}% gravables)`
           : `${cost.name} (${cost.pct}%)`;
-        doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8.5)
-          .text(pctLabel, tLabelX, y, { width: tLabelW, lineBreak: false });
-        doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8.5)
-          .text(money(Number(cost.amount ?? 0)), tValueX, y, { width: tValueW, align: 'right', lineBreak: false });
+        doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8.5);
+        textLine(doc, pctLabel, tLabelX, y, dLabelW);
+        doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(8.5);
+        textLine(doc, money(Number(cost.amount ?? 0)), dValueX, y, dValueW, { align: 'right' });
         y += 13;
       }
       y += 1;
     }
 
     if (showITBIS) {
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(9)
-        .text(`ITBIS (${quote.taxRate}%)`, tLabelX, y, { width: tLabelW, lineBreak: false });
-      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9)
-        .text(money(quote.taxAmount), tValueX, y, { width: tValueW, align: 'right', lineBreak: false });
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(9);
+      textLine(doc, `ITBIS (${quote.taxRate}%)`, tLabelX, y, dLabelW);
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9);
+      textLine(doc, money(quote.taxAmount), dValueX, y, dValueW, { align: 'right' });
       y += 14;
     }
 
-    doc.moveTo(tLabelX, y).lineTo(RIGHT, y).strokeColor(TEAL).lineWidth(0.8).stroke();
+    doc.moveTo(totalLabelX, y).lineTo(RIGHT, y).strokeColor(TEAL).lineWidth(0.8).stroke();
     y += 6;
 
-    doc.fillColor(MID_GRAY).font('Helvetica-Bold').fontSize(9)
-      .text('TOTAL NETO', tLabelX, y, { width: tLabelW, lineBreak: false });
-    doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(10.5)
-      .text(money(quote.total), tValueX, y - 1, { width: tValueW, align: 'right', lineBreak: false });
-    y += 18;
+    // Mismo tamaño que el monto final en Pagos/Nómina/Gastos, para que los 4
+    // documentos se vean idénticos en su cifra más importante.
+    doc.fillColor(MID_GRAY).font('Helvetica-Bold').fontSize(10);
+    textLine(doc, 'TOTAL NETO', totalLabelX, y + 6, totalLabelW);
+    doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(18);
+    textLine(doc, money(quote.total), totalValueX, y, totalValueW, { align: 'right' });
+    y += 26;
 
     // ── Notes ──────────────────────────────────────────────────────────────
     if (quote.notes) {

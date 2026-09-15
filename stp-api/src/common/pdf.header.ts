@@ -14,6 +14,41 @@ export const WIDTH = RIGHT - LEFT;
 export const HEADER_H  = 110;
 export const CONTENT_Y = HEADER_H + 16;
 
+/**
+ * Escribe un campo de una sola línea que NUNCA se parte en dos.
+ *
+ * `lineBreak: false` por sí solo no alcanza: pdfkit solo lo consulta para
+ * decidir si inventa un `width` por defecto (ver `_initOptions`) — en cuanto
+ * se pasa un `width` explícito (como aquí, siempre), el texto se envuelve
+ * igual sin importar `lineBreak`. Con `height` fijo a una línea + `ellipsis`,
+ * si el texto no cabe se trunca con "…" en vez de partirse y montarse sobre
+ * el contenido de la fila siguiente.
+ */
+export function textLine(
+  doc: InstanceType<typeof PDFDocument>,
+  text: string,
+  x: number,
+  y: number,
+  width: number,
+  options: Record<string, unknown> = {},
+): void {
+  doc.text(text, x, y, {
+    ...options,
+    width,
+    height: doc.currentLineHeight(),
+    ellipsis: true,
+  });
+}
+
+/** Alto real que ocupará `text` envuelto a `width` con la fuente/tamaño actuales. */
+export function textHeight(
+  doc: InstanceType<typeof PDFDocument>,
+  text: string,
+  width: number,
+): number {
+  return doc.heightOfString(text || '—', { width });
+}
+
 export function drawDocumentHeader(
   doc: InstanceType<typeof PDFDocument>,
   documentType: string,
@@ -45,17 +80,20 @@ export function drawDocumentHeader(
     .text(`${company.email}  ·  ${company.website}`, infoX, 84, { width: infoW, lineBreak: false });
 
   // ── Document type + number (right column) ─────────────────────────────────
+  // 16pt en vez de 20: junto al nombre de la empresa a 14pt, 20pt se veía
+  // desproporcionado — 16pt sigue siendo lo más grande de la página, pero
+  // dentro de la misma escala que el resto del encabezado.
   const docX = 358;
   const docW = RIGHT - docX;
   const typeLines = documentType.split('\n').length;
 
-  doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(20)
+  doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(16)
     .text(documentType, docX, 20, { width: docW, align: 'right' });
 
-  // Position number below all type lines (approx 24pt per line)
-  const numY = 20 + typeLines * 26 + 4;
-  doc.fillColor(TEAL).font('Helvetica').fontSize(11)
-    .text(documentNumber, docX, numY, { width: docW, align: 'right', lineBreak: false });
+  // Position number below all type lines (~20pt de alto de línea a 16pt)
+  const numY = 20 + typeLines * 20 + 4;
+  doc.fillColor(TEAL).font('Helvetica').fontSize(10.5);
+  textLine(doc, documentNumber, docX, numY, docW, { align: 'right' });
 
   // ── Separator line ────────────────────────────────────────────────────────
   doc.moveTo(LEFT, HEADER_H).lineTo(RIGHT, HEADER_H)

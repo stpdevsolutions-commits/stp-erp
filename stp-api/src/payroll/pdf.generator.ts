@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
 import type { PayrollEntry } from './entities/payroll-entry.entity';
-import { PayrollMethod, PayrollStatus } from './entities/payroll-entry.entity';
+import { PayrollMethod, PayrollPaymentType, PayrollStatus } from './entities/payroll-entry.entity';
 import { findLogoPath } from '../common/logo.utils';
 import {
   drawDocumentHeader,
@@ -13,6 +13,7 @@ import {
   LEFT,
   RIGHT,
   WIDTH,
+  textLine,
 } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
 
@@ -59,6 +60,21 @@ const STATUS_LABELS: Record<PayrollStatus, string> = {
   [PayrollStatus.CANCELLED]: 'Anulado',
 };
 
+const UNIT_LABELS: Record<PayrollPaymentType, string> = {
+  [PayrollPaymentType.DAY]: 'días',
+  [PayrollPaymentType.M2]: 'm²',
+  [PayrollPaymentType.M3]: 'm³',
+  [PayrollPaymentType.ML]: 'ml',
+  [PayrollPaymentType.LUMP_SUM]: 'P.A.',
+};
+
+/** Línea del desglose para la cantidad base — cambia de forma según el tipo de pago. */
+function lineaBase(paymentType: PayrollPaymentType, cantidad: number, tarifa: number): string {
+  if (paymentType === PayrollPaymentType.LUMP_SUM) return 'Monto fijo (P.A.)';
+  const unidad = UNIT_LABELS[paymentType] ?? UNIT_LABELS[PayrollPaymentType.DAY];
+  return `Cantidad (${cantidad} ${unidad} × ${money(tarifa)})`;
+}
+
 /**
  * Recibo de pago de nómina, para imprimir y firmar.
  *
@@ -97,14 +113,19 @@ export function generatePayrollReceiptPdf(
     doc.rect(LEFT, y, WIDTH, BLOCK_H).fill(INFO_BG);
     doc.rect(LEFT, y, 4, BLOCK_H).fill(TEAL);
 
+    // Campos de una sola línea (nombre, cédula, período, posición, fecha,
+    // método/estado): nunca deberían necesitar 2 líneas, así que se truncan
+    // con "…" si no caben en vez de partirse y montarse sobre la fila
+    // siguiente — ver nota en textLine (common/pdf.header.ts): `width` +
+    // `lineBreak: false` juntos NO evitan el salto de línea en pdfkit.
     const r1Y = y + 10;
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text('BENEFICIARIO', COL1, r1Y, { lineBreak: false })
       .text('CÉDULA', COL2, r1Y, { lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(10.5)
-      .text(nombre, COL1, r1Y + 11, { width: 222, lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(10.5)
-      .text(colaborador?.cedula || '—', COL2, r1Y + 11, { width: 222, lineBreak: false });
+    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(10.5);
+    textLine(doc, nombre, COL1, r1Y + 11, 222);
+    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(10.5);
+    textLine(doc, colaborador?.cedula || '—', COL2, r1Y + 11, 222);
 
     const div1Y = y + 38;
     doc.moveTo(COL1, div1Y).lineTo(RIGHT - 14, div1Y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
@@ -113,13 +134,10 @@ export function generatePayrollReceiptPdf(
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text('PERÍODO', COL1, r2Y, { lineBreak: false })
       .text('POSICIÓN', COL2, r2Y, { lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5)
-      .text(`${dateShort(entry.periodStart)} — ${dateShort(entry.periodEnd)}`, COL1, r2Y + 11, {
-        width: 222,
-        lineBreak: false,
-      });
-    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5)
-      .text(colaborador?.position || '—', COL2, r2Y + 11, { width: 222, lineBreak: false });
+    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5);
+    textLine(doc, `${dateShort(entry.periodStart)} — ${dateShort(entry.periodEnd)}`, COL1, r2Y + 11, 222);
+    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5);
+    textLine(doc, colaborador?.position || '—', COL2, r2Y + 11, 222);
 
     const div2Y = y + 68;
     doc.moveTo(COL1, div2Y).lineTo(RIGHT - 14, div2Y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
@@ -128,26 +146,24 @@ export function generatePayrollReceiptPdf(
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text('FECHA DE PAGO', COL1, r3Y, { lineBreak: false })
       .text('MÉTODO / ESTADO', COL2, r3Y, { lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9.5)
-      .text(dateLong(entry.paymentDate), COL1, r3Y + 11, { width: 222, lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5)
-      .text(
-        `${METHOD_LABELS[entry.method] ?? entry.method} · ${STATUS_LABELS[entry.status] ?? entry.status}`,
-        COL2,
-        r3Y + 11,
-        { width: 222, lineBreak: false },
-      );
+    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9.5);
+    textLine(doc, dateLong(entry.paymentDate), COL1, r3Y + 11, 222);
+    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5);
+    textLine(
+      doc,
+      `${METHOD_LABELS[entry.method] ?? entry.method} · ${STATUS_LABELS[entry.status] ?? entry.status}`,
+      COL2,
+      r3Y + 11,
+      222,
+    );
 
     y += BLOCK_H + 20;
 
     if (entry.project) {
       doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8.5)
         .text('Proyecto:', LEFT, y, { lineBreak: false });
-      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9)
-        .text(`${entry.project.code} — ${entry.project.name}`, LEFT + 60, y, {
-          width: WIDTH - 60,
-          lineBreak: false,
-        });
+      doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9);
+      textLine(doc, `${entry.project.code} — ${entry.project.name}`, LEFT + 60, y, WIDTH - 60);
       y += 20;
     }
 
@@ -158,20 +174,22 @@ export function generatePayrollReceiptPdf(
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
     y += 8;
 
-    const VALUE_X = RIGHT - 150;
-    const VALUE_W = 150;
+    // 180pt en vez de 150: a 18pt "NETO PAGADO" necesita más aire que las
+    // demás líneas del desglose (que van a 9.5pt y sí cabían en 150).
+    const VALUE_X = RIGHT - 180;
+    const VALUE_W = 180;
 
     const linea = (label: string, valor: string, negrita = false) => {
-      doc.fillColor(DARK_TEXT).font(negrita ? 'Helvetica-Bold' : 'Helvetica').fontSize(9.5)
-        .text(label, LEFT, y, { width: 300, lineBreak: false });
-      doc.fillColor(DARK_TEXT).font(negrita ? 'Helvetica-Bold' : 'Helvetica').fontSize(9.5)
-        .text(valor, VALUE_X, y, { width: VALUE_W, align: 'right', lineBreak: false });
+      doc.fillColor(DARK_TEXT).font(negrita ? 'Helvetica-Bold' : 'Helvetica').fontSize(9.5);
+      textLine(doc, label, LEFT, y, 300);
+      doc.fillColor(DARK_TEXT).font(negrita ? 'Helvetica-Bold' : 'Helvetica').fontSize(9.5);
+      textLine(doc, valor, VALUE_X, y, VALUE_W, { align: 'right' });
       y += 16;
     };
 
-    const dias = entry.daysWorked ?? 0;
+    const cantidad = entry.daysWorked ?? 0;
     const tarifa = entry.dailyRate ?? 0;
-    linea(`Días trabajados (${dias} × ${money(tarifa)})`, money(dias * tarifa));
+    linea(lineaBase(entry.paymentType, cantidad, tarifa), money(cantidad * tarifa));
     if (entry.overtimeAmount) linea('Horas extras', money(entry.overtimeAmount));
     if (entry.bonuses) linea('Bonificaciones', money(entry.bonuses));
 
@@ -182,8 +200,8 @@ export function generatePayrollReceiptPdf(
 
     if (entry.deductions) linea('Deducciones', `− ${money(entry.deductions)}`);
     if (entry.deductions && entry.discountReason) {
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8)
-        .text(`Motivo: ${entry.discountReason}`, LEFT, y, { width: 320, lineBreak: false });
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8);
+      textLine(doc, `Motivo: ${entry.discountReason}`, LEFT, y, 320);
       y += 12;
     }
     if (entry.retentionAmount)
@@ -196,11 +214,11 @@ export function generatePayrollReceiptPdf(
     doc.moveTo(VALUE_X - 60, y).lineTo(RIGHT, y).strokeColor(TEAL).lineWidth(0.8).stroke();
     y += 8;
 
-    doc.fillColor(MID_GRAY).font('Helvetica-Bold').fontSize(9.5)
-      .text('NETO PAGADO', LEFT, y, { width: 300, lineBreak: false });
-    doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(13)
-      .text(money(entry.netAmount), VALUE_X, y - 2, { width: VALUE_W, align: 'right', lineBreak: false });
-    y += 26;
+    doc.fillColor(MID_GRAY).font('Helvetica-Bold').fontSize(10);
+    textLine(doc, 'NETO PAGADO', LEFT, y + 3, 300);
+    doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(18);
+    textLine(doc, money(entry.netAmount), VALUE_X, y - 3, VALUE_W, { align: 'right' });
+    y += 28;
 
     if (entry.reference) {
       doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8.5)

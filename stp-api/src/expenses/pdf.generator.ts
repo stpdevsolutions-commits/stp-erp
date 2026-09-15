@@ -6,6 +6,7 @@ import { findLogoPath } from '../common/logo.utils';
 import {
   drawDocumentHeader, CONTENT_Y,
   DARK_BLUE, TEAL, MID_GRAY, DARK_TEXT, BORDER_GRAY, LEFT, RIGHT, WIDTH,
+  textLine, textHeight,
 } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
 
@@ -59,56 +60,77 @@ export function generateExpensePdf(expense: Expense, outputPath: string, company
     let y = CONTENT_Y;
 
     // ── Info block ─────────────────────────────────────────────────────────
+    // Alturas dinámicas: "proyecto" y "descripción" pueden ocupar 2+ líneas.
+    // Con altura fija esa segunda línea se montaba sobre la fila siguiente —
+    // ver nota en textLine/textHeight (common/pdf.header.ts).
     const COL1 = LEFT + 14;
     const COL2 = LEFT + 268;
-    const BLOCK_H = 112;
+    const COL_W = 222;
+    const LABEL_OFFSET = 11;
+    const GAP_AFTER_VALUE = 8;
+    const GAP_AFTER_DIVIDER = 8;
+
+    const proyectoText = expense.project ? `${expense.project.code} — ${expense.project.name}` : '';
+    const clienteText = expense.project?.client?.name ?? '';
+    const categoriaText = CATEGORY_LABELS[expense.category] ?? expense.category;
+    const proveedorText = expense.supplier?.name ?? '—';
+    const descripcionText = expense.description ?? '—';
+    const fechaText = dateLong(expense.date);
+
+    doc.font('Helvetica-Bold').fontSize(10.5);
+    const proyectoH = expense.project ? textHeight(doc, proyectoText, COL_W) : doc.currentLineHeight();
+    const clienteH = expense.project?.client ? textHeight(doc, clienteText, COL_W) : doc.currentLineHeight();
+    const row1H = Math.max(proyectoH, clienteH);
+
+    doc.font('Helvetica').fontSize(9.5);
+    const row2H = doc.currentLineHeight(); // categoría/proveedor, siempre una línea
+    const descripcionH = textHeight(doc, descripcionText, COL_W);
+    const row3H = Math.max(descripcionH, doc.currentLineHeight());
+
+    const rowFootprint = (h: number) => LABEL_OFFSET + h + GAP_AFTER_VALUE + GAP_AFTER_DIVIDER;
+    const BLOCK_H = 10 + rowFootprint(row1H) + rowFootprint(row2H) + LABEL_OFFSET + row3H + 10;
 
     doc.rect(LEFT, y, WIDTH, BLOCK_H).fill(INFO_BG);
-    doc.rect(LEFT, y, 4,     BLOCK_H).fill(TEAL);
+    doc.rect(LEFT, y, 4, BLOCK_H).fill(TEAL);
 
     // Row 1: PROYECTO / CLIENTE
-    const r1Y = y + 10;
-    doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
-      .text('PROYECTO', COL1, r1Y, { lineBreak: false });
-
+    let rowY = y + 10;
     if (expense.project) {
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7).text('PROYECTO', COL1, rowY, { lineBreak: false });
       doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(10.5)
-        .text(`${expense.project.code} — ${expense.project.name}`, COL1, r1Y + 11, { width: 222, lineBreak: false });
+        .text(proyectoText, COL1, rowY + LABEL_OFFSET, { width: COL_W });
     }
-
     if (expense.project?.client) {
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
-        .text('CLIENTE', COL2, r1Y, { lineBreak: false });
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7).text('CLIENTE', COL2, rowY, { lineBreak: false });
       doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(10.5)
-        .text(expense.project.client.name ?? '—', COL2, r1Y + 11, { width: 222, lineBreak: false });
+        .text(clienteText, COL2, rowY + LABEL_OFFSET, { width: COL_W });
     }
 
-    // Divider
-    const div1Y = y + 38;
-    doc.moveTo(COL1, div1Y).lineTo(RIGHT - 14, div1Y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+    rowY += rowFootprint(row1H) - GAP_AFTER_DIVIDER;
+    doc.moveTo(COL1, rowY).lineTo(RIGHT - 14, rowY).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+    rowY += GAP_AFTER_DIVIDER;
 
     // Row 2: CATEGORÍA / PROVEEDOR
-    const r2Y = div1Y + 8;
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
-      .text('CATEGORÍA', COL1, r2Y, { lineBreak: false })
-      .text('PROVEEDOR', COL2, r2Y, { lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5)
-      .text(CATEGORY_LABELS[expense.category] ?? expense.category, COL1, r2Y + 11, { width: 222, lineBreak: false })
-      .text(expense.supplier?.name ?? '—', COL2, r2Y + 11, { width: 222, lineBreak: false });
+      .text('CATEGORÍA', COL1, rowY, { lineBreak: false })
+      .text('PROVEEDOR', COL2, rowY, { lineBreak: false });
+    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5);
+    textLine(doc, categoriaText, COL1, rowY + LABEL_OFFSET, COL_W);
+    doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5);
+    textLine(doc, proveedorText, COL2, rowY + LABEL_OFFSET, COL_W);
 
-    // Divider
-    const div2Y = y + 68;
-    doc.moveTo(COL1, div2Y).lineTo(RIGHT - 14, div2Y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+    rowY += rowFootprint(row2H) - GAP_AFTER_DIVIDER;
+    doc.moveTo(COL1, rowY).lineTo(RIGHT - 14, rowY).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+    rowY += GAP_AFTER_DIVIDER;
 
     // Row 3: DESCRIPCIÓN / FECHA
-    const r3Y = div2Y + 8;
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
-      .text('DESCRIPCIÓN', COL1, r3Y, { lineBreak: false })
-      .text('FECHA',       COL2, r3Y, { lineBreak: false });
+      .text('DESCRIPCIÓN', COL1, rowY, { lineBreak: false })
+      .text('FECHA', COL2, rowY, { lineBreak: false });
     doc.fillColor(DARK_TEXT).font('Helvetica').fontSize(9.5)
-      .text(expense.description ?? '—', COL1, r3Y + 11, { width: 222, lineBreak: false });
-    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9.5)
-      .text(dateLong(expense.date), COL2, r3Y + 11, { width: 222, lineBreak: false });
+      .text(descripcionText, COL1, rowY + LABEL_OFFSET, { width: COL_W });
+    doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9.5);
+    textLine(doc, fechaText, COL2, rowY + LABEL_OFFSET, COL_W);
 
     y += BLOCK_H + 18;
 
@@ -137,19 +159,18 @@ export function generateExpensePdf(expense: Expense, outputPath: string, company
     }
 
     // ── Amount ─────────────────────────────────────────────────────────────
-    const tLabelX = LEFT + 310;
-    const tLabelW = 120;
-    const tValueX = LEFT + 430;
-    const tValueW = RIGHT - (LEFT + 430);
+    const amountLabelW = 200;
+    const amountValueX = LEFT + amountLabelW;
+    const amountValueW = RIGHT - amountValueX;
 
-    doc.moveTo(tLabelX, y).lineTo(RIGHT, y).strokeColor(TEAL).lineWidth(0.8).stroke();
-    y += 7;
+    doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(TEAL).lineWidth(0.8).stroke();
+    y += 10;
 
-    doc.fillColor(MID_GRAY).font('Helvetica-Bold').fontSize(9.5)
-      .text('MONTO TOTAL', tLabelX, y, { width: tLabelW, lineBreak: false });
-    doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(13)
-      .text(money(expense.amount), tValueX, y - 2, { width: tValueW, align: 'right', lineBreak: false });
-    y += 22;
+    doc.fillColor(MID_GRAY).font('Helvetica-Bold').fontSize(10);
+    textLine(doc, 'MONTO TOTAL', LEFT, y + 5, amountLabelW);
+    doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(18)
+      .text(money(expense.amount), amountValueX, y, { width: amountValueW, align: 'right' });
+    y += Math.max(24, doc.currentLineHeight());
 
     // ── Footer ─────────────────────────────────────────────────────────────
     y += 16;
