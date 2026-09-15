@@ -255,6 +255,7 @@ export class ProjectReportService {
             : '—',
           periodStart: n.periodStart,
           periodEnd: n.periodEnd,
+          paymentType: n.paymentType,
           days: n.daysWorked ?? null,
           gross: n.grossAmount ?? 0,
         })),
@@ -434,7 +435,12 @@ export class ProjectReportService {
       buffer,
       displayName: nombre,
       mimetype: 'application/pdf',
-      context: FileContext.PROJECT_REPORTS,
+      // El interno (nómina + márgenes) va en su propio contexto: es lo único que le
+      // permite a FilesController.download exigir MANAGER/ADMIN al servirlo.
+      context:
+        type === ProjectReportType.INTERNAL
+          ? FileContext.PROJECT_REPORTS_INTERNAL
+          : FileContext.PROJECT_REPORTS,
       clientId: project.clientId,
       projectId,
       uploadedById: user.id,
@@ -462,7 +468,10 @@ export class ProjectReportService {
     const yaExiste = await this.filesRepo.count({
       where: {
         projectId,
-        context: FileContext.PROJECT_REPORTS,
+        context:
+          type === ProjectReportType.INTERNAL
+            ? FileContext.PROJECT_REPORTS_INTERNAL
+            : FileContext.PROJECT_REPORTS,
         originalName: `${base}.pdf`,
       },
     });

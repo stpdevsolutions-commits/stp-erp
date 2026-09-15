@@ -14,6 +14,7 @@ import {
   UploadedFile,
   ParseFilePipe,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody, ApiOperation } from '@nestjs/swagger';
@@ -292,9 +293,21 @@ export class FilesController {
   @ApiOperation({ summary: 'Descargar un archivo por ID' })
   async download(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: any,
     @Res() res: Response,
   ) {
     const { absolutePath, record } = await this.filesService.getAbsolutePath(id);
+    // `@ScopedResource('file')` solo comprueba pertenencia al proyecto/cliente: un
+    // informe interno (nómina + márgenes) archivado ahí es un archivo más para ese
+    // chequeo, así que sin esto cualquier miembro del proyecto —incluyendo USER—
+    // podía descargarlo aunque el propio módulo de informes se lo negara.
+    if (
+      record.context === FileContext.PROJECT_REPORTS_INTERNAL &&
+      user.role !== UserRole.ADMIN &&
+      user.role !== UserRole.MANAGER
+    ) {
+      throw new ForbiddenException('Este informe requiere rol MANAGER o ADMIN');
+    }
     const safeName = record.originalName.replace(/["\r\n\\]/g, '_');
     res.setHeader('Content-Type', record.mimetype);
     res.setHeader('Content-Disposition', `inline; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(record.originalName)}`);

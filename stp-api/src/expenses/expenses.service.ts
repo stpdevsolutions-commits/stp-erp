@@ -23,6 +23,7 @@ import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
 import { MaterialPricesService } from '../costs/material-prices.service';
 import { Material } from '../costs/entities/material.entity';
+import { auditLog } from '../common/audit-log';
 import { Unit } from '../costs/entities/unit.entity';
 import { resolveExpenseAmount } from '../costs/expense-price';
 import { loadForUpdate } from '../common/load-for-update';
@@ -94,6 +95,38 @@ export class ExpensesService {
     return { data, total, page, limit };
   }
 
+  /**
+   * Total de gastos del mes calendario en curso, sin paginar, con el mismo alcance
+   * por rol que `findAll`. Respeta `projectId`/`category` si vienen; ignora
+   * `page`/`limit`/`dateFrom`/`dateTo` porque el mes lo define este método, no un
+   * filtro del cliente.
+   */
+  async sumThisMonth(
+    query: Pick<QueryExpensesDto, 'projectId' | 'category'>,
+    user?: AccessSubject,
+  ): Promise<number> {
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    const monthStartStr = monthStart.toISOString().slice(0, 10);
+
+    const qb = this.expensesRepository
+      .createQueryBuilder('expense')
+      .leftJoin('expense.project', 'project')
+      .select('SUM(expense.amount)', 'sum')
+      .where('expense.date >= :monthStart', { monthStart: monthStartStr });
+
+    if (query.projectId) qb.andWhere('expense.projectId = :projectId', { projectId: query.projectId });
+    if (query.category) qb.andWhere('expense.category = :category', { category: query.category });
+
+    await this.access.applyScope(qb, user, {
+      projectExpr: 'expense.projectId',
+      clientExpr: 'project.clientId',
+    });
+
+    const { sum } = await qb.getRawOne();
+    return parseFloat(sum ?? '0');
+  }
+
   async findOne(id: string): Promise<Expense> {
     const expense = await this.expensesRepository.findOne({
       where: { id },
@@ -144,8 +177,9 @@ export class ExpensesService {
     return updated;
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, requesterId?: string): Promise<void> {
     const expense = await this.findOne(id);
+    auditLog(requesterId, 'expense.deleted', { expenseId: id, amount: expense.amount });
     // Antes de borrar: el precio derivado se ANULA (queda en el historial con motivo),
     // no se borra. La FK es SET NULL, así que sin esto quedaría un precio huérfano
     // indistinguible de uno bueno.

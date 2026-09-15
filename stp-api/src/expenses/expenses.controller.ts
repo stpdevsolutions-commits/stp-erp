@@ -63,6 +63,17 @@ export class ExpensesController {
     return this.expensesService.findAll(query, user);
   }
 
+  /**
+   * Total del mes calendario en curso, sin paginar. Antes la tarjeta "Este mes" del
+   * frontend sumaba solo `data` de `findAll` (la página actual, máx. `limit` filas):
+   * con más de una página de gastos ese mes, el número mostrado era una fracción del
+   * real.
+   */
+  @Get('summary')
+  summary(@Query() query: QueryExpensesDto, @CurrentUser() user: AuthUser) {
+    return this.expensesService.sumThisMonth(query, user);
+  }
+
   /** Exporta los gastos filtrados a Excel (.xlsx) con formato e identidad STP. */
   @Get('export/xlsx')
   async exportXlsx(
@@ -145,7 +156,7 @@ export class ExpensesController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.expensesService.remove(id);
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.expensesService.remove(id, user.id);
   }
 }

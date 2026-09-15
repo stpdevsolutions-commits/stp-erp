@@ -19,12 +19,21 @@ export enum FileContext {
   PROJECT_QUOTES = 'project-quotes',
   PROJECT_PAYMENTS = 'project-payments',
   /**
-   * Informes de proyecto archivados (PDF). A diferencia del resto de contextos,
-   * estos archivos NO los sube nadie: los genera el ERP al pulsar "Guardar en el
-   * proyecto" en el informe. Van en su propio contexto para que no se mezclen
+   * Informes de proyecto archivados (PDF), tipo CLIENTE. A diferencia del resto de
+   * contextos, estos archivos NO los sube nadie: los genera el ERP al pulsar "Guardar
+   * en el proyecto" en el informe. Van en su propio contexto para que no se mezclen
    * con los documentos que el equipo sube a mano.
    */
   PROJECT_REPORTS = 'project-reports',
+  /**
+   * Igual que PROJECT_REPORTS pero para el informe INTERNO (incluye nómina y
+   * márgenes). Contexto propio, y no una bandera aparte, para que la descarga
+   * (`FilesController.download`) pueda exigir MANAGER/ADMIN mirando solo el
+   * contexto — antes de esto ambos tipos compartían PROJECT_REPORTS y cualquier
+   * miembro del proyecto podía descargar el interno vía /files/:id/download,
+   * aunque el módulo de informes se lo negara por cualquier otra vía.
+   */
+  PROJECT_REPORTS_INTERNAL = 'project-reports-internal',
 }
 
 @Entity('uploaded_files')

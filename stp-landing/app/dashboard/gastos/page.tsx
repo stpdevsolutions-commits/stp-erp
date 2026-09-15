@@ -1,6 +1,6 @@
 ﻿﻿import Link from 'next/link'
 import { api, pageError } from '@/lib/api'
-import type { Expense, Project, Supplier, PaginatedResponse, Material } from '@/lib/types'
+import type { Expense, Project, Supplier, PaginatedResponse, Material, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -47,16 +47,26 @@ export default async function GastosPage({
   let suppliers: Supplier[] = []
   let materials: Material[] = []
   let error: string | null = null
+  let userRole = 'USER'
+  let totalEsteMes = 0
+
+  const summaryQuery = new URLSearchParams()
+  if (sp.category) summaryQuery.set('category', sp.category)
 
   try {
-    const [gr, proyRes, provRes] = await Promise.all([
+    const [gr, proyRes, provRes, me, esteMes] = await Promise.all([
       api.get<PaginatedResponse<Expense>>(`/expenses?${q.toString()}`),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
       api.get<PaginatedResponse<Supplier>>('/suppliers?limit=200&isActive=true'),
+      api.get<Pick<User, 'role'>>('/users/me'),
+      // Total real del mes calendario, no solo de la página actual (ver ExpensesController.summary).
+      api.get<number>(`/expenses/summary?${summaryQuery.toString()}`).catch(() => 0),
     ])
     gastosRes = gr
     projects = proyRes.data
     suppliers = provRes.data
+    userRole = me.role
+    totalEsteMes = esteMes
   } catch (e) {
     error = pageError(e, 'Error al cargar gastos')
   }
@@ -70,10 +80,6 @@ export default async function GastosPage({
 
   const gastos = gastosRes.data
   const totalMonto = gastos.reduce((sum, g) => sum + g.amount, 0)
-  const mesActual = new Date().toISOString().slice(0, 7)
-  const totalEsteMes = gastos
-    .filter((g) => g.date.startsWith(mesActual))
-    .reduce((sum, g) => sum + g.amount, 0)
 
   return (
     <div className="space-y-6">
@@ -84,6 +90,9 @@ export default async function GastosPage({
         </div>
         <div className="flex gap-2">
           <ExportExcelButton href={`/api/export/gastos?${q.toString()}`} label="Exportar Excel" />
+          {/* Crear gasto NO tiene @Roles en el backend: cualquier miembro del proyecto
+              (incl. USER, personal de campo) puede registrar uno. Solo editar/eliminar
+              están restringidos — ver GastoActions. */}
           <NuevoGastoDialog projects={projects} suppliers={suppliers} materials={materials} />
         </div>
       </div>
@@ -103,10 +112,10 @@ export default async function GastosPage({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Este mes (página actual)</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">Este mes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{DOP.format(totalEsteMes)}</div>
+            <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{DOP.format(totalEsteMes)}</div>
           </CardContent>
         </Card>
       </div>
@@ -179,7 +188,7 @@ export default async function GastosPage({
                         {new Date(g.date).toLocaleDateString('es-DO')}
                       </TableCell>
                       <TableCell>
-                        <GastoActions gasto={g} projects={projects} suppliers={suppliers} materials={materials} />
+                        <GastoActions gasto={g} projects={projects} suppliers={suppliers} materials={materials} userRole={userRole} />
                       </TableCell>
                     </TableRow>
                   ))
