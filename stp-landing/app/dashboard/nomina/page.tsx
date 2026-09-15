@@ -42,6 +42,21 @@ const METHOD_LABELS: Record<PayrollEntry['method'], string> = {
   other: 'Otro',
 }
 
+const UNIT_LABELS: Record<PayrollEntry['paymentType'], string> = {
+  day: 'días',
+  m2: 'm²',
+  m3: 'm³',
+  ml: 'ml',
+  lump_sum: 'P.A.',
+}
+
+/** "45.5 m² × RD$Y" para pagos por ajuste; "P.A." solo, sin cantidad, para monto fijo. */
+function formatCantidadTarifa(p: PayrollEntry): string {
+  if (p.paymentType === 'lump_sum') return p.dailyRate ? `P.A. (${DOP.format(p.dailyRate)})` : 'P.A.'
+  if (!p.daysWorked || !p.dailyRate) return '—'
+  return `${p.daysWorked} ${UNIT_LABELS[p.paymentType]} × ${DOP.format(p.dailyRate)}`
+}
+
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 const LIMIT = 20
 
@@ -166,7 +181,7 @@ export default async function NominaPage({
                   <TableHead>Colaborador</TableHead>
                   <TableHead>Período</TableHead>
                   <TableHead>Proyecto</TableHead>
-                  <TableHead className="text-right">Días × tarifa</TableHead>
+                  <TableHead className="text-right">Cantidad × tarifa</TableHead>
                   <TableHead className="text-right">Neto</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Pagado</TableHead>
@@ -205,9 +220,7 @@ export default async function NominaPage({
                         {p.project?.code ?? '—'}
                       </TableCell>
                       <TableCell className="text-right text-sm tabular-nums">
-                        {p.daysWorked && p.dailyRate
-                          ? `${p.daysWorked} × ${DOP.format(p.dailyRate)}`
-                          : '—'}
+                        {formatCantidadTarifa(p)}
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
                         {DOP.format(p.netAmount)}

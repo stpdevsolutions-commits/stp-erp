@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import {
   PayrollEntry,
+  PayrollPaymentType,
   PayrollStatus,
 } from './entities/payroll-entry.entity';
 import { Collaborator } from '../collaborators/entities/collaborator.entity';
@@ -18,6 +19,7 @@ import { CreatePayrollEntryDto } from './dto/create-payroll-entry.dto';
 import { UpdatePayrollEntryDto } from './dto/update-payroll-entry.dto';
 import { QueryPayrollDto } from './dto/query-payroll.dto';
 import { computePayrollAmounts } from './payroll-amounts';
+import { loadForUpdate } from '../common/load-for-update';
 import { SettingsService } from '../settings/settings.service';
 import { generatePayrollReceiptPdf } from './pdf.generator';
 
@@ -57,13 +59,25 @@ export class PayrollService {
     this.assertPeriod(dto.periodStart, dto.periodEnd);
 
     // La tarifa se congela en el pago: si mañana sube la del colaborador, los
-    // pagos ya registrados no deben cambiar de importe.
-    const dailyRate = dto.dailyRate ?? collaborator.dailyRate ?? null;
-    const amounts = computePayrollAmounts({ ...dto, dailyRate });
+    // pagos ya registrados no deben cambiar de importe. La tarifa del
+    // colaborador solo aplica como default para pago por día — para m²/m³/ml/
+    // P.A. no existe una tarifa por defecto, así que hay que escribirla siempre.
+    const paymentType = dto.paymentType ?? PayrollPaymentType.DAY;
+    const dailyRate =
+      dto.dailyRate ??
+      (paymentType === PayrollPaymentType.DAY ? collaborator.dailyRate : null) ??
+      null;
+    // A suma alzada no tiene "cantidad": se fija en 1 para que la tarifa SEA el monto
+    // total, en vez de confiar en que el cliente también lo mande así — el frontend lo
+    // hace, pero la API no puede depender de eso.
+    const daysWorked =
+      paymentType === PayrollPaymentType.LUMP_SUM ? 1 : dto.daysWorked;
+    const amounts = computePayrollAmounts({ ...dto, dailyRate, daysWorked });
 
     const entry = this.payrollRepository.create({
       ...dto,
       dailyRate: dailyRate as number,
+      daysWorked,
       ...amounts,
       number: await this.generateNumber(),
       createdById,
@@ -79,6 +93,7 @@ export class PayrollService {
       collaboratorId,
       projectId,
       status,
+      paymentType,
       dateFrom,
       dateTo,
       page = 1,
@@ -108,6 +123,7 @@ export class PayrollService {
       qb.andWhere('payroll.collaboratorId = :collaboratorId', { collaboratorId });
     if (projectId) qb.andWhere('payroll.projectId = :projectId', { projectId });
     if (status) qb.andWhere('payroll.status = :status', { status });
+    if (paymentType) qb.andWhere('payroll.paymentType = :paymentType', { paymentType });
     // Solapamiento de períodos: un pago entra si su rango toca el rango filtrado.
     if (dateFrom) qb.andWhere('payroll.periodEnd >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('payroll.periodStart <= :dateTo', { dateTo });
@@ -126,7 +142,9 @@ export class PayrollService {
   }
 
   async update(id: string, dto: UpdatePayrollEntryDto): Promise<PayrollEntry> {
-    const entry = await this.findOne(id);
+    // Sin relaciones: el objeto `collaborator`/`project` cargado pisaría la columna FK
+    // y un cambio de colaborador o proyecto no se guardaría (ver loadForUpdate).
+    const entry = await loadForUpdate(this.payrollRepository, id, 'Payroll entry not found');
 
     if (dto.collaboratorId && dto.collaboratorId !== entry.collaboratorId) {
       await this.getCollaborator(dto.collaboratorId);
@@ -145,6 +163,11 @@ export class PayrollService {
       ),
     );
     Object.assign(entry, defined);
+
+    // Mismo motivo que en create(): a suma alzada la cantidad no puede ser distinta de 1.
+    if (entry.paymentType === PayrollPaymentType.LUMP_SUM) {
+      entry.daysWorked = 1;
+    }
 
     const amounts = computePayrollAmounts(entry);
     entry.grossAmount = amounts.grossAmount;

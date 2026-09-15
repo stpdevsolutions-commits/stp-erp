@@ -55,6 +55,19 @@ const METODO: Record<string, string> = {
   card: 'Tarjeta',
   other: 'Otro',
 }
+const PAYMENT_TYPE_LABEL: Record<string, string> = {
+  day: 'días',
+  m2: 'm²',
+  m3: 'm³',
+  ml: 'ml',
+  lump_sum: 'P.A.',
+}
+/** "45.5 m²" para pagos por ajuste; "P.A." solo para monto fijo, sin cantidad. */
+function formatCantidad(paymentType: string, days: number | null): string {
+  if (paymentType === 'lump_sum') return 'P.A.'
+  return `${days ?? 0} ${PAYMENT_TYPE_LABEL[paymentType] ?? ''}`.trim()
+}
+
 const ESTADO_TAREA: Record<string, string> = {
   pending: 'Pendiente',
   in_progress: 'En progreso',
@@ -193,13 +206,13 @@ function VistaInterna({ r }: { r: InformeInterno }) {
         <Bloque
           title="Mano de obra imputada (nómina)"
           nota='Ya incluida en la categoría "Mano de obra" de los gastos: no se suma aparte.'
-          headers={['Nº', 'Colaborador', 'Período', 'Días', 'Bruto']}
+          headers={['Nº', 'Colaborador', 'Período', 'Cantidad', 'Bruto']}
           vacio="Sin nómina imputada al proyecto"
           rows={r.payroll.entries.map((n) => [
             n.number,
             n.collaborator,
             `${fecha(n.periodStart)} → ${fecha(n.periodEnd)}`,
-            n.days ?? 0,
+            formatCantidad(n.paymentType, n.days),
             money(n.gross),
           ])}
         />

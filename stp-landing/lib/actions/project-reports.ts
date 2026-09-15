@@ -85,6 +85,7 @@ export interface InformeInterno {
       collaborator: string
       periodStart: string
       periodEnd: string
+      paymentType: 'day' | 'm2' | 'm3' | 'ml' | 'lump_sum'
       days: number | null
       gross: number
     }[]

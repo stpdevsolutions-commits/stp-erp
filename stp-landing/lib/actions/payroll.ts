@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
 import { authFetch } from './utils'
 import { apiError } from '@/lib/utils'
-import type { PayrollMethod, PayrollStatus } from '@/lib/types'
+import type { PayrollMethod, PayrollPaymentType, PayrollStatus } from '@/lib/types'
 
 export interface ActionResult {
   ok: boolean
@@ -16,6 +16,7 @@ export interface PayrollInput {
   projectId?: string | null
   periodStart: string
   periodEnd: string
+  paymentType?: PayrollPaymentType
   daysWorked?: number | null
   dailyRate?: number | null
   overtimeAmount?: number | null

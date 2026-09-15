@@ -8,7 +8,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { PayrollMethod, PayrollStatus } from '../entities/payroll-entry.entity';
+import { PayrollMethod, PayrollPaymentType, PayrollStatus } from '../entities/payroll-entry.entity';
 
 export class UpdatePayrollEntryDto {
   @IsOptional()
@@ -26,6 +26,10 @@ export class UpdatePayrollEntryDto {
   @IsOptional()
   @IsDateString()
   periodEnd?: string;
+
+  @IsOptional()
+  @IsEnum(PayrollPaymentType)
+  paymentType?: PayrollPaymentType;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })

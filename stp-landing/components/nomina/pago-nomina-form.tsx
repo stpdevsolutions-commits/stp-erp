@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -36,6 +36,30 @@ export const METHOD_LABELS: Record<PayrollEntry['method'], string> = {
   other: 'Otro',
 }
 
+export const PAYMENT_TYPE_LABELS: Record<PayrollEntry['paymentType'], string> = {
+  day: 'Por día',
+  m2: 'Por m²',
+  m3: 'Por m³',
+  ml: 'Por ml',
+  lump_sum: 'P.A. (Partida Alzada)',
+}
+
+/** Etiqueta de la cantidad según el tipo de pago. lump_sum no usa este campo. */
+const CANTIDAD_LABELS: Partial<Record<PayrollEntry['paymentType'], string>> = {
+  day: 'Días',
+  m2: 'Cantidad (m²)',
+  m3: 'Cantidad (m³)',
+  ml: 'Cantidad (ml)',
+}
+
+/** Etiqueta de la tarifa según el tipo de pago. lump_sum no usa este campo. */
+const TARIFA_LABELS: Partial<Record<PayrollEntry['paymentType'], string>> = {
+  day: 'Tarifa diaria',
+  m2: 'Tarifa por m²',
+  m3: 'Tarifa por m³',
+  ml: 'Tarifa por ml',
+}
+
 // Los importes llegan del <input type="number"> como string; '' significa "vacío".
 const money = z
   .string()
@@ -56,6 +80,7 @@ const schema = z
     projectId: z.string().optional(),
     periodStart: z.string().min(1, 'Indica el inicio del período'),
     periodEnd: z.string().min(1, 'Indica el fin del período'),
+    paymentType: z.enum(['day', 'm2', 'm3', 'ml', 'lump_sum']),
     daysWorked: money,
     dailyRate: money,
     overtimeAmount: money,
@@ -93,6 +118,7 @@ function toInput(v: PayrollFormValues): PayrollInput {
     projectId: !v.projectId || v.projectId === SIN_PROYECTO ? null : v.projectId,
     periodStart: v.periodStart,
     periodEnd: v.periodEnd,
+    paymentType: v.paymentType,
     daysWorked: num(v.daysWorked),
     dailyRate: num(v.dailyRate),
     overtimeAmount: num(v.overtimeAmount),
@@ -139,6 +165,7 @@ export function PagoNominaForm({
       projectId: entry?.projectId ?? SIN_PROYECTO,
       periodStart: entry?.periodStart?.slice(0, 10) ?? '',
       periodEnd: entry?.periodEnd?.slice(0, 10) ?? '',
+      paymentType: entry?.paymentType ?? 'day',
       daysWorked: str(entry?.daysWorked),
       dailyRate: str(entry?.dailyRate),
       overtimeAmount: str(entry?.overtimeAmount),
@@ -162,26 +189,54 @@ export function PagoNominaForm({
 
   // Al elegir colaborador se propone su tarifa diaria; el usuario la puede pisar y
   // queda congelada en el pago (si mañana sube la tarifa, este pago no cambia).
+  // Solo aplica a pago por día: para m²/m³/ml/P.A. no hay tarifa por defecto
+  // todavía, se escribe cada vez.
   useEffect(() => {
+    if (values.paymentType !== 'day') return
     if (!collaborator?.dailyRate) return
     if (values.dailyRate) return
     setValue('dailyRate', String(collaborator.dailyRate))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collaboratorId])
+  }, [collaboratorId, values.paymentType])
 
-  const jornada = calcularJornada(values.periodStart, values.periodEnd)
+  const jornada = values.paymentType === 'day' ? calcularJornada(values.periodStart, values.periodEnd) : null
 
   /**
    * El período propone los días: L-V completos, sábado medio, domingo fuera
    * (se paga como extra). Se recalcula cada vez que cambian las fechas, incluso
    * si ya había un número escrito: si alguien corrige el período, el dato viejo
    * es justamente el que no hay que conservar. Queda editable para ausencias.
+   * Solo aplica a pago por día: por ajuste (m²/m³/ml) la cantidad no tiene
+   * relación con el período, y P.A. no usa cantidad.
    */
   useEffect(() => {
     if (!jornada) return
     setValue('daysWorked', String(jornada.dias))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.periodStart, values.periodEnd])
+  }, [values.periodStart, values.periodEnd, values.paymentType])
+
+  // P.A.: la cantidad queda fija en 1 y oculta — lo que se escribe a mano es
+  // directamente el monto, en el campo de tarifa.
+  useEffect(() => {
+    if (values.paymentType === 'lump_sum') setValue('daysWorked', '1')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.paymentType])
+
+  // Al CAMBIAR a m²/m³/ml, la cantidad que hubiera (días calculados del período, o el
+  // "1" de P.A.) no tiene relación con el nuevo tipo — se limpia para que la persona
+  // escriba el número real en vez de arrastrar el de otro tipo sin darse cuenta. Solo
+  // en un cambio real: `prevPaymentType` evita que dispare al abrir el formulario para
+  // editar un pago que YA es de este tipo, que borraría la cantidad guardada.
+  const prevPaymentType = useRef(values.paymentType)
+  useEffect(() => {
+    const prev = prevPaymentType.current
+    prevPaymentType.current = values.paymentType
+    if (prev === values.paymentType) return
+    if (values.paymentType !== 'day' && values.paymentType !== 'lump_sum') {
+      setValue('daysWorked', '')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.paymentType])
 
   return (
     <form
@@ -261,6 +316,25 @@ export function PagoNominaForm({
         </div>
       </div>
 
+      <div className="space-y-1.5">
+        <Label>Tipo de pago</Label>
+        <Select
+          value={values.paymentType}
+          onValueChange={(v) => v && setValue('paymentType', v as PayrollFormValues['paymentType'])}
+        >
+          <SelectTrigger className="w-full sm:w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(PAYMENT_TYPE_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {jornada && (
         <p className="text-xs text-muted-foreground">
           Según el período: <strong className="text-foreground">{jornada.dias}</strong> días ·{' '}
@@ -268,15 +342,30 @@ export function PagoNominaForm({
         </p>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="daysWorked">Días</Label>
-          <Input id="daysWorked" type="number" step="0.5" min="0" {...register('daysWorked')} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="dailyRate">Tarifa diaria</Label>
-          <Input id="dailyRate" type="number" step="0.01" min="0" {...register('dailyRate')} />
-        </div>
+      <div className={`grid grid-cols-2 gap-3 ${values.paymentType === 'lump_sum' ? 'sm:grid-cols-3' : 'sm:grid-cols-4'}`}>
+        {values.paymentType === 'lump_sum' ? (
+          <div className="space-y-1.5 col-span-2 sm:col-span-1">
+            <Label htmlFor="dailyRate">Monto (P.A.)</Label>
+            <Input id="dailyRate" type="number" step="0.01" min="0" {...register('dailyRate')} />
+          </div>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="daysWorked">{CANTIDAD_LABELS[values.paymentType]}</Label>
+              <Input
+                id="daysWorked"
+                type="number"
+                step={values.paymentType === 'day' ? '0.5' : '0.01'}
+                min="0"
+                {...register('daysWorked')}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dailyRate">{TARIFA_LABELS[values.paymentType]}</Label>
+              <Input id="dailyRate" type="number" step="0.01" min="0" {...register('dailyRate')} />
+            </div>
+          </>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="overtimeAmount">Horas extra</Label>
           <Input

@@ -13,6 +13,21 @@ import { Project } from '../../projects/entities/project.entity';
 import { Expense } from '../../expenses/entities/expense.entity';
 import { User } from '../../users/entities/user.entity';
 
+/**
+ * Cómo se calculó la cantidad base del pago. `daysWorked`/`dailyRate` se leen
+ * como "cantidad"/"tarifa unitaria" genéricas según este campo — cantidad ×
+ * tarifa es la misma cuenta sea la unidad días, m², m³ o ml. Para LUMP_SUM
+ * (P.A. — Partida Alzada) la cantidad queda fija en 1 y `dailyRate` guarda el
+ * monto escrito a mano.
+ */
+export enum PayrollPaymentType {
+  DAY = 'day',
+  M2 = 'm2',
+  M3 = 'm3',
+  ML = 'ml',
+  LUMP_SUM = 'lump_sum',
+}
+
 export enum PayrollMethod {
   CASH = 'cash',
   TRANSFER = 'transfer',
@@ -74,10 +89,15 @@ export class PayrollEntry {
   @Column({ type: 'date' })
   periodEnd: string;
 
+  @Column({ type: 'enum', enum: PayrollPaymentType, default: PayrollPaymentType.DAY })
+  paymentType: PayrollPaymentType;
+
+  /** Cantidad (días, m², m³ o ml según `paymentType`; 1 fijo si es P.A.). */
   @Column({ type: 'numeric', precision: 6, scale: 2, nullable: true, transformer: dec })
   daysWorked: number;
 
-  /** Tarifa aplicada. Se copia de la del colaborador, pero es editable y queda congelada. */
+  /** Tarifa unitaria aplicada (o el monto de P.A.). Se copia de la del colaborador
+   *  solo cuando `paymentType` es DAY, pero siempre es editable y queda congelada. */
   @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true, transformer: dec })
   dailyRate: number;
 
