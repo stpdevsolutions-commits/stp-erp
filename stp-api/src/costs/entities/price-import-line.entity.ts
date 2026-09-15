@@ -79,6 +79,14 @@ export class PriceImportLine {
   discountPct: number;
 
   /**
+   * Obligatorio para aprobar una línea en moneda distinta a DOP (ver
+   * MaterialPricesService.create). El modelo no lo extrae del PDF: lo llena la persona
+   * en la revisión con la tasa del día que le corresponde a esa cotización.
+   */
+  @Column({ type: 'numeric', precision: 10, scale: 4, nullable: true, transformer: dec })
+  exchangeRate: number | null;
+
+  /**
    * Material al que se imputa. Lo propone el emparejador por nombre y lo confirma o
    * corrige la persona; sin él la línea no se puede aprobar.
    */

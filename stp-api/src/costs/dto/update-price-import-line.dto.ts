@@ -41,6 +41,12 @@ export class UpdatePriceImportLineDto {
   @Max(99.99)
   discountPct?: number;
 
+  /** Obligatoria para aprobar una línea en moneda distinta a DOP. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  exchangeRate?: number;
+
   /** Solo se puede pasar a `rejected` (descartar) o volver a `pending`. */
   @IsOptional()
   @IsEnum(PriceImportLineStatus)

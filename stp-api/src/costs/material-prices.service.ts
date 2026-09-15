@@ -256,7 +256,16 @@ export class MaterialPricesService {
       notes: input.reference ? `Derivado del gasto: ${input.reference}` : 'Derivado de un gasto',
     });
 
-    await this.pricesRepository.save(price);
+    try {
+      await this.pricesRepository.save(price);
+    } catch (err) {
+      // Dos llamadas concurrentes para el mismo gasto (doble guardado, reintento) podían
+      // leer ambas "no existe" y terminar creando dos precios derivados activos a la vez.
+      // El índice único parcial (expenseId con voidedAt IS NULL) lo impide; si esta
+      // llegó segunda, alguien más ya sincronizó el gasto y no hay nada más que hacer.
+      if ((err as { code?: string })?.code === '23505') return;
+      throw err;
+    }
   }
 
   /** Anula los precios derivados de un gasto que se borró. La fila no desaparece. */

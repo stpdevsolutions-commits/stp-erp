@@ -236,6 +236,7 @@ export class PriceImportsService {
           {
             price: line.price,
             currency: line.currency,
+            exchangeRate: line.exchangeRate ?? undefined,
             itbisIncluded: line.itbisIncluded,
             discountPct: line.discountPct,
             supplierId: record.supplierId ?? undefined,

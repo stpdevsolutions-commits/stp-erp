@@ -250,6 +250,26 @@ export function RevisionLineas({
                           −{line.discountPct}%
                         </span>
                       )}
+                      {line.currency !== 'DOP' && (
+                        <div className="mt-1 flex items-center justify-end gap-1">
+                          <span className="text-muted-foreground text-xs">Tasa</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            defaultValue={line.exchangeRate ?? ''}
+                            disabled={!editable || busyLine === line.id}
+                            placeholder="RD$ x USD"
+                            className="h-7 w-24 text-right text-xs"
+                            onBlur={(e) => {
+                              const value = e.target.value ? Number(e.target.value) : undefined
+                              if (value !== line.exchangeRate) {
+                                guardarLinea(line.id, { exchangeRate: value })
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
                     </TableCell>
 
                     <TableCell>

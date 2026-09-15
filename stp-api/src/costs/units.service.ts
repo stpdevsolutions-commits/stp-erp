@@ -40,8 +40,8 @@ export class UnitsService {
 
     const baseUnitId = dto.baseUnitId ?? unit.baseUnitId;
     const factor = dto.factor ?? unit.factor;
-    if (baseUnitId === id) throw new BadRequestException('Una unidad no puede ser su propia base');
     await this.assertConversionCoherent(baseUnitId, factor);
+    if (baseUnitId) await this.assertNoCycle(id, baseUnitId);
 
     const defined = Object.fromEntries(
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
@@ -66,6 +66,28 @@ export class UnitsService {
     }
 
     await this.unitsRepository.remove(unit);
+  }
+
+  /**
+   * Antes solo se comprobaba `baseUnitId === id` (autorreferencia directa). Un ciclo
+   * indirecto —A tiene de base a B, y B (ya guardada) tiene de base a A— se colaba
+   * igual, y `convertQuantity` recorre esa cadena hacia arriba: con un ciclo, entra en
+   * un bucle infinito la primera vez que alguien convierte entre esas unidades.
+   */
+  private async assertNoCycle(unitId: string, baseUnitId: string): Promise<void> {
+    let currentId: string | null = baseUnitId;
+    const seen = new Set<string>();
+    while (currentId) {
+      if (currentId === unitId) {
+        throw new BadRequestException(
+          'Esa cadena de conversión termina volviendo a esta misma unidad',
+        );
+      }
+      if (seen.has(currentId)) return; // ciclo ya existente más arriba, no lo crea este cambio
+      seen.add(currentId);
+      const current = await this.unitsRepository.findOne({ where: { id: currentId } });
+      currentId = current?.baseUnitId ?? null;
+    }
   }
 
   private async assertCodeFree(code: string): Promise<void> {

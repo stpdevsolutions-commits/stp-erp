@@ -15,6 +15,7 @@ import { CreateAcuDto, AcuItemDto } from './dto/create-acu.dto';
 import { UpdateAcuDto } from './dto/update-acu.dto';
 import { QueryAcusDto } from './dto/query-acus.dto';
 import { normalizeMaterialName, pickCurrentPrice } from './price-selection';
+import { escapeLike } from '../common/like-escape';
 import {
   computeAcuCost,
   convertQuantity,
@@ -44,18 +45,31 @@ export class AcusService {
       throw new ConflictException(`Ya existe una partida con el nombre "${dto.name}"`);
     }
 
-    const acu = await this.acusRepository.save(
-      this.acusRepository.create({
-        name: dto.name,
-        description: dto.description,
-        unitId: dto.unitId,
-        trade: dto.trade,
-        chapter: dto.chapter,
-        notes: dto.notes,
-        normalizedName,
-        code: await this.generateCode(),
-      }),
-    );
+    let acu: Acu;
+    try {
+      acu = await this.acusRepository.save(
+        this.acusRepository.create({
+          name: dto.name,
+          description: dto.description,
+          unitId: dto.unitId,
+          trade: dto.trade,
+          chapter: dto.chapter,
+          notes: dto.notes,
+          normalizedName,
+          code: await this.generateCode(),
+        }),
+      );
+    } catch (err) {
+      // `generateCode` es MAX+1 sin bloqueo: dos creaciones a la vez pueden calcular
+      // el mismo código. Antes esto llegaba al cliente como un 500 genérico de
+      // violación de UNIQUE; ahora se dice qué pasó y que reintentar alcanza.
+      if ((err as { code?: string })?.code === '23505') {
+        throw new ConflictException(
+          'Dos partidas se crearon casi al mismo tiempo y chocaron de código; intenta de nuevo',
+        );
+      }
+      throw err;
+    }
 
     for (const [i, item] of (dto.items ?? []).entries()) {
       await this.addItem(acu.id, { sortOrder: i, ...item });
@@ -77,8 +91,8 @@ export class AcusService {
       qb.andWhere('a.isActive = :isActive', { isActive: isActive === 'true' });
     }
     if (search) {
-      const term = `%${search}%`;
-      const normalized = `%${normalizeMaterialName(search)}%`;
+      const term = `%${escapeLike(search)}%`;
+      const normalized = `%${escapeLike(normalizeMaterialName(search))}%`;
       qb.andWhere(
         '(a.name ILIKE :term OR a.normalizedName ILIKE :normalized OR a.code ILIKE :term OR a.chapter ILIKE :term)',
         { term, normalized },
@@ -105,13 +119,14 @@ export class AcusService {
     for (const it of items) {
       porAcu.set(it.acuId, [...(porAcu.get(it.acuId) ?? []), it]);
     }
+    // Igual que los precios: los lookups de materiales/unidades se cargan UNA vez
+    // para todas las líneas de la página, no una vez por ACU.
+    const { matById, unitById } = await this.loadItemLookups(items);
 
-    const conCosto: AcuWithCost[] = await Promise.all(
-      data.map(async (a) => ({
-        ...a,
-        cost: computeAcuCost(await this.toInputs(porAcu.get(a.id) ?? []), prices),
-      })),
-    );
+    const conCosto: AcuWithCost[] = data.map((a) => ({
+      ...a,
+      cost: computeAcuCost(this.buildInputs(porAcu.get(a.id) ?? [], matById, unitById), prices),
+    }));
     return { data: conCosto, total, page, limit };
   }
 
@@ -278,15 +293,32 @@ export class AcusService {
    * aun así fallara se deja la cantidad sin tocar y el precio del catálogo se ignora,
    * antes que multiplicar por un factor inventado.
    */
-  private async toInputs(items: AcuItem[]): Promise<AcuItemInput[]> {
+  /**
+   * Materiales y unidades que hacen falta para valorar `items`. Separado de
+   * `toInputs` para que `findAll` pueda cargarlo UNA vez para todas las ACUs de la
+   * página en vez de una vez por ACU — antes, `toInputs` volvía a pedir TODAS las
+   * unidades del catálogo (y los materiales de esa ACU) en cada vuelta del
+   * `Promise.all`, el mismo N+1 que el comentario de más arriba decía evitar.
+   */
+  private async loadItemLookups(
+    items: AcuItem[],
+  ): Promise<{ matById: Map<string, Material>; unitById: Map<string, Unit> }> {
     const materialIds = [...new Set(items.filter((i) => i.materialId).map((i) => i.materialId))];
     const materiales = materialIds.length
       ? await this.materialsRepository.find({ where: { id: In(materialIds) } })
       : [];
     const unidades = await this.unitsRepository.find();
-    const unitById = new Map(unidades.map((u) => [u.id, u]));
-    const matById = new Map(materiales.map((m) => [m.id, m]));
+    return {
+      matById: new Map(materiales.map((m) => [m.id, m])),
+      unitById: new Map(unidades.map((u) => [u.id, u])),
+    };
+  }
 
+  private buildInputs(
+    items: AcuItem[],
+    matById: Map<string, Material>,
+    unitById: Map<string, Unit>,
+  ): AcuItemInput[] {
     return items.map((item) => {
       let quantity = item.quantity;
       const material = item.materialId ? matById.get(item.materialId) : null;
@@ -311,6 +343,12 @@ export class AcusService {
         wastePct: item.wastePct,
       };
     });
+  }
+
+  /** Para una sola ACU (findOne, etc.): carga sus lookups y arma el input en un paso. */
+  private async toInputs(items: AcuItem[]): Promise<AcuItemInput[]> {
+    const { matById, unitById } = await this.loadItemLookups(items);
+    return this.buildInputs(items, matById, unitById);
   }
 
   /**

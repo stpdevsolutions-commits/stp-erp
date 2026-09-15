@@ -15,6 +15,7 @@ import { UpdateMaterialDto } from './dto/update-material.dto';
 import { QueryMaterialsDto } from './dto/query-materials.dto';
 import { loadForUpdate } from '../common/load-for-update';
 import { normalizeMaterialName, summarizePrices, PriceSummary } from './price-selection';
+import { escapeLike } from '../common/like-escape';
 
 export type MaterialWithSummary = Material & { priceSummary?: PriceSummary };
 
@@ -48,7 +49,19 @@ export class MaterialsService {
       normalizedName,
       code: await this.generateCode(),
     });
-    return this.materialsRepository.save(material);
+    try {
+      return await this.materialsRepository.save(material);
+    } catch (err) {
+      // `generateCode` es MAX+1 sin bloqueo: dos creaciones a la vez pueden calcular
+      // el mismo código. Antes esto llegaba al cliente como un 500 genérico de
+      // violación de UNIQUE; ahora se dice qué pasó y que reintentar alcanza.
+      if ((err as { code?: string })?.code === '23505') {
+        throw new ConflictException(
+          'Dos materiales se crearon casi al mismo tiempo y chocaron de código; intenta de nuevo',
+        );
+      }
+      throw err;
+    }
   }
 
   async findAll(query: QueryMaterialsDto) {
@@ -70,13 +83,13 @@ export class MaterialsService {
 
     if (categoryId) qb.andWhere('m.categoryId = :categoryId', { categoryId });
     if (unitId) qb.andWhere('m.unitId = :unitId', { unitId });
-    if (brand) qb.andWhere('m.brand ILIKE :brand', { brand: `%${brand}%` });
+    if (brand) qb.andWhere('m.brand ILIKE :brand', { brand: `%${escapeLike(brand)}%` });
     if (isActive !== undefined) qb.andWhere('m.isActive = :isActive', { isActive });
 
     if (search) {
       // Se busca también sobre normalizedName para que "tuberia" encuentre "Tubería".
-      const term = `%${search}%`;
-      const normalized = `%${normalizeMaterialName(search)}%`;
+      const term = `%${escapeLike(search)}%`;
+      const normalized = `%${escapeLike(normalizeMaterialName(search))}%`;
       qb.andWhere(
         `(m.name ILIKE :term OR m.normalizedName ILIKE :normalized OR m.code ILIKE :term
           OR m.brand ILIKE :term OR m.model ILIKE :term OR m.barcode ILIKE :term)`,
@@ -178,9 +191,15 @@ export class MaterialsService {
 
   private async attachPriceSummaries(materials: Material[]): Promise<MaterialWithSummary[]> {
     const ids = materials.map((m) => m.id);
+    // Sin ORDER BY, el cap se aplicaba a un subconjunto arbitrario de filas — podía
+    // dejar fuera los precios más recientes de un material (resumen con el "vigente"
+    // equivocado) o, en el peor caso, no traer ninguna fila suya si el cupo se lo
+    // llevaban otros materiales de la página. Ordenando por fecha antes de cortar, lo
+    // que se descarta cuando hay más de SUMMARY_PRICE_CAP filas es siempre lo más viejo.
     const prices = await this.pricesRepository.find({
       where: { materialId: In(ids), voidedAt: IsNull() },
       select: { id: true, materialId: true, supplierId: true, netUnitPrice: true, date: true, createdAt: true },
+      order: { date: 'DESC', createdAt: 'DESC' },
       take: SUMMARY_PRICE_CAP,
     });
 
