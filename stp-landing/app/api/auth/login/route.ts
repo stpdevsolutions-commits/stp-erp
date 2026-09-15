@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { forwardedForHeader } from '@/lib/client-ip'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const SECURE_COOKIES = process.env.COOKIE_SECURE === 'true'
@@ -9,7 +10,7 @@ export async function POST(request: Request) {
 
   const res = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...forwardedForHeader(request) },
     body: JSON.stringify(body),
   })
 

@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Delete,
   Body,
@@ -12,6 +13,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -29,6 +31,17 @@ interface AuthUser {
 @UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  create(@Body() dto: CreateUserDto) {
+    return this.usersService.create(dto.email, dto.password, dto.firstName, dto.lastName, {
+      role: dto.role,
+      phone: dto.phone,
+      isActive: dto.isActive,
+    });
+  }
 
   @Get()
   @UseGuards(RolesGuard)
@@ -73,7 +86,7 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.remove(id);
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.usersService.remove(id, user.id);
   }
 }

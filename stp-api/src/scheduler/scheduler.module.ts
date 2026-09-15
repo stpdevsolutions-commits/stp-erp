@@ -5,13 +5,14 @@ import { SchedulerService } from './scheduler.service';
 import { Quote } from '../quotes/entities/quote.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { Payment } from '../payments/entities/payment.entity';
+import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { QuotesModule } from '../quotes/quotes.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    TypeOrmModule.forFeature([Quote, Task, Payment]),
+    TypeOrmModule.forFeature([Quote, Task, Payment, RefreshToken]),
     NotificationsModule,
     QuotesModule,
   ],

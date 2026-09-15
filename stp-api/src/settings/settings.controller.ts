@@ -23,6 +23,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { getUploadRoot } from '../files/files.utils';
 import type { CompanyData } from '../common/company';
+import { UpdateCompanyDto } from './dto/update-company.dto';
+import { UpdateTermsDto } from './dto/update-terms.dto';
 
 const ALLOWED_IMAGE_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -59,6 +61,7 @@ export class SettingsController {
   }
 
   @Get('logo')
+  @UseGuards(JwtAuthGuard)
   async getLogo(@Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
     const logoPath = await this.settingsService.getLogoPath();
     if (!logoPath) throw new NotFoundException('Logo not found');
@@ -82,7 +85,7 @@ export class SettingsController {
   @Patch('company')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async updateCompany(@Body() body: Partial<CompanyData>): Promise<CompanyData> {
+  async updateCompany(@Body() body: UpdateCompanyDto): Promise<CompanyData> {
     await this.settingsService.setCompanyData(body);
     return this.settingsService.getCompanyData();
   }
@@ -96,7 +99,7 @@ export class SettingsController {
   @Patch('terms')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async updateTerms(@Body() body: { terms: string }): Promise<{ terms: string | null }> {
+  async updateTerms(@Body() body: UpdateTermsDto): Promise<{ terms: string | null }> {
     await this.settingsService.setDefaultTerms(body.terms);
     return { terms: await this.settingsService.getDefaultTerms() };
   }

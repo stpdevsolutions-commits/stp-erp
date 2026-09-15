@@ -40,6 +40,22 @@ export class AuthService {
   }
 
   async loginWithGoogle(accessToken: string) {
+    // El token debe haber sido emitido PARA este ERP — sin esto, un access
+    // token de Google válido pero emitido para cualquier otra app (con solo
+    // permiso de leer el email) también serviría para entrar aquí, mientras
+    // el email coincida con un usuario ya registrado.
+    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
+    if (clientId) {
+      const tokenInfoRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`,
+      );
+      if (!tokenInfoRes.ok) throw new UnauthorizedException('Token de Google inválido');
+      const tokenInfo = (await tokenInfoRes.json()) as { aud?: string };
+      if (tokenInfo.aud !== clientId) {
+        throw new UnauthorizedException('Token de Google no emitido para esta aplicación');
+      }
+    }
+
     const res = await fetch(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${accessToken}`);
     if (!res.ok) throw new UnauthorizedException('Token de Google inválido');
     const info = (await res.json()) as {

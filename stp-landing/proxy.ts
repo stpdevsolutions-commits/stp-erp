@@ -20,6 +20,49 @@ function toLogin(request: NextRequest): NextResponse {
   return NextResponse.redirect(new URL('/login', request.url))
 }
 
+type RefreshResult = { access_token: string; refresh_token: string }
+
+/**
+ * Deduplica renovaciones concurrentes del MISMO refresh token.
+ *
+ * El token es de un solo uso: el backend lo revoca en cuanto una renovación
+ * tiene éxito. Sin esto, dos peticiones casi simultáneas con el token ya
+ * vencido (varias pestañas, prefetch de Next) leen la misma cookie todavía
+ * sin rotar, y la que llega segunda al backend recibe "token inválido" →
+ * cierre de sesión espurio de un usuario que sí tenía sesión válida.
+ * Como stp-landing corre en un solo contenedor, un mapa en memoria basta.
+ */
+const refreshInFlight = new Map<string, Promise<RefreshResult | null>>()
+
+async function refreshTokens(refreshToken: string): Promise<RefreshResult | null> {
+  const inFlight = refreshInFlight.get(refreshToken)
+  if (inFlight) return inFlight
+
+  const promise = (async (): Promise<RefreshResult | null> => {
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+        cache: 'no-store',
+      })
+      if (!res.ok) return null
+      return (await res.json()) as RefreshResult
+    } catch {
+      return null
+    }
+  })()
+
+  refreshInFlight.set(refreshToken, promise)
+  // Se limpia unos segundos después de resolver, no de inmediato: una
+  // petición hermana que llegue justo después sigue viendo el resultado ya
+  // resuelto en vez de disparar su propia llamada (redundante) al backend.
+  promise.finally(() => {
+    setTimeout(() => refreshInFlight.delete(refreshToken), 5000)
+  })
+  return promise
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
@@ -51,43 +94,29 @@ export async function proxy(request: NextRequest) {
       return toLogin(request)
     }
 
-    // Intentar refresh silencioso
-    try {
-      const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-        cache: 'no-store',
-      })
+    // Intentar refresh silencioso (deduplicado si hay otra petición hermana
+    // renovando el mismo token en este mismo instante)
+    const data = await refreshTokens(refreshToken)
+    if (!data) return toLogin(request)
 
-      if (!refreshRes.ok) return toLogin(request)
+    // Pasar el token nuevo a los Server Components via header de request
+    const reqHeaders = new Headers(request.headers)
+    reqHeaders.set('x-stp-token', data.access_token)
 
-      const data = (await refreshRes.json()) as {
-        access_token: string
-        refresh_token: string
-      }
-
-      // Pasar el token nuevo a los Server Components via header de request
-      const reqHeaders = new Headers(request.headers)
-      reqHeaders.set('x-stp-token', data.access_token)
-
-      const response = NextResponse.next({ request: { headers: reqHeaders } })
-      const base = {
-        httpOnly: true,
-        secure: SECURE,
-        sameSite: 'lax' as const,
-        path: '/',
-        domain: process.env.COOKIE_DOMAIN || undefined,
-      }
-
-      response.cookies.set('stp-token', data.access_token, { ...base, maxAge: 60 * 60 * 24 * 7 })
-      response.cookies.set('stp-refresh-token', data.refresh_token, { ...base, maxAge: 60 * 60 * 24 * 30 })
-      response.cookies.set('stp-last-activity', String(now), { ...base, httpOnly: false, maxAge: 60 * 60 * 24 * 30 })
-
-      return response
-    } catch {
-      return toLogin(request)
+    const response = NextResponse.next({ request: { headers: reqHeaders } })
+    const base = {
+      httpOnly: true,
+      secure: SECURE,
+      sameSite: 'lax' as const,
+      path: '/',
+      domain: process.env.COOKIE_DOMAIN || undefined,
     }
+
+    response.cookies.set('stp-token', data.access_token, { ...base, maxAge: 60 * 60 * 24 * 7 })
+    response.cookies.set('stp-refresh-token', data.refresh_token, { ...base, maxAge: 60 * 60 * 24 * 30 })
+    response.cookies.set('stp-last-activity', String(now), { ...base, httpOnly: false, maxAge: 60 * 60 * 24 * 30 })
+
+    return response
   }
 
   // Token válido — actualizar timestamp de actividad

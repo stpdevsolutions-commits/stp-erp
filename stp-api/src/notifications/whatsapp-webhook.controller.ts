@@ -1,6 +1,8 @@
-import { Controller, Get, Post, Query, Body, Res, Logger, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Query, Body, Req, Res, Logger, HttpStatus, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Response } from 'express';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 /**
  * Webhook público de WhatsApp Cloud API (Meta). Expuesto SOLO en
@@ -36,10 +38,40 @@ export class WhatsappWebhookController {
     res.status(HttpStatus.FORBIDDEN).send('Forbidden');
   }
 
-  /** Eventos reales: estados de mensaje, mensajes entrantes, etc. */
+  /**
+   * Eventos reales: estados de mensaje, mensajes entrantes, etc.
+   *
+   * Verifica `X-Hub-Signature-256` contra WHATSAPP_APP_SECRET cuando está
+   * configurado — sin esto, cualquiera que conozca la URL pública puede
+   * mandar payloads arbitrarios que terminan en los logs. Si el secreto NO
+   * está configurado todavía, se acepta sin verificar (igual que antes) para
+   * no tumbar el webhook mientras se agrega la variable de entorno.
+   */
   @Post()
-  receive(@Body() body: unknown) {
+  receive(@Req() req: RawBodyRequest<Request>, @Body() body: unknown) {
+    const secret = this.config.get<string>('WHATSAPP_APP_SECRET');
+    if (secret) {
+      const signature = req.headers['x-hub-signature-256'];
+      if (!this.isValidSignature(req.rawBody, signature, secret)) {
+        this.logger.warn('Webhook de WhatsApp rechazado: firma inválida o ausente');
+        throw new ForbiddenException('Invalid signature');
+      }
+    }
     this.logger.log(`Webhook de WhatsApp recibido: ${JSON.stringify(body)}`);
     return { received: true };
+  }
+
+  private isValidSignature(
+    rawBody: Buffer | undefined,
+    header: string | string[] | undefined,
+    secret: string,
+  ): boolean {
+    if (!rawBody || typeof header !== 'string' || !header.startsWith('sha256=')) return false;
+    const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
+    const provided = header.slice('sha256='.length);
+    const expectedBuf = Buffer.from(expected, 'hex');
+    const providedBuf = Buffer.from(provided, 'hex');
+    if (expectedBuf.length !== providedBuf.length) return false;
+    return timingSafeEqual(expectedBuf, providedBuf);
   }
 }
