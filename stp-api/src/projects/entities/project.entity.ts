@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Client } from '../../clients/entities/client.entity';
 import { User } from '../../users/entities/user.entity';
+import { Collaborator } from '../../collaborators/entities/collaborator.entity';
 
 export enum ProjectStatus {
   DRAFT = 'draft',
@@ -64,6 +65,14 @@ export class Project {
 
   @Column({ type: 'uuid', nullable: true })
   assignedToId: string;
+
+  /** Supervisor de campo: personal sin cuenta de usuario (tabla collaborators). */
+  @ManyToOne(() => Collaborator, { nullable: true, onDelete: 'SET NULL', eager: false })
+  @JoinColumn({ name: 'supervisorId' })
+  supervisor: Collaborator;
+
+  @Column({ type: 'uuid', nullable: true })
+  supervisorId: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL', eager: false })
   @JoinColumn({ name: 'createdById' })

@@ -99,7 +99,7 @@ export function NuevoProveedorDialog() {
         Nuevo proveedor
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo proveedor</DialogTitle>
           <DialogDescription>Registra un proveedor de materiales, equipos o servicios.</DialogDescription>

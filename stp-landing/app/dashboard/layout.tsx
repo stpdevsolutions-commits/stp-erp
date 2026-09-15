@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/app-sidebar'
-import { Separator } from '@/components/ui/separator'
+import { AppHeader } from '@/components/layout/app-header'
 import { api, UnauthorizedError } from '@/lib/api'
 
 export default async function DashboardLayout({
@@ -18,9 +18,11 @@ export default async function DashboardLayout({
   }
 
   let role = 'user'
+  let user: { firstName: string; lastName: string; role: string } | undefined
   try {
-    const me = await api.get<{ role: string }>('/users/me')
+    const me = await api.get<{ role: string; firstName: string; lastName: string }>('/users/me')
     role = me.role
+    user = { firstName: me.firstName, lastName: me.lastName, role: me.role }
   } catch (e) {
     if (e instanceof UnauthorizedError) {
       redirect('/api/auth/logout')
@@ -30,13 +32,9 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <AppSidebar role={role} />
+      <AppSidebar role={role} user={user} />
       <div className="flex flex-col flex-1 min-w-0">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 px-4 shrink-0 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="h-4" />
-          <span className="font-heading text-sm font-semibold tracking-tight">STP ERP</span>
-        </header>
+        <AppHeader user={user} />
         <main className="flex-1 overflow-auto p-4 sm:p-6">
           {children}
         </main>

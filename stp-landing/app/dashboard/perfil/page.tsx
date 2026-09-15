@@ -70,7 +70,13 @@ export default async function PerfilPage() {
             </div>
             <div>
               <p className="text-muted-foreground">Estado</p>
-              <Badge variant={user.isActive ? 'default' : 'secondary'}>
+              <Badge
+                className={
+                  user.isActive
+                    ? 'bg-green-600/10 text-green-700 dark:text-green-400'
+                    : 'bg-muted text-muted-foreground'
+                }
+              >
                 {user.isActive ? 'Activo' : 'Inactivo'}
               </Badge>
             </div>

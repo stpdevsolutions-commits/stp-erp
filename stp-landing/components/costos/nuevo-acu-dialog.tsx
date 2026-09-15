@@ -106,7 +106,7 @@ export function NuevoAcuDialog({
         Nueva partida
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nueva partida (ACU)</DialogTitle>
           <DialogDescription>

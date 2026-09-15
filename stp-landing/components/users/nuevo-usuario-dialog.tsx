@@ -82,7 +82,7 @@ export function NuevoUsuarioDialog() {
         Nuevo usuario
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nuevo usuario</DialogTitle>
           <DialogDescription>Crea una cuenta para un miembro del equipo.</DialogDescription>

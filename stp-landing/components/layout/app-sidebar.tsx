@@ -23,6 +23,7 @@ import {
   ClipboardList,
   Calculator,
   Wallet,
+  GanttChartSquare,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -81,6 +82,7 @@ const NAV: NavGroup[] = [
     label: 'Operación',
     items: [
       { href: '/dashboard/proyectos', label: 'Proyectos', icon: FolderKanban },
+      { href: '/dashboard/cronograma', label: 'Cronograma', icon: GanttChartSquare },
       { href: '/dashboard/tareas', label: 'Tareas', icon: CheckSquare },
       { href: '/dashboard/fichas', label: 'Fichas de campo', icon: ClipboardList },
       { href: '/dashboard/archivos', label: 'Archivos', icon: FolderOpen },
@@ -137,13 +139,39 @@ const NAV: NavGroup[] = [
   },
 ]
 
+const FLAT_TITLES: { href: string; label: string }[] = NAV.flatMap((grupo) =>
+  grupo.items.flatMap((item) => [
+    { href: item.href, label: item.label },
+    ...(item.children ?? []),
+  ]),
+)
+
+/** Título de la sección para el header, a partir de la misma lista de navegación. */
+export function getPageTitle(pathname: string): string {
+  const match = FLAT_TITLES.filter(
+    (t) => pathname === t.href || pathname.startsWith(`${t.href}/`),
+  ).sort((a, b) => b.href.length - a.href.length)[0]
+  return match?.label ?? 'STP ERP'
+}
+
 const ROLE_RANK: Record<string, number> = { user: 1, manager: 2, admin: 3 }
 
-export function AppSidebar({ role = 'user' }: { role?: string }) {
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrador',
+  manager: 'Gerente',
+  user: 'Usuario',
+}
+
+type SidebarUser = { firstName: string; lastName: string; role: string }
+
+export function AppSidebar({ role = 'user', user }: { role?: string; user?: SidebarUser }) {
   const pathname = usePathname()
   const router = useRouter()
 
   const rank = ROLE_RANK[role.toLowerCase()] ?? 1
+  const initials = user
+    ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
+    : ''
   const grupos = NAV.map((grupo) => ({
     ...grupo,
     items: grupo.items.filter(
@@ -220,6 +248,21 @@ export function AppSidebar({ role = 'user' }: { role?: string }) {
       </SidebarContent>
 
       <SidebarFooter className="border-t p-2">
+        {user && (
+          <div className="flex items-center gap-2 rounded-md px-2 py-1.5 group-data-[collapsible=icon]:hidden">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
+              {initials}
+            </span>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-sm font-medium">
+                {user.firstName} {user.lastName}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {ROLE_LABELS[user.role.toLowerCase()] ?? user.role}
+              </p>
+            </div>
+          </div>
+        )}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleLogout} className="text-muted-foreground">

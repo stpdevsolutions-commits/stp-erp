@@ -18,6 +18,7 @@ import { NuevoAcuDialog } from '@/components/costos/nuevo-acu-dialog'
 import { AcuActions } from '@/components/costos/acu-actions'
 import { CostoUnitario } from '@/components/costos/costo-unitario'
 import { TRADE_LABELS } from '@/components/costos/acu-labels'
+import { CostosTabs } from '@/components/costos/costos-tabs'
 
 const LIMIT = 20
 
@@ -69,22 +70,10 @@ export default async function AcusPage({
             los precios vigentes, no se guarda
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/costos/materiales"
-            className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
-          >
-            Materiales
-          </Link>
-          <Link
-            href="/dashboard/costos/catalogo"
-            className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
-          >
-            Unidades y categorías
-          </Link>
-          <NuevoAcuDialog units={units} chapters={chapters} />
-        </div>
+        <NuevoAcuDialog units={units} chapters={chapters} />
       </div>
+
+      <CostosTabs />
 
       {incompletas > 0 && (
         <p className="text-destructive flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm">

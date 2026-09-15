@@ -31,8 +31,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Client, Project } from '@/lib/types'
+import type { Client, Collaborator, Project, User } from '@/lib/types'
 import { updateProject, deleteProject } from '@/lib/actions/projects'
+import { SIN_ASIGNAR } from '@/components/tasks/asignado-select'
 
 const editSchema = z
   .object({
@@ -43,6 +44,9 @@ const editSchema = z
     startDate: z.string().optional(),
     endDate: z.string().optional(),
     budget: z.string().optional(),
+    location: z.string().max(255).optional(),
+    supervisorId: z.string().optional(),
+    assignedToId: z.string().optional(),
   })
   .refine(
     (d) => !d.startDate || !d.endDate || d.endDate >= d.startDate,
@@ -64,11 +68,15 @@ const STATUS_LABELS = {
 function EditDialog({
   proyecto,
   clients,
+  collaborators,
+  users,
   open,
   onOpenChange,
 }: {
   proyecto: Project
   clients: Client[]
+  collaborators: Collaborator[]
+  users: User[]
   open: boolean
   onOpenChange: (o: boolean) => void
 }) {
@@ -90,11 +98,18 @@ function EditDialog({
       startDate: proyecto.startDate ? proyecto.startDate.slice(0, 10) : '',
       endDate: proyecto.endDate ? proyecto.endDate.slice(0, 10) : '',
       budget: proyecto.budget != null ? String(proyecto.budget) : '',
+      location: proyecto.location ?? '',
+      supervisorId: proyecto.supervisorId ?? '',
+      assignedToId: proyecto.assignedToId ?? '',
     },
   })
 
   const clientId = watch('clientId')
   const selectedClientName = clients.find((c) => c.id === clientId)?.name
+  const supervisorId = watch('supervisorId')
+  const selectedSupervisor = collaborators.find((c) => c.id === supervisorId)
+  const assignedToId = watch('assignedToId')
+  const selectedEncargado = users.find((u) => u.id === assignedToId)
 
   function handleClose() {
     setServerError(null)
@@ -111,6 +126,9 @@ function EditDialog({
       startDate: data.startDate || null,
       endDate: data.endDate || null,
       budget: data.budget ? parseFloat(data.budget) : null,
+      location: data.location || null,
+      supervisorId: data.supervisorId || null,
+      assignedToId: data.assignedToId || null,
     })
     if (!result.ok) {
       setServerError(result.error ?? 'Error desconocido')
@@ -121,7 +139,7 @@ function EditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar proyecto</DialogTitle>
           <DialogDescription>
@@ -211,6 +229,11 @@ function EditDialog({
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="edit-location">Ubicación</Label>
+            <Input id="edit-location" placeholder="Ej. Santo Domingo Este, sector..." {...register('location')} />
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="edit-budget">Presupuesto (DOP)</Label>
             <Input
               id="edit-budget"
@@ -219,6 +242,57 @@ function EditDialog({
               step="0.01"
               {...register('budget')}
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Supervisor</Label>
+              <Select
+                value={supervisorId || SIN_ASIGNAR}
+                onValueChange={(v) => setValue('supervisorId', v && v !== SIN_ASIGNAR ? v : '')}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sin asignar">
+                    {selectedSupervisor
+                      ? `${selectedSupervisor.firstName} ${selectedSupervisor.lastName}`
+                      : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
+                  {collaborators.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.firstName} {c.lastName}
+                      {c.position ? ` — ${c.position}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Encargado</Label>
+              <Select
+                value={assignedToId || SIN_ASIGNAR}
+                onValueChange={(v) => setValue('assignedToId', v && v !== SIN_ASIGNAR ? v : '')}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sin asignar">
+                    {selectedEncargado
+                      ? `${selectedEncargado.firstName} ${selectedEncargado.lastName}`
+                      : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.firstName} {u.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {serverError && (
@@ -301,9 +375,13 @@ function DeleteDialog({
 export function ProjectActions({
   proyecto,
   clients,
+  collaborators,
+  users,
 }: {
   proyecto: Project
   clients: Client[]
+  collaborators: Collaborator[]
+  users: User[]
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -337,6 +415,8 @@ export function ProjectActions({
       <EditDialog
         proyecto={proyecto}
         clients={clients}
+        collaborators={collaborators}
+        users={users}
         open={editOpen}
         onOpenChange={setEditOpen}
       />

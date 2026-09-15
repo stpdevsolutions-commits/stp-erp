@@ -37,6 +37,10 @@ export class CreateProjectDto {
   assignedToId?: string;
 
   @IsOptional()
+  @IsUUID()
+  supervisorId?: string;
+
+  @IsOptional()
   @IsDateString()
   startDate?: string;
 

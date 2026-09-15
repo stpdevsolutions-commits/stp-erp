@@ -47,12 +47,17 @@ const editSchema = z.object({
   description: z.string().optional(),
   status: z.enum(['pending', 'in_progress', 'review', 'done', 'cancelled']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
+  startDate: z.string().optional(),
   dueDate: z.string().optional(),
   /** Valor combinado del selector: `col:<id>`, `user:<id>` o SIN_ASIGNAR. */
   asignado: z.string().optional(),
   /** Avisar por WhatsApp al colaborador asignado. Solo aplica si hay colaborador. */
   notificar: z.boolean().optional(),
 })
+  .refine(
+    (d) => !d.startDate || !d.dueDate || d.dueDate >= d.startDate,
+    { message: 'La fecha límite debe ser posterior al inicio', path: ['dueDate'] },
+  )
 
 type EditFormValues = z.infer<typeof editSchema>
 
@@ -104,6 +109,7 @@ function EditDialog({
       description: tarea.description ?? '',
       status: tarea.status,
       priority: tarea.priority,
+      startDate: tarea.startDate ? tarea.startDate.slice(0, 10) : '',
       dueDate: tarea.dueDate ? tarea.dueDate.slice(0, 10) : '',
       asignado: asignacionValue({
         collaboratorId: tarea.collaborator?.id ?? tarea.collaboratorId,
@@ -132,6 +138,7 @@ function EditDialog({
       description: data.description || null,
       status: data.status,
       priority: data.priority,
+      startDate: data.startDate || null,
       dueDate: data.dueDate || null,
       assignedToId: asignacion.assignedToId,
       collaboratorId: asignacion.collaboratorId,
@@ -146,7 +153,7 @@ function EditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar tarea</DialogTitle>
           <DialogDescription>Modifica los datos de la tarea.</DialogDescription>
@@ -229,19 +236,27 @@ function EditDialog({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="edit-dueDate">Fecha límite</Label>
-              <Input id="edit-dueDate" type="date" {...register('dueDate')} />
+              <Label htmlFor="edit-startDate">Fecha de inicio</Label>
+              <Input id="edit-startDate" type="date" {...register('startDate')} />
             </div>
 
             <div className="space-y-1.5">
-              <Label>Asignado a</Label>
-              <AsignadoSelect
-                value={watch('asignado') ?? SIN_ASIGNAR}
-                onValueChange={(v) => setValue('asignado', v)}
-                collaborators={collaborators}
-                users={users}
-              />
+              <Label htmlFor="edit-dueDate">Fecha límite</Label>
+              <Input id="edit-dueDate" type="date" {...register('dueDate')} />
+              {errors.dueDate && (
+                <p className="text-xs text-destructive">{errors.dueDate.message}</p>
+              )}
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Asignado a</Label>
+            <AsignadoSelect
+              value={watch('asignado') ?? SIN_ASIGNAR}
+              onValueChange={(v) => setValue('asignado', v)}
+              collaborators={collaborators}
+              users={users}
+            />
           </div>
 
           {parseAsignacion(watch('asignado')).collaboratorId && (

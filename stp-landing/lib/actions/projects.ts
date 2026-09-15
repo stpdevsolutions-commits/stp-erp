@@ -17,6 +17,9 @@ export interface CreateProjectInput {
   startDate?: string
   endDate?: string
   budget?: number
+  location?: string
+  assignedToId?: string
+  supervisorId?: string
 }
 
 export interface UpdateProjectInput {
@@ -27,6 +30,9 @@ export interface UpdateProjectInput {
   startDate?: string | null
   endDate?: string | null
   budget?: number | null
+  location?: string | null
+  assignedToId?: string | null
+  supervisorId?: string | null
 }
 
 export async function createProject(input: CreateProjectInput): Promise<ActionResult> {

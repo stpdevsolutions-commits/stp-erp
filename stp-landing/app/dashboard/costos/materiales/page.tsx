@@ -16,6 +16,7 @@ import { Paginacion } from '@/components/ui/paginacion'
 import { NuevoMaterialDialog } from '@/components/costos/nuevo-material-dialog'
 import { MaterialActions } from '@/components/costos/material-actions'
 import { PrecioVigente } from '@/components/costos/precio-vigente'
+import { CostosTabs } from '@/components/costos/costos-tabs'
 
 const LIMIT = 20
 
@@ -63,28 +64,10 @@ export default async function MaterialesPage({
             {res.total} {res.total === 1 ? 'material' : 'materiales'} en el catálogo
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/costos/acus"
-            className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
-          >
-            Partidas (ACU)
-          </Link>
-          <Link
-            href="/dashboard/costos/catalogo"
-            className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
-          >
-            Unidades y categorías
-          </Link>
-          <Link
-            href="/dashboard/costos/importar"
-            className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
-          >
-            Importar precios
-          </Link>
-          <NuevoMaterialDialog units={units} categories={categories} />
-        </div>
+        <NuevoMaterialDialog units={units} categories={categories} />
       </div>
+
+      <CostosTabs />
 
       <Card>
         <CardHeader className="pb-3">

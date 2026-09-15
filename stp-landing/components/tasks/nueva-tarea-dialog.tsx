@@ -39,12 +39,17 @@ const schema = z.object({
   description: z.string().optional(),
   status: z.enum(['pending', 'in_progress', 'review', 'done', 'cancelled']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
+  startDate: z.string().optional(),
   dueDate: z.string().optional(),
   /** Valor combinado del selector: `col:<id>`, `user:<id>` o SIN_ASIGNAR. */
   asignado: z.string().optional(),
   /** Avisar por WhatsApp al colaborador asignado. Solo aplica si hay colaborador. */
   notificar: z.boolean().optional(),
 })
+  .refine(
+    (d) => !d.startDate || !d.dueDate || d.dueDate >= d.startDate,
+    { message: 'La fecha límite debe ser posterior al inicio', path: ['dueDate'] },
+  )
 
 type FormValues = z.infer<typeof schema>
 
@@ -133,6 +138,7 @@ export function NuevaTareaDialog({
       description: data.description || undefined,
       status: data.status,
       priority: data.priority,
+      startDate: data.startDate || undefined,
       dueDate: data.dueDate || undefined,
       assignedToId: asignacion.assignedToId ?? undefined,
       collaboratorId: asignacion.collaboratorId ?? undefined,
@@ -164,7 +170,7 @@ export function NuevaTareaDialog({
         Nueva tarea
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nueva tarea</DialogTitle>
           <DialogDescription>Asigna la tarea a un proyecto y define su prioridad.</DialogDescription>
@@ -259,19 +265,27 @@ export function NuevaTareaDialog({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="dueDate">Fecha límite</Label>
-              <Input id="dueDate" type="date" {...register('dueDate')} />
+              <Label htmlFor="startDate">Fecha de inicio</Label>
+              <Input id="startDate" type="date" {...register('startDate')} />
             </div>
 
             <div className="space-y-1.5">
-              <Label>Asignado a</Label>
-              <AsignadoSelect
-                value={watch('asignado') ?? SIN_ASIGNAR}
-                onValueChange={(v) => setValue('asignado', v)}
-                collaborators={collaborators}
-                users={users}
-              />
+              <Label htmlFor="dueDate">Fecha límite</Label>
+              <Input id="dueDate" type="date" {...register('dueDate')} />
+              {errors.dueDate && (
+                <p className="text-xs text-destructive">{errors.dueDate.message}</p>
+              )}
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Asignado a</Label>
+            <AsignadoSelect
+              value={watch('asignado') ?? SIN_ASIGNAR}
+              onValueChange={(v) => setValue('asignado', v)}
+              collaborators={collaborators}
+              users={users}
+            />
           </div>
 
           {parseAsignacion(watch('asignado')).collaboratorId && (

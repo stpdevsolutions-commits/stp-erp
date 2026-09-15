@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { NuevoColaboradorDialog } from '@/components/collaborators/nuevo-colaborador-dialog'
 import { ColaboradorActions } from '@/components/collaborators/colaborador-actions'
 import { Paginacion } from '@/components/ui/paginacion'
-import { Input } from '@/components/ui/input'
+import { FiltrosColaboradores } from '@/components/collaborators/filtros-colaboradores'
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 const LIMIT = 20
@@ -57,18 +57,7 @@ export default async function ColaboradoresPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-wrap gap-3">
-            <form method="GET" className="flex gap-2">
-              <Input
-                name="search"
-                defaultValue={search}
-                placeholder="Buscar por nombre, cédula..."
-                className="w-64 h-8 text-sm"
-              />
-              {status && <input type="hidden" name="status" value={status} />}
-              <button type="submit" className="sr-only">Buscar</button>
-            </form>
-          </div>
+          <FiltrosColaboradores />
         </CardHeader>
         <CardContent className="p-0">
           {error ? (
@@ -105,7 +94,13 @@ export default async function ColaboradoresPage({
                       {col.dailyRate != null ? DOP.format(col.dailyRate) : '—'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={col.status === 'active' ? 'default' : 'secondary'}>
+                      <Badge
+                        className={
+                          col.status === 'active'
+                            ? 'bg-green-600/10 text-green-700 dark:text-green-400'
+                            : 'bg-muted text-muted-foreground'
+                        }
+                      >
                         {col.status === 'active' ? 'Activo' : 'Inactivo'}
                       </Badge>
                     </TableCell>

@@ -1,5 +1,6 @@
 import { IsOptional, IsString, IsEnum, IsUUID } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { clampPage, clampLimit } from '../../common/pagination';
 import { ProjectStatus, ProjectType } from '../entities/project.entity';
 
 export class QueryProjectsDto {
@@ -24,10 +25,14 @@ export class QueryProjectsDto {
   assignedToId?: string;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value) || 1)
+  @IsUUID()
+  supervisorId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => clampPage(value))
   page?: number = 1;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value) || 20)
+  @Transform(({ value }) => clampLimit(value))
   limit?: number = 20;
 }

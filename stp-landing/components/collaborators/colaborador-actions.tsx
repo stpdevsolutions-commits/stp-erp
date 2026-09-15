@@ -111,7 +111,7 @@ export function ColaboradorActions({ colaborador }: { colaborador: Collaborator 
       </DropdownMenu>
 
       <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { reset(); setServerError(null) } }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar colaborador</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

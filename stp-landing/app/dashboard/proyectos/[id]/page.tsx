@@ -5,7 +5,7 @@ import type { Project, Task, Expense, Payment, FileUpload, PaginatedResponse, Fi
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ChevronLeft, Calendar, DollarSign, FileText, User } from 'lucide-react'
+import { ChevronLeft, Calendar, DollarSign, FileText, User, HardHat, UserCheck, MapPin } from 'lucide-react'
 import { ProjectDetailTabs } from '@/components/projects/project-detail-tabs'
 import { MembersCard } from '@/components/access/members-card'
 import type { Member } from '@/lib/actions/memberships'
@@ -125,6 +125,16 @@ export default async function ProyectoDetallePage({
         <Card>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <MapPin className="size-3.5" />
+              <span className="text-xs">Ubicación</span>
+            </div>
+            <p className="font-medium text-sm">{project.location || '—'}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <Calendar className="size-3.5" />
               <span className="text-xs">Inicio</span>
             </div>
@@ -142,6 +152,34 @@ export default async function ProyectoDetallePage({
             </div>
             <p className="font-medium text-sm">
               {project.endDate ? new Date(project.endDate).toLocaleDateString('es-DO') : '—'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <HardHat className="size-3.5" />
+              <span className="text-xs">Supervisor</span>
+            </div>
+            <p className="font-medium text-sm">
+              {project.supervisor
+                ? `${project.supervisor.firstName} ${project.supervisor.lastName}`
+                : '—'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <UserCheck className="size-3.5" />
+              <span className="text-xs">Encargado</span>
+            </div>
+            <p className="font-medium text-sm">
+              {project.assignedTo
+                ? `${project.assignedTo.firstName} ${project.assignedTo.lastName}`
+                : '—'}
             </p>
           </CardContent>
         </Card>

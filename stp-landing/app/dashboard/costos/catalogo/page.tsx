@@ -1,5 +1,3 @@
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
 import { api, pageError } from '@/lib/api'
 import type { MaterialCategory, Unit, UnitKind } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +13,7 @@ import {
 import { NuevaUnidadDialog } from '@/components/costos/nueva-unidad-dialog'
 import { NuevaCategoriaDialog } from '@/components/costos/nueva-categoria-dialog'
 import { CatalogoRowActions } from '@/components/costos/catalogo-row-actions'
+import { CostosTabs } from '@/components/costos/costos-tabs'
 
 const KIND_LABELS: Record<UnitKind, string> = {
   count: 'Conteo',
@@ -45,21 +44,7 @@ export default async function CatalogoPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <Link
-          href="/dashboard/costos/materiales"
-          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-        >
-          <ChevronLeft className="size-4" />
-          Materiales
-        </Link>
-        <Link
-          href="/dashboard/costos/acus"
-          className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
-        >
-          Partidas (ACU)
-        </Link>
-      </div>
+      <CostosTabs />
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Unidades y categorías</h1>

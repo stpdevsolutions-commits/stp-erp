@@ -16,6 +16,7 @@ import { Paginacion } from '@/components/ui/paginacion'
 import { SubirCotizacionDialog } from '@/components/costos/subir-cotizacion-dialog'
 import { AutoRefresh } from '@/components/costos/auto-refresh'
 import { IMPORT_STATUS } from '@/components/costos/import-labels'
+import { CostosTabs } from '@/components/costos/costos-tabs'
 
 const LIMIT = 25
 
@@ -67,16 +68,10 @@ export default async function ImportarPreciosPage({
             <strong>tú apruebas</strong> cuáles entran al historial.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/costos/materiales"
-            className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
-          >
-            Materiales
-          </Link>
-          <SubirCotizacionDialog suppliers={suppliers} />
-        </div>
+        <SubirCotizacionDialog suppliers={suppliers} />
       </div>
+
+      <CostosTabs />
 
       {error && (
         <Card className="border-destructive/50">

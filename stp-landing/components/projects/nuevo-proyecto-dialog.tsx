@@ -24,8 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Client } from '@/lib/types'
+import type { Client, Collaborator, User } from '@/lib/types'
 import { createProject } from '@/lib/actions/projects'
+import { SIN_ASIGNAR } from '@/components/tasks/asignado-select'
 
 const schema = z
   .object({
@@ -36,6 +37,9 @@ const schema = z
     startDate: z.string().optional(),
     endDate: z.string().optional(),
     budget: z.string().optional(),
+    location: z.string().max(255).optional(),
+    supervisorId: z.string().optional(),
+    assignedToId: z.string().optional(),
   })
   .refine(
     (d) => !d.startDate || !d.endDate || d.endDate >= d.startDate,
@@ -52,7 +56,15 @@ const STATUS_LABELS = {
   cancelled: 'Cancelado',
 }
 
-export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
+export function NuevoProyectoDialog({
+  clients,
+  collaborators,
+  users,
+}: {
+  clients: Client[]
+  collaborators: Collaborator[]
+  users: User[]
+}) {
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [budgetDisplay, setBudgetDisplay] = useState('')
@@ -71,6 +83,10 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
 
   const clientId = watch('clientId')
   const selectedClientName = clients.find((c) => c.id === clientId)?.name
+  const supervisorId = watch('supervisorId')
+  const selectedSupervisor = collaborators.find((c) => c.id === supervisorId)
+  const assignedToId = watch('assignedToId')
+  const selectedEncargado = users.find((u) => u.id === assignedToId)
 
   async function onSubmit(data: FormValues) {
     setServerError(null)
@@ -82,6 +98,9 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
       startDate: data.startDate || undefined,
       endDate: data.endDate || undefined,
       budget: data.budget ? parseFloat(data.budget) : undefined,
+      location: data.location || undefined,
+      supervisorId: data.supervisorId || undefined,
+      assignedToId: data.assignedToId || undefined,
     })
     if (!result.ok) {
       setServerError(result.error ?? 'Error desconocido')
@@ -127,7 +146,7 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
         Nuevo proyecto
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo proyecto</DialogTitle>
           <DialogDescription>
@@ -218,6 +237,11 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="location">Ubicación</Label>
+            <Input id="location" placeholder="Ej. Santo Domingo Este, sector..." {...register('location')} />
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="budget">Presupuesto (DOP)</Label>
             <input type="hidden" {...register('budget')} />
             <Input
@@ -230,6 +254,57 @@ export function NuevoProyectoDialog({ clients }: { clients: Client[] }) {
               onBlur={handleBudgetBlur}
               onFocus={handleBudgetFocus}
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Supervisor</Label>
+              <Select
+                value={supervisorId || SIN_ASIGNAR}
+                onValueChange={(v) => setValue('supervisorId', v && v !== SIN_ASIGNAR ? v : '')}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sin asignar">
+                    {selectedSupervisor
+                      ? `${selectedSupervisor.firstName} ${selectedSupervisor.lastName}`
+                      : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
+                  {collaborators.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.firstName} {c.lastName}
+                      {c.position ? ` — ${c.position}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Encargado</Label>
+              <Select
+                value={assignedToId || SIN_ASIGNAR}
+                onValueChange={(v) => setValue('assignedToId', v && v !== SIN_ASIGNAR ? v : '')}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sin asignar">
+                    {selectedEncargado
+                      ? `${selectedEncargado.firstName} ${selectedEncargado.lastName}`
+                      : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.firstName} {u.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {serverError && (

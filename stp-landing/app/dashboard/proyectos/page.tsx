@@ -1,6 +1,6 @@
 ﻿﻿import Link from 'next/link'
 import { api, pageError } from '@/lib/api'
-import type { Client, Project, PaginatedResponse } from '@/lib/types'
+import type { Client, Collaborator, Project, User, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -53,15 +53,30 @@ export default async function ProyectosPage({
 
   let proyectosRes: PaginatedResponse<Project> = { data: [], total: 0, page, limit: LIMIT }
   let clients: Client[] = []
+  let collaborators: Collaborator[] = []
+  let users: User[] = []
   let error: string | null = null
 
+  const empty = { data: [], total: 0, page: 1, limit: 0 }
+
   try {
-    const [proyRes, clientRes] = await Promise.all([
+    // Supervisor sale de colaboradores; encargado, de usuarios. `/users` es
+    // ADMIN-only: para MANAGER/USER devuelve 403, así que va con su propio
+    // catch para no tumbar la carga entera de la página.
+    const [proyRes, clientRes, colabRes, usersRes] = await Promise.all([
       api.get<PaginatedResponse<Project>>(`/projects?${q.toString()}`),
       api.get<PaginatedResponse<Client>>('/clients?limit=200&isActive=true'),
+      api
+        .get<PaginatedResponse<Collaborator>>('/collaborators?limit=200&status=active')
+        .catch(() => empty as PaginatedResponse<Collaborator>),
+      api
+        .get<PaginatedResponse<User>>('/users?limit=200')
+        .catch(() => empty as PaginatedResponse<User>),
     ])
     proyectosRes = proyRes
     clients = clientRes.data
+    collaborators = colabRes.data
+    users = usersRes.data
   } catch (e) {
     error = pageError(e, 'Error al cargar datos')
   }
@@ -94,7 +109,7 @@ export default async function ProyectosPage({
               : 'Gestión de proyectos de construcción y electromecánica'}
           </p>
         </div>
-        <NuevoProyectoDialog clients={clients} />
+        <NuevoProyectoDialog clients={clients} collaborators={collaborators} users={users} />
       </div>
 
       <div className="space-y-1">
@@ -132,13 +147,15 @@ export default async function ProyectosPage({
                   <TableHead>Cliente</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Presupuesto</TableHead>
+                  <TableHead>Supervisor</TableHead>
+                  <TableHead>Encargado</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {proyectos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       No hay proyectos que coincidan con los filtros
                     </TableCell>
                   </TableRow>
@@ -172,7 +189,13 @@ export default async function ProyectosPage({
                       </TableCell>
                       <TableCell>{p.budget != null ? DOP.format(p.budget) : '—'}</TableCell>
                       <TableCell>
-                        <ProjectActions proyecto={p} clients={clients} />
+                        {p.supervisor ? `${p.supervisor.firstName} ${p.supervisor.lastName}` : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {p.assignedTo ? `${p.assignedTo.firstName} ${p.assignedTo.lastName}` : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <ProjectActions proyecto={p} clients={clients} collaborators={collaborators} users={users} />
                       </TableCell>
                     </TableRow>
                   ))

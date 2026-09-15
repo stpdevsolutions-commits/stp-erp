@@ -111,7 +111,7 @@ export function NuevaUnidadDialog({ units }: { units: Unit[] }) {
         Nueva unidad
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nueva unidad de medida</DialogTitle>
           <DialogDescription>

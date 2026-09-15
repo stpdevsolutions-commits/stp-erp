@@ -40,6 +40,10 @@ export class UpdateProjectDto {
   assignedToId?: string;
 
   @IsOptional()
+  @IsUUID()
+  supervisorId?: string;
+
+  @IsOptional()
   @IsDateString()
   startDate?: string;
 
