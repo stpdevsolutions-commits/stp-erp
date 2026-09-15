@@ -497,7 +497,7 @@ export function generateFichaPdfHtml(ficha: Ficha): string {
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Ficha ${ficha.code}</title>
+<title>Ficha ${esc(ficha.code)}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 13px; color: #222; padding: 24px; max-width: 860px; margin: 0 auto; }
@@ -526,8 +526,8 @@ export function generateFichaPdfHtml(ficha: Ficha): string {
 <body>
 <div class="header">
   <h1>Ficha Técnica ${typeLabel[ficha.type]}</h1>
-  <p>${ficha.code} &nbsp;|&nbsp; ${projectName}</p>
-  <p>Técnico: ${techName} &nbsp;|&nbsp; ${new Date(ficha.createdAt).toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+  <p>${esc(ficha.code)} &nbsp;|&nbsp; ${esc(projectName)}</p>
+  <p>Técnico: ${esc(techName)} &nbsp;|&nbsp; ${new Date(ficha.createdAt).toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
   <span class="badge">${statusLabel[ficha.status] ?? ficha.status}</span>
   ${ficha.latitude ? `<p style="margin-top:6px;font-size:11px;opacity:0.75;">📍 ${ficha.latitude}, ${ficha.longitude}</p>` : ''}
 </div>

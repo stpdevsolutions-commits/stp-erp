@@ -94,6 +94,7 @@ const FICHA_TYPE_LABELS: Record<FichaType, string> = {
   civil: 'Civil',
   electromecanico: 'Electromecánico',
   levantamiento: 'Levantamiento',
+  domotica: 'Domótica',
   evaluacion_danos: 'Evaluación de daños',
 }
 
@@ -744,6 +745,9 @@ export default async function ReportesPage({
   searchParams: Promise<{ proyecto?: string; cliente?: string; view?: string; from?: string; to?: string; tab?: string }>
 }) {
   const { proyecto, cliente, view, from, to, tab } = await searchParams
+  // Sin filtro ni pestaña elegidos, "General" es la vista por defecto — igual
+  // que en el mockup de identidad, donde General siempre llega activa.
+  const effectiveView = view ?? (proyecto || cliente ? undefined : 'general')
 
   const [projectsResult, clientsResult] = await Promise.allSettled([
     api.get<PaginatedResponse<Project>>('/projects?limit=200'),
@@ -764,16 +768,16 @@ export default async function ReportesPage({
     try { projectReport = await api.get<ProjectReport>(`/reports/projects/${proyecto}`) } catch {}
   } else if (cliente) {
     try { clientReport = await api.get<ClientReport>(`/reports/clients/${cliente}`) } catch {}
-  } else if (view === 'ingresos') {
+  } else if (effectiveView === 'ingresos') {
     const q = from && to ? `?from=${from}&to=${to}` : ''
     try { incomeReport = await api.get<IncomeReport>(`/reports/income${q}`) } catch {}
-  } else if (view === 'gastos') {
+  } else if (effectiveView === 'gastos') {
     const q = from && to ? `?from=${from}&to=${to}` : ''
     try { expensesReport = await api.get<ExpensesReport>(`/reports/expenses${q}`) } catch {}
-  } else if (view === 'fichas') {
+  } else if (effectiveView === 'fichas') {
     const q = from && to ? `?from=${from}&to=${to}` : ''
     try { fichasReport = await api.get<FichasReport>(`/reports/fichas${q}`) } catch {}
-  } else if (view === 'general') {
+  } else if (effectiveView === 'general') {
     const q = from && to ? `?from=${from}&to=${to}` : ''
     try { generalReport = await api.get<GeneralReport>(`/reports/general${q}`) } catch {}
   }
@@ -819,7 +823,7 @@ export default async function ReportesPage({
         clients={clients}
         activeProyecto={proyecto}
         activeCliente={cliente}
-        activeView={view}
+        activeView={effectiveView}
         activeFrom={from}
         activeTo={to}
         activeTab={tab}
@@ -827,7 +831,7 @@ export default async function ReportesPage({
 
       <Separator />
 
-      {!hasContent && !proyecto && !cliente && !view && (
+      {!hasContent && !proyecto && !cliente && !effectiveView && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <BarChart3 className="size-12 text-muted-foreground/40 mb-3" />
           <p className="text-muted-foreground text-sm">
@@ -842,16 +846,16 @@ export default async function ReportesPage({
       {cliente && !clientReport && (
         <p className="text-sm text-destructive">No se pudo cargar el balance del cliente.</p>
       )}
-      {(view === 'ingresos') && !incomeReport && (
+      {(effectiveView === 'ingresos') && !incomeReport && (
         <p className="text-sm text-destructive">No se pudo cargar el reporte de ingresos.</p>
       )}
-      {(view === 'gastos') && !expensesReport && (
+      {(effectiveView === 'gastos') && !expensesReport && (
         <p className="text-sm text-destructive">No se pudo cargar el reporte de gastos.</p>
       )}
-      {(view === 'fichas') && !fichasReport && (
+      {(effectiveView === 'fichas') && !fichasReport && (
         <p className="text-sm text-destructive">No se pudo cargar el reporte de fichas.</p>
       )}
-      {(view === 'general') && !generalReport && (
+      {(effectiveView === 'general') && !generalReport && (
         <p className="text-sm text-destructive">No se pudo cargar el reporte general.</p>
       )}
 

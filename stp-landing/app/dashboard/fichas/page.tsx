@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { FiltrosFichas } from '@/components/fichas/filtros-fichas'
 import { MapPin } from 'lucide-react'
 
 const TYPE_LABEL: Record<FichaType, string> = {
@@ -13,6 +14,7 @@ const TYPE_LABEL: Record<FichaType, string> = {
   civil: 'Civil',
   electromecanico: 'Electromecánico',
   levantamiento: 'Levantamiento',
+  domotica: 'Domótica',
   evaluacion_danos: 'Evaluación de daños',
 }
 
@@ -55,48 +57,7 @@ export default async function FichasPage({
       </div>
 
       {/* Filtros */}
-      <form className="flex flex-wrap gap-2">
-        <select
-          name="projectId"
-          defaultValue={projectId ?? ''}
-          className="h-9 rounded-md border bg-background px-3 text-sm"
-        >
-          <option value="">Todos los proyectos</option>
-          {projects.data.map((p) => (
-            <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-          ))}
-        </select>
-
-        <select
-          name="type"
-          defaultValue={type ?? ''}
-          className="h-9 rounded-md border bg-background px-3 text-sm"
-        >
-          <option value="">Todos los tipos</option>
-          {(Object.entries(TYPE_LABEL) as [FichaType, string][]).map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
-        </select>
-
-        <select
-          name="status"
-          defaultValue={status ?? ''}
-          className="h-9 rounded-md border bg-background px-3 text-sm"
-        >
-          <option value="">Todos los estados</option>
-          {(Object.entries(STATUS_LABEL) as [FichaStatus, string][]).map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
-        </select>
-
-        <Button type="submit" variant="outline" size="sm">Filtrar</Button>
-
-        {(projectId ?? type ?? status) && (
-          <Button variant="ghost" size="sm" render={<Link href="/dashboard/fichas" />}>
-            Limpiar
-          </Button>
-        )}
-      </form>
+      <FiltrosFichas projects={projects.data} />
 
       {/* Tabla */}
       <div className="rounded-md border overflow-x-auto">

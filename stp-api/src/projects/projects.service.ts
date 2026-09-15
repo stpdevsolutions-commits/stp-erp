@@ -8,12 +8,14 @@ import { Repository } from 'typeorm';
 import { Project } from './entities/project.entity';
 import { Client } from '../clients/entities/client.entity';
 import { User } from '../users/entities/user.entity';
+import { Collaborator } from '../collaborators/entities/collaborator.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { QueryProjectsDto } from './dto/query-projects.dto';
 import { loadForUpdate } from '../common/load-for-update';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
+import { escapeLike } from '../common/like-escape';
 
 @Injectable()
 export class ProjectsService {
@@ -24,12 +26,16 @@ export class ProjectsService {
     private readonly clientsRepository: Repository<Client>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(Collaborator)
+    private readonly collaboratorsRepository: Repository<Collaborator>,
     private readonly access: AccessControlService,
   ) {}
 
   async create(dto: CreateProjectDto, createdById: string): Promise<Project> {
     await this.assertClientExists(dto.clientId);
     if (dto.assignedToId) await this.assertUserExists(dto.assignedToId);
+    if (dto.supervisorId) await this.assertCollaboratorExists(dto.supervisorId);
+    this.assertDates(dto.startDate, dto.endDate);
 
     const code = await this.generateCode();
     const project = this.projectsRepository.create({ ...dto, code, createdById });
@@ -37,23 +43,25 @@ export class ProjectsService {
   }
 
   async findAll(query: QueryProjectsDto, user?: AccessSubject) {
-    const { search, status, type, clientId, assignedToId, page = 1, limit = 20 } = query;
+    const { search, status, type, clientId, assignedToId, supervisorId, page = 1, limit = 20 } = query;
 
     const qb = this.projectsRepository
       .createQueryBuilder('project')
       .leftJoinAndSelect('project.client', 'client')
       .leftJoinAndSelect('project.assignedTo', 'assignedTo')
+      .leftJoinAndSelect('project.supervisor', 'supervisor')
       .orderBy('project.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
     if (search) {
-      qb.andWhere('(project.name ILIKE :q OR project.code ILIKE :q)', { q: `%${search}%` });
+      qb.andWhere('(project.name ILIKE :q OR project.code ILIKE :q)', { q: `%${escapeLike(search)}%` });
     }
     if (status) qb.andWhere('project.status = :status', { status });
     if (type) qb.andWhere('project.type = :type', { type });
     if (clientId) qb.andWhere('project.clientId = :clientId', { clientId });
     if (assignedToId) qb.andWhere('project.assignedToId = :assignedToId', { assignedToId });
+    if (supervisorId) qb.andWhere('project.supervisorId = :supervisorId', { supervisorId });
 
     // Acotado por pertenencia (no-op para ADMIN/MANAGER)
     await this.access.applyScope(qb, user, {
@@ -68,7 +76,7 @@ export class ProjectsService {
   async findOne(id: string): Promise<Project> {
     const project = await this.projectsRepository.findOne({
       where: { id },
-      relations: { client: true, assignedTo: true, createdBy: true },
+      relations: { client: true, assignedTo: true, supervisor: true, createdBy: true },
     });
     if (!project) throw new NotFoundException('Project not found');
     return project;
@@ -83,6 +91,13 @@ export class ProjectsService {
     if (dto.assignedToId && dto.assignedToId !== project.assignedToId) {
       await this.assertUserExists(dto.assignedToId);
     }
+    if (dto.supervisorId && dto.supervisorId !== project.supervisorId) {
+      await this.assertCollaboratorExists(dto.supervisorId);
+    }
+    this.assertDates(
+      dto.startDate ?? project.startDate,
+      dto.endDate ?? project.endDate,
+    );
 
     const defined = Object.fromEntries(
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
@@ -124,6 +139,13 @@ export class ProjectsService {
     }
   }
 
+  private assertDates(startDate?: string | null, endDate?: string | null): void {
+    if (!startDate || !endDate) return;
+    if (endDate < startDate) {
+      throw new BadRequestException('La fecha de fin no puede ser anterior a la fecha de inicio');
+    }
+  }
+
   private async assertClientExists(clientId: string): Promise<void> {
     const exists = await this.clientsRepository.existsBy({ id: clientId });
     if (!exists) throw new BadRequestException(`Client ${clientId} not found`);
@@ -132,5 +154,10 @@ export class ProjectsService {
   private async assertUserExists(userId: string): Promise<void> {
     const exists = await this.usersRepository.existsBy({ id: userId });
     if (!exists) throw new BadRequestException(`User ${userId} not found`);
+  }
+
+  private async assertCollaboratorExists(collaboratorId: string): Promise<void> {
+    const exists = await this.collaboratorsRepository.existsBy({ id: collaboratorId });
+    if (!exists) throw new BadRequestException(`Collaborator ${collaboratorId} not found`);
   }
 }

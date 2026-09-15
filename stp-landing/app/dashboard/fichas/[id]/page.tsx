@@ -16,6 +16,7 @@ const TYPE_LABEL: Record<FichaType, string> = {
   civil: 'Civil',
   electromecanico: 'Electromecánico',
   levantamiento: 'Levantamiento',
+  domotica: 'Domótica',
   evaluacion_danos: 'Evaluación de daños',
 }
 
@@ -277,28 +278,124 @@ function FichaElectricaDetalle({ data }: { data: Record<string, unknown> }) {
   )
 }
 
+/** "tipoFundacion" / "tipo_fundacion" → "Tipo fundacion". */
+function humanKey(key: string): string {
+  const spaced = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' ')
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase()
+}
+
+function displayValue(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—'
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No'
+  return String(v)
+}
+
+/**
+ * Antes solo mostraba los campos escalares del nivel superior — tableros, circuitos,
+ * áreas, materiales y cualquier objeto anidado (todo lo que trae la sustancia real de
+ * una ficha civil, electromecánica, de levantamiento, domótica o de evaluación de
+ * daños) se descartaba en silencio, dejando la vista casi vacía para 5 de los 6 tipos.
+ * No tiene las etiquetas traducidas de FichaElectricaDetalle porque no vale la pena
+ * mantener 5 componentes a mano por cada campo nuevo que se agregue a un tipo — pero
+ * ahora sí muestra TODO lo que se registró.
+ */
 function FichaDataGeneric({ data }: { data: Record<string, unknown> }) {
   const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== '')
   if (entries.length === 0) return <p className="text-muted-foreground text-sm">Sin datos registrados</p>
 
+  const scalars = entries.filter(([, v]) => !Array.isArray(v) && typeof v !== 'object')
+  const objects = entries.filter(
+    ([, v]) => !Array.isArray(v) && typeof v === 'object',
+  ) as [string, Record<string, unknown>][]
+  const lists = entries.filter(([, v]) => Array.isArray(v) && (v as unknown[]).length > 0) as [
+    string,
+    Record<string, unknown>[],
+  ][]
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Datos de la ficha</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-          {entries.map(([key, value]) => (
-            !Array.isArray(value) && typeof value !== 'object' ? (
-              <div key={key}>
-                <dt className="text-muted-foreground text-xs capitalize">{key.replace(/_/g, ' ')}</dt>
-                <dd className="font-medium">{String(value)}</dd>
+    <div className="space-y-4">
+      {scalars.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Información general</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              {scalars.map(([key, value]) => (
+                <div key={key}>
+                  <dt className="text-muted-foreground text-xs">{humanKey(key)}</dt>
+                  <dd className="font-medium whitespace-pre-wrap">{displayValue(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
+
+      {objects.map(([key, obj]) => {
+        const objEntries = Object.entries(obj).filter(
+          ([, v]) => v !== null && v !== undefined && v !== '',
+        )
+        if (objEntries.length === 0) return null
+        return (
+          <Card key={key}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{humanKey(key)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                {objEntries.map(([k, v]) => (
+                  <div key={k}>
+                    <dt className="text-muted-foreground text-xs">{humanKey(k)}</dt>
+                    <dd className="font-medium whitespace-pre-wrap">{displayValue(v)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </CardContent>
+          </Card>
+        )
+      })}
+
+      {lists.map(([key, items]) => {
+        const columns = Array.from(
+          items.reduce((set, item) => {
+            Object.keys(item).forEach((k) => set.add(k))
+            return set
+          }, new Set<string>()),
+        )
+        return (
+          <Card key={key}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                {humanKey(key)} ({items.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {columns.map((c) => (
+                        <TableHead key={c}>{humanKey(c)}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item, i) => (
+                      <TableRow key={i}>
+                        {columns.map((c) => (
+                          <TableCell key={c}>{displayValue(item[c])}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            ) : null
-          ))}
-        </dl>
-      </CardContent>
-    </Card>
+            </CardContent>
+          </Card>
+        )
+      })}
+    </div>
   )
 }
 

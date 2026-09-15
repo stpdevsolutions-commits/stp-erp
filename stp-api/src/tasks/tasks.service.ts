@@ -40,6 +40,7 @@ export class TasksService {
     if (dto.assignedToId) await this.assertUserExists(dto.assignedToId);
     if (dto.collaboratorId)
       await this.assertCollaboratorExists(dto.collaboratorId);
+    this.assertDates(dto.startDate, dto.dueDate);
 
     const task = this.tasksRepository.create({ ...dto, createdById });
     const saved = await this.tasksRepository.save(task);
@@ -121,6 +122,10 @@ export class TasksService {
     if (dto.collaboratorId && dto.collaboratorId !== task.collaboratorId) {
       await this.assertCollaboratorExists(dto.collaboratorId);
     }
+    this.assertDates(
+      dto.startDate ?? task.startDate,
+      dto.dueDate ?? task.dueDate,
+    );
 
     const defined = Object.fromEntries(
       Object.entries(dto as Record<string, unknown>).filter(
@@ -251,6 +256,17 @@ export class TasksService {
       return;
     }
     qb.andWhere(`(${conditions.join(' OR ')})`, params);
+  }
+
+  /** Antes solo lo validaba el formulario: por API nada impedía una fecha límite
+   * anterior al inicio, lo que dibuja una barra invertida en el Gantt de Cronograma. */
+  private assertDates(startDate?: string | null, dueDate?: string | null): void {
+    if (!startDate || !dueDate) return;
+    if (dueDate < startDate) {
+      throw new BadRequestException(
+        'La fecha límite no puede ser anterior a la fecha de inicio',
+      );
+    }
   }
 
   private async assertProjectExists(projectId: string): Promise<void> {

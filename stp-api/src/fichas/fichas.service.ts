@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
@@ -14,6 +15,7 @@ import { CreateFichaDto } from './dto/create-ficha.dto';
 import { UpdateFichaDto } from './dto/update-ficha.dto';
 import { QueryFichasDto } from './dto/query-fichas.dto';
 import { loadForUpdate } from '../common/load-for-update';
+import { auditLog } from '../common/audit-log';
 
 @Injectable()
 export class FichasService {
@@ -38,7 +40,19 @@ export class FichasService {
       photos: dto.photos ?? [],
     });
 
-    return this.fichasRepo.save(ficha);
+    try {
+      return await this.fichasRepo.save(ficha);
+    } catch (err) {
+      // `generateCode` es MAX+1 sin bloqueo: dos técnicos enviando una ficha casi al
+      // mismo tiempo pueden calcular el mismo código. Antes esto llegaba como un 500
+      // genérico de violación de UNIQUE; ahora se dice qué pasó y que reintentar alcanza.
+      if ((err as { code?: string })?.code === '23505') {
+        throw new ConflictException(
+          'Dos fichas se crearon casi al mismo tiempo y chocaron de código; intenta de nuevo',
+        );
+      }
+      throw err;
+    }
   }
 
   async findAll(query: QueryFichasDto, currentUser: User): Promise<Ficha[]> {
@@ -119,7 +133,19 @@ export class FichasService {
     if (ficha.status === FichaStatus.ENVIADA && currentUser.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Solo un administrador puede eliminar fichas enviadas');
     }
+    // findOne() ya deja pasar a MANAGER/ADMIN sin filtrar por técnico (ven todas las
+    // fichas), pero eso es para CONSULTAR, no para borrar: un manager solo debía poder
+    // eliminar las suyas, igual que un USER. Sin esto podía borrar la de cualquiera.
+    if (
+      currentUser.role === UserRole.MANAGER &&
+      ficha.technicianId !== currentUser.id
+    ) {
+      throw new ForbiddenException(
+        'Solo puedes eliminar tus propias fichas; un administrador puede eliminar cualquiera',
+      );
+    }
 
+    auditLog(currentUser.id, 'ficha.deleted', { fichaId: id, code: ficha.code });
     await this.fichasRepo.remove(ficha);
   }
 
