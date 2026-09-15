@@ -96,7 +96,7 @@ export default async function ClienteDetallePage({
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
         </div>
-        <ClientActions cliente={client} />
+        <ClientActions cliente={client} userRole={me.role} />
       </div>
 
       {/* Info cards */}

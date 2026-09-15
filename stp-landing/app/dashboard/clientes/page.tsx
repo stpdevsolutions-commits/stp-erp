@@ -1,5 +1,5 @@
 ﻿﻿import { api, pageError } from '@/lib/api'
-import type { Client, PaginatedResponse } from '@/lib/types'
+import type { Client, PaginatedResponse, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -18,6 +18,13 @@ import { FiltrosClientes } from '@/components/clientes/filtros-clientes'
 import { Paginacion } from '@/components/ui/paginacion'
 
 const TYPE_LABELS = { company: 'Empresa', individual: 'Persona física' }
+
+// Colores semánticos de tipo (tinte suave, coherente con la identidad STP)
+const TYPE_BADGE = {
+  company: 'bg-primary/10 text-primary',
+  individual: 'bg-accent text-accent-foreground',
+}
+
 const LIMIT = 20
 
 export default async function ClientesPage({
@@ -36,14 +43,21 @@ export default async function ClientesPage({
 
   let res: PaginatedResponse<Client> = { data: [], total: 0, page: 1, limit: LIMIT }
   let error: string | null = null
+  let userRole = 'USER'
 
-  try {
-    res = await api.get<PaginatedResponse<Client>>(`/clients?${query}`)
-  } catch (e) {
-    error = pageError(e, 'Error al cargar clientes')
+  const [clientsRes, meRes] = await Promise.allSettled([
+    api.get<PaginatedResponse<Client>>(`/clients?${query}`),
+    api.get<Pick<User, 'role'>>('/users/me'),
+  ])
+  if (clientsRes.status === 'fulfilled') {
+    res = clientsRes.value
+  } else {
+    error = pageError(clientsRes.reason, 'Error al cargar clientes')
   }
+  if (meRes.status === 'fulfilled') userRole = meRes.value.role
 
   const clientes = res.data
+  const isManager = ['ADMIN', 'admin', 'MANAGER', 'manager'].includes(userRole)
 
   return (
     <div className="space-y-6">
@@ -52,7 +66,7 @@ export default async function ClientesPage({
           <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
           <p className="text-muted-foreground text-sm">Gestión de clientes del sistema</p>
         </div>
-        <NuevoClienteDialog />
+        {isManager && <NuevoClienteDialog />}
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
@@ -107,7 +121,7 @@ export default async function ClientesPage({
               <TableBody>
                 {clientes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       No hay clientes registrados
                     </TableCell>
                   </TableRow>
@@ -126,7 +140,9 @@ export default async function ClientesPage({
                         )}
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm">{TYPE_LABELS[cliente.type] ?? cliente.type}</span>
+                        <Badge className={TYPE_BADGE[cliente.type]}>
+                          {TYPE_LABELS[cliente.type] ?? cliente.type}
+                        </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-sm">{cliente.rnc ?? '—'}</TableCell>
                       <TableCell>{cliente.phone ?? '—'}</TableCell>
@@ -137,7 +153,7 @@ export default async function ClientesPage({
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <ClientActions cliente={cliente} />
+                        <ClientActions cliente={cliente} userRole={userRole} />
                       </TableCell>
                     </TableRow>
                   ))

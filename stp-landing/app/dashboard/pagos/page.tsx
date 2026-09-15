@@ -1,5 +1,5 @@
 ﻿﻿import { api, pageError } from '@/lib/api'
-import type { Payment, Client, Project, PaginatedResponse } from '@/lib/types'
+import type { Payment, Client, Project, PaginatedResponse, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -64,21 +64,25 @@ export default async function PagosPage({
   let clients: Client[] = []
   let projects: Project[] = []
   let error: string | null = null
+  let userRole = 'USER'
 
   try {
-    const [res, clientesRes, proyRes] = await Promise.all([
+    const [res, clientesRes, proyRes, me] = await Promise.all([
       api.get<PaginatedResponse<Payment>>(`/payments?${query}`),
       api.get<PaginatedResponse<Client>>('/clients?limit=200'),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
+      api.get<Pick<User, 'role'>>('/users/me'),
     ])
     pagosRes = res
     clients = clientesRes.data
     projects = proyRes.data
+    userRole = me.role
   } catch (e) {
     error = pageError(e, 'Error al cargar pagos')
   }
 
   const pagos = pagosRes.data
+  const isManager = ['ADMIN', 'admin', 'MANAGER', 'manager'].includes(userRole)
 
   const totalRecibido = pagos
     .filter((p) => p.status === 'completed')
@@ -87,6 +91,8 @@ export default async function PagosPage({
   const totalPendiente = pagos
     .filter((p) => p.status === 'pending')
     .reduce((sum, p) => sum + p.amount, 0)
+
+  const totalFallidos = pagos.filter((p) => p.status === 'failed').length
 
   return (
     <div className="space-y-6">
@@ -97,25 +103,17 @@ export default async function PagosPage({
         </div>
         <div className="flex gap-2">
           <ExportExcelButton href={`/api/export/pagos?${query.toString()}`} label="Exportar Excel" />
-          <NuevoPagoDialog clients={clients} projects={projects} />
+          {isManager && <NuevoPagoDialog clients={clients} projects={projects} />}
         </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Total registros</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pagosRes.total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Monto recibido</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{DOP.format(totalRecibido)}</div>
+            <div className="text-2xl font-bold text-green-700 dark:text-green-400">{DOP.format(totalRecibido)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -123,7 +121,15 @@ export default async function PagosPage({
             <CardTitle className="text-xs font-medium text-muted-foreground">Pendiente</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{DOP.format(totalPendiente)}</div>
+            <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{DOP.format(totalPendiente)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Fallidos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${totalFallidos > 0 ? 'text-destructive' : ''}`}>{totalFallidos}</div>
           </CardContent>
         </Card>
       </div>
@@ -181,7 +187,7 @@ export default async function PagosPage({
                         {new Date(p.date).toLocaleDateString('es-DO')}
                       </TableCell>
                       <TableCell>
-                        <PagoActions pago={p} clients={clients} projects={projects} />
+                        <PagoActions pago={p} clients={clients} projects={projects} userRole={userRole} />
                       </TableCell>
                     </TableRow>
                   ))

@@ -131,7 +131,7 @@ function EditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar pago</DialogTitle>
           <DialogDescription>{pago.description}</DialogDescription>
@@ -303,13 +303,20 @@ export function PagoActions({
   pago,
   clients,
   projects,
+  userRole,
 }: {
   pago: Payment
   clients: Client[]
   projects: Project[]
+  userRole: string
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+
+  // Editar requiere MANAGER, eliminar requiere ADMIN (ver payments.controller.ts). Ver
+  // PDF/Imprimir quedan para todos porque son de solo lectura.
+  const isAdmin = userRole === 'ADMIN' || userRole === 'admin'
+  const isManager = isAdmin || userRole === 'MANAGER' || userRole === 'manager'
 
   return (
     <>
@@ -319,10 +326,12 @@ export function PagoActions({
           <span className="sr-only">Acciones</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setEditOpen(true)}>
-            <Pencil className="size-4" />
-            Editar
-          </DropdownMenuItem>
+          {isManager && (
+            <DropdownMenuItem onClick={() => setEditOpen(true)}>
+              <Pencil className="size-4" />
+              Editar
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             onClick={() => window.open(`/api/files/payment/${pago.id}?v=${Date.now()}`, '_blank')}
           >
@@ -338,11 +347,15 @@ export function PagoActions({
             <Printer className="size-4" />
             Imprimir
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="size-4" />
-            Eliminar
-          </DropdownMenuItem>
+          {isAdmin && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="size-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       <EditDialog pago={pago} clients={clients} projects={projects} open={editOpen} onOpenChange={setEditOpen} />

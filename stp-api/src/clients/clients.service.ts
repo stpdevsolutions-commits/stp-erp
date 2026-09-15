@@ -11,6 +11,8 @@ import { UpdateClientDto } from './dto/update-client.dto';
 import { QueryClientsDto } from './dto/query-clients.dto';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
+import { escapeLike } from '../common/like-escape';
+import { auditLog } from '../common/audit-log';
 
 /** UUID imposible: fuerza un resultado vacío cuando el usuario no tiene asignaciones. */
 const NO_MATCH_ID = '00000000-0000-0000-0000-000000000000';
@@ -52,7 +54,7 @@ export class ClientsService {
     let where: FindOptionsWhere<Client> | FindOptionsWhere<Client>[];
 
     if (search) {
-      const term = `%${search}%`;
+      const term = `%${escapeLike(search)}%`;
       where = [
         { ...baseWhere, name: ILike(term) },
         { ...baseWhere, rnc: ILike(term) },
@@ -94,8 +96,9 @@ export class ClientsService {
     return this.clientsRepository.save(client);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, requesterId?: string): Promise<void> {
     const client = await this.findOne(id);
+    auditLog(requesterId, 'client.deleted', { clientId: id, name: client.name });
     await this.clientsRepository.remove(client);
   }
 }

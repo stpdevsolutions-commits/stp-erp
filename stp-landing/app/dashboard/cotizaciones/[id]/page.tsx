@@ -105,7 +105,11 @@ export default async function CotizacionDetallePage({
   }
 
   const indirectCosts = (
-    quote as { indirectCosts?: { name: string; pct: number; amount: number; kind?: string }[] | null }
+    quote as {
+      indirectCosts?:
+        | { name: string; pct: number; amount: number; kind?: string; baseMode?: 'gravables' | 'total' }[]
+        | null
+    }
   ).indirectCosts
   const hasIndirect = Array.isArray(indirectCosts) && indirectCosts.length > 0
 
@@ -512,7 +516,8 @@ export default async function CotizacionDetallePage({
                   <span>
                     {c.name}{' '}
                     <span className="text-xs">
-                      ({c.pct}%{c.kind === 'itbis' ? ' Dir. Técnica' : ''})
+                      ({c.pct}%
+                      {c.kind === 'itbis' ? (c.baseMode === 'total' ? ' del total' : ' gravables') : ''})
                     </span>
                   </span>
                   <span className="tabular-nums">{DOP.format(c.amount)}</span>

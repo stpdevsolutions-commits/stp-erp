@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   UnprocessableEntityException,
+  ConflictException,
   OnModuleInit,
   Logger,
 } from '@nestjs/common';
@@ -26,6 +27,8 @@ import { CreateQuoteItemDto } from './dto/create-quote-item.dto';
 import { UpdateQuoteItemDto } from './dto/update-quote-item.dto';
 import { QueryQuotesDto } from './dto/query-quotes.dto';
 import { loadForUpdate } from '../common/load-for-update';
+import { auditLog } from '../common/audit-log';
+import { escapeLike } from '../common/like-escape';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UserRole } from '../users/entities/user.entity';
 import { SettingsService } from '../settings/settings.service';
@@ -394,18 +397,18 @@ export class QuotesService implements OnModuleInit {
     await this.assertClientExists(dto.clientId);
     if (dto.projectId) await this.assertProjectExists(dto.projectId);
 
-    const number = await this.generateNumber();
     const { items: itemDtos, ...quoteData } = dto;
 
     const quote = this.quotesRepository.create({
       ...quoteData,
-      number,
-      baseNumber: number,
       revision: 1,
       createdById,
     });
     if (dto.status === QuoteStatus.SENT) quote.sentAt = new Date();
-    const saved = await this.quotesRepository.save(quote);
+    // Dos creaciones a la vez pueden leer el mismo MAX y calcular el mismo "siguiente"
+    // número; `number` es UNIQUE en la base, así que la segunda choca al guardar. En
+    // vez de fallar con un 500, se recalcula el número y se reintenta.
+    const saved = await this.saveWithUniqueNumber(quote);
 
     if (itemDtos?.length) {
       await this.persistTree(saved.id, itemDtos);
@@ -456,7 +459,7 @@ export class QuotesService implements OnModuleInit {
       .take(limit);
 
     if (search) {
-      qb.andWhere('(quote.number ILIKE :q OR quote.title ILIKE :q)', { q: `%${search}%` });
+      qb.andWhere('(quote.number ILIKE :q OR quote.title ILIKE :q)', { q: `%${escapeLike(search)}%` });
     }
     if (status) qb.andWhere('quote.status = :status', { status });
     if (clientId) qb.andWhere('quote.clientId = :clientId', { clientId });
@@ -477,7 +480,13 @@ export class QuotesService implements OnModuleInit {
     return { data, total, page, limit };
   }
 
-  async findOne(id: string): Promise<Quote> {
+  /**
+   * `viewerRole` solo lo pasa el controller en la lectura directa (GET /quotes/:id):
+   * las llamadas internas (recálculo, PDF, drift, revisión) necesitan el costo/margen
+   * real y nunca pasan este parámetro. Un USER puede ver y cotizar, pero el costo y el
+   * margen de la partida son información comercial que no le corresponde.
+   */
+  async findOne(id: string, viewerRole?: UserRole): Promise<Quote> {
     const quote = await this.quotesRepository.findOne({
       where: { id },
       // `items.acu` para poder decir de QUÉ partida de costos sale un unitario sin pedir
@@ -488,7 +497,19 @@ export class QuotesService implements OnModuleInit {
     });
     if (!quote) throw new NotFoundException('Quote not found');
     quote.revisions = await this.getRevisionHistory(quote.baseNumber);
+    if (viewerRole && viewerRole !== UserRole.ADMIN && viewerRole !== UserRole.MANAGER) {
+      this.redactAcuFinancials(quote);
+    }
     return quote;
+  }
+
+  /** Quita costo y margen congelados de cada línea, sin tocar el resto del árbol. */
+  private redactAcuFinancials(quote: Quote): void {
+    for (const item of quote.items ?? []) {
+      const row = item as unknown as { acuUnitCost?: number | null; acuMarkupPct?: number | null };
+      row.acuUnitCost = null;
+      row.acuMarkupPct = null;
+    }
   }
 
   /** Historial de la familia (todas las revisiones que comparten baseNumber). */
@@ -545,10 +566,13 @@ export class QuotesService implements OnModuleInit {
     await this.quotesRepository.save(target);
 
     if (itemsDto !== undefined) {
-      // Se reemplaza el árbol entero. El borrado va de hojas a raíz para no
-      // depender del CASCADE mientras se reconstruye.
+      // Se reemplaza el árbol entero. Validar ANTES de borrar el actual: si el árbol
+      // nuevo no pasa (un ACU que ya no existe, límites excedidos), la cotización se
+      // queda con sus partidas de siempre en vez de terminar vacía. El borrado, cuando
+      // sí se llega a él, va de hojas a raíz para no depender del CASCADE.
+      const validatedTree = itemsDto.length > 0 ? await this.prepareTree(itemsDto) : null;
       await this.itemsRepository.delete({ quoteId: id });
-      if (itemsDto.length > 0) await this.persistTree(id, itemsDto);
+      if (validatedTree) await this.persistChildren(id, null, validatedTree);
       await this.recalculate(id);
     } else if (
       dto.taxRate !== undefined ||
@@ -640,9 +664,10 @@ export class QuotesService implements OnModuleInit {
     );
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, requesterId?: string): Promise<void> {
     const quote = await this.findOne(id);
     const pdfFilename = `${quote.number}.pdf`;
+    auditLog(requesterId, 'quote.deleted', { quoteId: id, number: quote.number });
     await this.quotesRepository.remove(quote);
     // El PDF se limpia DESPUÉS y sin propagar, igual que en gastos: el dato es la
     // cotización, y un fallo de disco no puede devolver un error por algo accesorio.
@@ -907,11 +932,20 @@ export class QuotesService implements OnModuleInit {
     quoteId: string,
     input: QuoteNodeInput[],
   ): Promise<void> {
+    const tree = await this.prepareTree(input);
+    await this.persistChildren(quoteId, null, tree);
+  }
+
+  /**
+   * Resuelve y valida el árbol (ACUs, límites) sin escribir nada todavía. Separado de
+   * `persistTree` para que `update()` pueda validar el árbol nuevo ANTES de borrar el
+   * actual — si algo aquí lanza, la cotización no perdió sus partidas de siempre.
+   */
+  private async prepareTree(input: QuoteNodeInput[]): Promise<QuoteNode[]> {
     const resuelto = await this.resolveAcuNodes(input);
     const tree = normalizeTree(resuelto);
     this.assertTreeLimits(tree);
-
-    await this.persistChildren(quoteId, null, tree);
+    return tree;
   }
 
   // ── Puente con el módulo de Costos (ACU) ──────────────────────────────────
@@ -1176,8 +1210,13 @@ export class QuotesService implements OnModuleInit {
     nodes: QuoteNode[],
     startOrder = 0,
   ): Promise<void> {
-    for (const [index, node] of nodes.entries()) {
-      const row = await this.itemsRepository.save(
+    if (nodes.length === 0) return;
+    // Los hermanos de un mismo nivel comparten un `parentId` ya conocido (el del
+    // padre, insertado antes) — se guardan en una sola llamada en vez de un INSERT
+    // secuencial por fila. Un árbol de 200 líneas hacía 200 viajes a la base; ahora
+    // son tantos como niveles de profundidad tiene el árbol, no líneas totales.
+    const rows = await this.itemsRepository.save(
+      nodes.map((node, index) =>
         this.itemsRepository.create({
           quoteId,
           parentId: parentId ?? undefined,
@@ -1191,9 +1230,11 @@ export class QuotesService implements OnModuleInit {
           sortOrder: startOrder + index,
           ...acuColumns(node.acu),
         }),
-      );
+      ),
+    );
+    for (const [index, node] of nodes.entries()) {
       if (node.children.length > 0) {
-        await this.persistChildren(quoteId, row.id, node.children);
+        await this.persistChildren(quoteId, rows[index].id, node.children);
       }
     }
   }
@@ -1411,6 +1452,26 @@ export class QuotesService implements OnModuleInit {
       .getRawOne<{ max: string | null }>();
     const next = (parseInt(row?.max ?? '0') || 0) + 1;
     return `COT-${year}-${String(next).padStart(3, '0')}`;
+  }
+
+  /**
+   * Genera el número y guarda, reintentando si otra creación concurrente ya tomó ese
+   * número (violación de UNIQUE, código 23505 de Postgres). `quote` llega sin número
+   * asignado; se le pone uno nuevo en cada intento.
+   */
+  private async saveWithUniqueNumber(quote: Quote, attempts = 5): Promise<Quote> {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      const number = await this.generateNumber();
+      quote.number = number;
+      quote.baseNumber = number;
+      try {
+        return await this.quotesRepository.save(quote);
+      } catch (err) {
+        const isUniqueViolation = (err as { code?: string })?.code === '23505';
+        if (!isUniqueViolation || attempt === attempts) throw err;
+      }
+    }
+    throw new ConflictException('No se pudo generar un número de cotización único, intenta de nuevo');
   }
 
   private async assertClientExists(id: string): Promise<void> {

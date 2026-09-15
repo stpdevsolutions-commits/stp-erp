@@ -82,7 +82,14 @@ export class Quote {
    * y queda como documento histórico: no puede reenviarse, aprobarse ni
    * rechazarse. La revisión vigente de una familia es la que tiene
    * `supersededById = null`.
+   *
+   * FK real con SET NULL: si la revisión que reemplazó se borra, el documento
+   * histórico no debe quedar apuntando a un id que ya no existe.
    */
+  @ManyToOne(() => Quote, { nullable: true, onDelete: 'SET NULL', eager: false })
+  @JoinColumn({ name: 'supersededById' })
+  supersededBy: Quote;
+
   @Column({ type: 'uuid', nullable: true })
   supersededById: string;
 

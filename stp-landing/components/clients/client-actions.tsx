@@ -281,9 +281,16 @@ function DeleteDialog({
 
 // ── Row actions ───────────────────────────────────────────────────────────────
 
-export function ClientActions({ cliente }: { cliente: Client }) {
+export function ClientActions({ cliente, userRole }: { cliente: Client; userRole: string }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+
+  // Editar requiere MANAGER, eliminar requiere ADMIN (ver clients.controller.ts). Sin
+  // esto el menú ofrecía acciones que el backend igual iba a rechazar con un 403.
+  const isAdmin = userRole === 'ADMIN' || userRole === 'admin'
+  const isManager = isAdmin || userRole === 'MANAGER' || userRole === 'manager'
+
+  if (!isManager && !isAdmin) return null
 
   return (
     <>
@@ -293,15 +300,21 @@ export function ClientActions({ cliente }: { cliente: Client }) {
           <span className="sr-only">Acciones</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setEditOpen(true)}>
-            <Pencil className="size-4" />
-            Editar
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="size-4" />
-            Eliminar
-          </DropdownMenuItem>
+          {isManager && (
+            <DropdownMenuItem onClick={() => setEditOpen(true)}>
+              <Pencil className="size-4" />
+              Editar
+            </DropdownMenuItem>
+          )}
+          {isAdmin && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="size-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

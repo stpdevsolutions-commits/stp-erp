@@ -188,8 +188,8 @@ export class QuotesController {
 
   @Get(':id')
   @ScopedResource('quote')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.quotesService.findOne(id);
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.quotesService.findOne(id, user.role);
   }
 
   @Get(':id/pdf-file')
@@ -238,8 +238,8 @@ export class QuotesController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.quotesService.remove(id);
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.quotesService.remove(id, user.id);
   }
 
   // ── Partidas de costos (ACU) ───────────────────────────────────────────────
@@ -250,6 +250,8 @@ export class QuotesController {
    */
   @Get(':id/acu-drift')
   @ScopedResource('quote')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.MANAGER)
   acuDrift(@Param('id', ParseUUIDPipe) id: string) {
     return this.quotesService.acuDrift(id);
   }

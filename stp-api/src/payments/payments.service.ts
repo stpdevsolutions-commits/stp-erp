@@ -19,6 +19,8 @@ import { SettingsService } from '../settings/settings.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { loadForUpdate } from '../common/load-for-update';
+import { escapeLike } from '../common/like-escape';
+import { auditLog } from '../common/audit-log';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
 import { PaymentStatus } from './entities/payment.entity';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -47,26 +49,15 @@ export class PaymentsService {
 
   async create(dto: CreatePaymentDto, createdById: string): Promise<Payment> {
     await this.assertClientExists(dto.clientId);
-    if (dto.projectId) await this.assertProjectExists(dto.projectId);
-    if (dto.quoteId) await this.assertQuoteExists(dto.quoteId);
+    if (dto.projectId) await this.assertProjectExists(dto.projectId, dto.clientId);
+    if (dto.quoteId) await this.assertQuoteExists(dto.quoteId, dto.clientId);
 
     const payment = this.paymentsRepository.create({ ...dto, createdById });
     const saved = await this.paymentsRepository.save(payment);
     const loaded = await this.findOne(saved.id);
 
     if (loaded.status === PaymentStatus.COMPLETED) {
-      try {
-        this.notifications.sendPaymentReceived({
-          clientName: loaded.client?.name ?? 'Cliente',
-          amount: loaded.amount,
-          description: loaded.description,
-          method: loaded.method,
-          reference: loaded.reference,
-          date: loaded.date,
-        });
-      } catch (err) {
-        this.logger.error(`Payment notification failed for ${loaded.id}: ${(err as Error).message}`);
-      }
+      this.notifyPaymentReceived(loaded);
     }
 
     await this.savePdfForPayment(loaded).catch((err: Error) =>
@@ -74,6 +65,21 @@ export class PaymentsService {
     );
 
     return loaded;
+  }
+
+  private notifyPaymentReceived(payment: Payment): void {
+    try {
+      this.notifications.sendPaymentReceived({
+        clientName: payment.client?.name ?? 'Cliente',
+        amount: payment.amount,
+        description: payment.description,
+        method: payment.method,
+        reference: payment.reference,
+        date: payment.date,
+      });
+    } catch (err) {
+      this.logger.error(`Payment notification failed for ${payment.id}: ${(err as Error).message}`);
+    }
   }
 
   async findAll(query: QueryPaymentsDto, user?: AccessSubject) {
@@ -103,7 +109,7 @@ export class PaymentsService {
     if (search) {
       qb.andWhere(
         '(payment.description ILIKE :q OR payment.reference ILIKE :q)',
-        { q: `%${search}%` },
+        { q: `%${escapeLike(search)}%` },
       );
     }
 
@@ -133,16 +139,20 @@ export class PaymentsService {
       id,
       'Payment not found',
     );
+    const previousStatus = payment.status;
 
     if (dto.clientId && dto.clientId !== payment.clientId) {
       await this.assertClientExists(dto.clientId);
     }
-    if (dto.projectId && dto.projectId !== payment.projectId) {
-      await this.assertProjectExists(dto.projectId);
-    }
-    if (dto.quoteId && dto.quoteId !== payment.quoteId) {
-      await this.assertQuoteExists(dto.quoteId);
-    }
+
+    // Se valida contra el cliente que el pago va a tener DESPUÉS del cambio, no solo
+    // contra lo que trae el dto: si se cambia el cliente pero no el proyecto/cotización,
+    // el que ya tenía puede haber quedado de otro cliente.
+    const effectiveClientId = dto.clientId ?? payment.clientId;
+    const effectiveProjectId = dto.projectId !== undefined ? dto.projectId : payment.projectId;
+    const effectiveQuoteId = dto.quoteId !== undefined ? dto.quoteId : payment.quoteId;
+    if (effectiveProjectId) await this.assertProjectExists(effectiveProjectId, effectiveClientId);
+    if (effectiveQuoteId) await this.assertQuoteExists(effectiveQuoteId, effectiveClientId);
 
     const defined = Object.fromEntries(
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
@@ -150,14 +160,20 @@ export class PaymentsService {
     Object.assign(payment, defined);
     await this.paymentsRepository.save(payment);
     const updated = await this.findOne(id);
+
+    if (updated.status === PaymentStatus.COMPLETED && previousStatus !== PaymentStatus.COMPLETED) {
+      this.notifyPaymentReceived(updated);
+    }
+
     await this.savePdfForPayment(updated).catch((err: Error) =>
       this.logger.error(`PDF regeneration failed for payment ${id}: ${err.message}`),
     );
     return updated;
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, requesterId?: string): Promise<void> {
     const payment = await this.findOne(id);
+    auditLog(requesterId, 'payment.deleted', { paymentId: id, amount: payment.amount });
     await this.paymentsRepository.remove(payment);
     // El PDF se limpia DESPUÉS y sin propagar, igual que en gastos: el dato es el
     // pago, y un fallo de disco no puede devolver un error por algo accesorio.
@@ -220,14 +236,20 @@ export class PaymentsService {
     if (!exists) throw new BadRequestException(`Client ${clientId} not found`);
   }
 
-  private async assertProjectExists(projectId: string): Promise<void> {
-    const exists = await this.projectsRepository.existsBy({ id: projectId });
-    if (!exists) throw new BadRequestException(`Project ${projectId} not found`);
+  private async assertProjectExists(projectId: string, clientId?: string): Promise<void> {
+    const project = await this.projectsRepository.findOne({ where: { id: projectId } });
+    if (!project) throw new BadRequestException(`Project ${projectId} not found`);
+    if (clientId && project.clientId !== clientId) {
+      throw new BadRequestException('El proyecto indicado no pertenece a ese cliente');
+    }
   }
 
-  private async assertQuoteExists(quoteId: string): Promise<void> {
-    const exists = await this.quotesRepository.existsBy({ id: quoteId });
-    if (!exists) throw new BadRequestException(`Quote ${quoteId} not found`);
+  private async assertQuoteExists(quoteId: string, clientId?: string): Promise<void> {
+    const quote = await this.quotesRepository.findOne({ where: { id: quoteId } });
+    if (!quote) throw new BadRequestException(`Quote ${quoteId} not found`);
+    if (clientId && quote.clientId !== clientId) {
+      throw new BadRequestException('La cotización indicada no pertenece a ese cliente');
+    }
   }
 
   private async savePdfForPayment(payment: Payment): Promise<void> {
