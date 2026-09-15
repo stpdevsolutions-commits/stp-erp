@@ -40,8 +40,15 @@ export interface Project {
   startDate?: string
   endDate?: string
   budget?: number
+  location?: string
   clientId: string
   client?: Pick<Client, 'id' | 'name'>
+  /** Encargado: usuario del sistema responsable del proyecto. */
+  assignedToId?: string
+  assignedTo?: Pick<AuthUser, 'id' | 'firstName' | 'lastName'>
+  /** Supervisor de campo: colaborador (personal sin cuenta de usuario). */
+  supervisorId?: string
+  supervisor?: Pick<Collaborator, 'id' | 'firstName' | 'lastName' | 'position'>
   createdAt: string
 }
 
@@ -51,6 +58,8 @@ export interface Task {
   description?: string
   status: 'pending' | 'in_progress' | 'review' | 'done' | 'cancelled'
   priority: 'low' | 'medium' | 'high' | 'urgent'
+  /** Inicio previsto de la actividad — para la vista semanal de Cronograma. */
+  startDate?: string
   dueDate?: string
   projectId: string
   project?: Pick<Project, 'id' | 'name' | 'code'>
@@ -317,6 +326,7 @@ export type FileContext =
   | 'project-quotes'
   | 'project-payments'
   | 'project-reports'
+  | 'project-reports-internal'
 
 export interface FileUpload {
   id: string
@@ -418,7 +428,13 @@ export interface Collaborator {
   createdAt: string
 }
 
-export type FichaType = 'electrico' | 'civil' | 'electromecanico' | 'levantamiento' | 'evaluacion_danos'
+export type FichaType =
+  | 'electrico'
+  | 'civil'
+  | 'electromecanico'
+  | 'levantamiento'
+  | 'domotica'
+  | 'evaluacion_danos'
 export type FichaStatus = 'borrador' | 'en_progreso' | 'enviada'
 
 export interface Ficha {
@@ -633,6 +649,8 @@ export interface PriceImportLine {
   rawCode?: string
   price: number
   currency: PriceCurrency
+  /** Obligatoria para aprobar una línea en moneda distinta a DOP. */
+  exchangeRate?: number
   itbisIncluded: boolean
   discountPct: number
   materialId?: string
@@ -669,7 +687,10 @@ export interface PriceImport {
  * campo admite null explícito y no solo ausencia.
  */
 export type PriceImportLineUpdate = Partial<
-  Pick<PriceImportLine, 'price' | 'currency' | 'itbisIncluded' | 'discountPct' | 'notes'>
+  Pick<
+    PriceImportLine,
+    'price' | 'currency' | 'exchangeRate' | 'itbisIncluded' | 'discountPct' | 'notes'
+  >
 > & {
   materialId?: string | null
   status?: Extract<PriceImportLineStatus, 'pending' | 'rejected'>
@@ -797,6 +818,7 @@ export interface AcuPayload {
 
 export type PayrollStatus = 'pending' | 'paid' | 'cancelled'
 export type PayrollMethod = 'cash' | 'transfer' | 'check' | 'other'
+export type PayrollPaymentType = 'day' | 'm2' | 'm3' | 'ml' | 'lump_sum'
 
 export interface PayrollEntry {
   id: string
@@ -807,7 +829,11 @@ export interface PayrollEntry {
   project?: Pick<Project, 'id' | 'name' | 'code'>
   periodStart: string
   periodEnd: string
+  /** Cómo se calculó la cantidad base: por día o por ajuste (m²/m³/ml/P.A.). */
+  paymentType: PayrollPaymentType
+  /** Cantidad (días, m², m³ o ml; 1 fijo si `paymentType` es lump_sum). */
   daysWorked?: number
+  /** Tarifa unitaria, o el monto directo si `paymentType` es lump_sum. */
   dailyRate?: number
   overtimeAmount: number
   bonuses: number
