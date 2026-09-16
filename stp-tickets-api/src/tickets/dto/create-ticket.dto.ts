@@ -8,6 +8,12 @@ export class CreateTicketDto {
   @IsUUID()
   projectId?: string;
 
+  /** Opcional: la etapa/sprint a la que entra este ticket. La mayoría de
+   * tickets del día a día no llevan etapa. */
+  @IsOptional()
+  @IsUUID()
+  sprintId?: string;
+
   @IsString()
   @MinLength(2)
   @MaxLength(200)

@@ -9,6 +9,11 @@ export class UpdateTicketDto {
   @IsUUID()
   projectId?: string | null;
 
+  // Igual que projectId: null saca el ticket de su etapa sin borrarlo.
+  @IsOptional()
+  @IsUUID()
+  sprintId?: string | null;
+
   @IsOptional()
   @IsString()
   @MinLength(2)

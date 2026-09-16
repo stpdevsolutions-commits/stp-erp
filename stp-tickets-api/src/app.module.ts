@@ -3,9 +3,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProjectsModule } from './projects/projects.module';
 import { TicketsModule } from './tickets/tickets.module';
+import { SprintsModule } from './sprints/sprints.module';
 import { Project } from './projects/entities/project.entity';
 import { Ticket } from './tickets/entities/ticket.entity';
 import { TicketComment } from './tickets/entities/ticket-comment.entity';
+import { Sprint } from './sprints/entities/sprint.entity';
 import { HealthController } from './common/health.controller';
 
 @Module({
@@ -20,12 +22,13 @@ import { HealthController } from './common/health.controller';
         username: config.get('DB_USER', 'stp_user'),
         password: config.get('DB_PASS'),
         database: config.get('DB_NAME', 'tickets_db'),
-        entities: [Project, Ticket, TicketComment],
+        entities: [Project, Ticket, TicketComment, Sprint],
         synchronize: true,
       }),
     }),
     ProjectsModule,
     TicketsModule,
+    SprintsModule,
   ],
   controllers: [HealthController],
 })

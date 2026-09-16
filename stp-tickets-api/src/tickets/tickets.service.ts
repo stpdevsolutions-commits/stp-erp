@@ -90,6 +90,8 @@ export class TicketsService {
 
     if (query.projectId)
       qb.andWhere('ticket.projectId = :projectId', { projectId: query.projectId });
+    if (query.sprintId)
+      qb.andWhere('ticket.sprintId = :sprintId', { sprintId: query.sprintId });
     if (query.type) qb.andWhere('ticket.type = :type', { type: query.type });
     if (query.status) qb.andWhere('ticket.status = :status', { status: query.status });
     if (query.priority)
@@ -146,6 +148,9 @@ export class TicketsService {
       ticket.project = newProject;
       ticket.projectNumber = newProject ? newProjectNumber! : null;
     }
+    // sprintId es columna simple y la relación `sprint` no se carga en
+    // findOne(), así que Object.assign ya lo dejó bien (incluido null para
+    // sacar el ticket de la etapa). No hace falta el baile de la relación.
     if (dto.status === TicketStatus.DONE && !ticket.resolvedAt) {
       ticket.resolvedAt = new Date().toISOString().split('T')[0];
     } else if (dto.status !== undefined && dto.status !== TicketStatus.DONE) {

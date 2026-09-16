@@ -7,6 +7,10 @@ export class QueryTicketsDto {
   projectId?: string;
 
   @IsOptional()
+  @IsUUID()
+  sprintId?: string;
+
+  @IsOptional()
   @IsEnum(TicketType)
   type?: TicketType;
 

@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { TicketComment } from './ticket-comment.entity';
+import { Sprint } from '../../sprints/entities/sprint.entity';
 
 export enum TicketType {
   BUG = 'bug',
@@ -66,6 +67,17 @@ export class Ticket {
   @ManyToOne(() => Project, (project) => project.tickets, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'projectId' })
   project: Project | null;
+
+  /** Etapa/sprint a la que pertenece este ticket, para poder armar el
+   * timeline de desarrollo. Nullable: la mayoría de los tickets del día a
+   * día no van dentro de una etapa concreta. Si se borra la etapa, el
+   * ticket se queda pero sin agrupar (SET NULL, no CASCADE). */
+  @Column({ type: 'uuid', nullable: true })
+  sprintId: string | null;
+
+  @ManyToOne(() => Sprint, (sprint) => sprint.tickets, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'sprintId' })
+  sprint: Sprint | null;
 
   @Column()
   title: string;

@@ -16,6 +16,7 @@ export interface Ticket {
   projectNumber: number | null
   projectId: string | null
   project?: Project | null
+  sprintId: string | null
   title: string
   description: string | null
   type: TicketType
@@ -34,4 +35,34 @@ export interface TicketComment {
   body: string
   author: string
   createdAt: string
+}
+
+// ── Etapas / roadmap ───────────────────────────────────────────────────────
+
+export type SprintStatus = 'planned' | 'active' | 'done' | 'cancelled'
+
+/** Conteo de los tickets de una etapa por estado. Lo calcula el backend a
+ * partir de los tickets reales — nunca se guarda, así no se desincroniza. */
+export interface SprintStats {
+  total: number
+  done: number
+  inProgress: number
+  review: number
+  pending: number
+  cancelled: number
+}
+
+export interface Sprint {
+  id: string
+  name: string
+  goal: string | null
+  startDate: string
+  endDate: string
+  status: SprintStatus
+  projectId: string | null
+  project?: Project | null
+  position: number
+  createdAt: string
+  updatedAt: string
+  stats: SprintStats
 }
