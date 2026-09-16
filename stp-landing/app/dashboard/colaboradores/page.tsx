@@ -88,7 +88,18 @@ export default async function ColaboradoresPage({
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{col.position ?? '—'}</TableCell>
                     <TableCell className="text-muted-foreground text-sm font-mono">{col.cedula ?? '—'}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{col.phone ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {col.phone ? (
+                        <a
+                          href={`tel:${col.phone.replace(/[^\d+]/g, '')}`}
+                          className="hover:text-foreground hover:underline"
+                        >
+                          {col.phone}
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{col.email ?? '—'}</TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {col.dailyRate != null ? DOP.format(col.dailyRate) : '—'}
