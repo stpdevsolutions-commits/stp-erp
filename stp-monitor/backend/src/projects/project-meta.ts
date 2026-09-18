@@ -66,6 +66,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: ['React', 'PWA', 'API propia', 'PostgreSQL'],
     status: 'En vivo y estable, uso diario. Es la única app deliberadamente pública (sin exigir VPN) porque tiene que abrir desde el celular en cualquier red.',
     recentWork: [
+      'Repo transferido de la cuenta personal de Pedro (PedroAngSs) a la cuenta de STP (stpdevsolutions-commits) — consolidación de todos los repos bajo una sola cuenta. El deploy key del servidor (usado por el checkout en ~/mi-dia) se conservó intacto en la transferencia; remotes de servidor y PC actualizados y verificados.',
       'Recordatorios con alarma real (DIA-1): Web Push con Service Worker (VAPID) — la notificación suena aunque la PWA esté cerrada, no solo en primer plano. Backend revisa cada 60s las tareas con isReminder vencidas (en hora de RD) y empuja la notificación a todos los dispositivos suscritos.',
       'feat(ui): paleta verde salvia en vez de azul/turquesa.',
     ],
@@ -85,6 +86,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: ['React', 'Vite', 'Supabase', 'Capacitor'],
     status: 'Web al día en Vercel. APK Android firmado con keystore real, publicado en apk.stpsoluciones.com. Identidad visual de los mockups migrada a producción y validada en vivo contra el checklist completo de 72 pantallas (auth, núcleo, equipo/ajustes, sistema, importar, bloqueados, contador) — solo queda Super Admin, ya aprobado. Entorno de staging real (Supabase + rama de Vercel propios), separado de producción.',
     recentWork: [
+      'fix(lint): CI en rojo desde el 2026-09-13 por un warning real de `react-refresh/only-export-components` en AuthLayout.tsx (exportaba el hook `useAuthAside` junto al componente, y el script de lint corre con --max-warnings 0). El hook vive ahí a propósito (las páginas hijas lo usan para declarar el contenido del panel izquierdo) — se silenció con un eslint-disable puntual en vez de reestructurar. Verificado en vivo: run de GitHub Actions en verde tras el push.',
       'Segunda pasada de validación de la migración de mockups, esta vez sistemática contra las 72 pantallas del checklist original, creando empresas/cuentas throwaway (free, pyme, empresarial, contador con empresa vinculada) y subiendo planes por SQL directo para llegar a los estados bloqueados sin esperar pagos reales. Cubiertos en vivo: todo el flujo de auth, onboarding tour completo (5 pasos, cliente y contador), Dashboard vacío/con datos/con gráficas, Nueva Factura reorganizada, Escaneo Masivo, multi-empresa (switcher + alta), Historial (vacío/con datos/eliminar/editar), Importar (preview + completado), Ajustes/Plan/upgrade, y el panel de Contador completo (alta de cliente, aprobación desde la empresa, vista de empresa vinculada, abandonar empresa). Bug real encontrado y corregido: Escaneo Masivo (BulkScanPage.tsx) tenía el mismo problema de CSP con blob: que Nueva Factura -- la miniatura de la foto subida quedaba en blanco porque el navegador bloqueaba la decodificación vía blob: URL; corregido con el mismo patrón (FileReader a data: URL) y verificado con una foto real. Confirmado que la alerta previa de "los correos no llegan" era una falsa alarma -- Resend funcionaba bien, era una confusión de bandejas de Gmail del lado de Pedro.',
       'Migración de identidad de los mockups (canvas de diseño) a producción, pantalla por pantalla, verificada en vivo con la cuenta real de STP y 2 cuentas throwaway (contador y plan Free): panel de auth (decoración, centrado, logo, íconos) que se creía terminado en una sesión anterior en realidad seguía con la tarjeta vieja; Nueva Factura reorganizada (Tipo de gasto/Método de pago/Notas agrupados en su propia tarjeta "Clasificación para el 606"); botón de Reporte de Gastos (606) ahora resalta como elemento fuerte; barra de progreso "X de 30 facturas" agregada al widget de Plan Free; una decena de tokens de color hardcodeados (rojo/verde) migrados a los tokens reales danger/valid/destructive. 16 commits, todos verificados en vivo antes de darlos por buenos.',
       'FRD-15 ("hacer la app asincrónica" → carga inicial más rápida): lazy-loading de todas las rutas + carga bajo demanda de xlsx/jspdf al exportar. El chunk de entrada bajó de 858KB a 315KB; las librerías de exportar (1.8MB) ya no se precargan si el usuario nunca exporta.',
@@ -108,6 +110,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: ['Next.js', 'Supabase'],
     status: 'Activo. Único pendiente en STP Tickets: internacionalización ES/EN (RBN-3, sin empezar).',
     recentWork: [
+      'Repo transferido de la cuenta personal de Pedro (PedroAngSs) a la cuenta de STP (stpdevsolutions-commits) — consolidación de todos los repos bajo una sola cuenta. Remote local actualizado y verificado con fetch.',
       'Modo claro/oscuro con next-themes (la paleta oscura ya existía en el CSS, solo faltaba conectar el provider y el botón del header).',
       'Selector de redes en la leyenda del mapa (portada pública y panel interno): al elegir una red, el mapa vuela a ella y muestra sus conteos en una tarjeta.',
       '"Una red de redes" agregado arriba de la jerarquía en el login.',
@@ -119,16 +122,26 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     purpose: 'Calculadora de vigas standalone — la herramienta original antes de unificarse en EstrucCalc RD Pro.',
     stack: ['HTML/JS'],
     status: 'Retirado. Ya no es donde se trabaja; toda su funcionalidad vive ahora en EstrucCalc RD Pro.',
-    recentWork: ['(sin cambios recientes — repo de referencia, no activo)'],
+    recentWork: ['Repo transferido de PedroAngSs a stpdevsolutions-commits junto con el resto de los repos personales — sin cambios de código, sigue retirado.'],
   },
   'hermes-agent': {
     purpose:
       'Asistente personal de Pedro por Telegram (@stp_asistente_bot) — open source de Nous Research, no desarrollado por STP, solo desplegado y conectado a los sistemas propios.',
-    stack: ['Python', 'Docker', 'OpenRouter (nvidia/nemotron-3-super-120b-a12b:free)', 'MCP'],
+    stack: [
+      'Python',
+      'Docker',
+      'OpenRouter (nvidia/nemotron-3-super-120b-a12b:free — perfil default)',
+      'Anthropic (OAuth de la suscripción Claude Pro/Max, Claude Sonnet 5 — perfiles desarrollo/soporte)',
+      'MCP',
+    ],
     status:
       'En producción. Conectado a Tickets, Vigía (solo lectura), Cotizaciones/Clientes del ERP (solo lectura) y Mi Día app vía un servidor MCP propio (stp-mcp-server, en el repo de stp-erp) — 17 herramientas en total. Probado de punta a punta en cada una.',
     recentWork: [
-      'Dos perfiles nuevos de Hermes (HRM-7): "desarrollo" (apoyo técnico/diagnóstico en los proyectos activos, no escribe código) y "soporte" (dueño del triage diario de STP Tickets en todos los proyectos, 8am RD, avisa por el mismo Telegram vía bot-chat:default). Clonados del perfil default, cada uno con su propio SOUL.md. Sin gateway propio a propósito (evita chocar el token de Telegram) — su cron corre por un tick cada 15 min en el crontab del host. Se evaluaron perfiles de supervisión/auditoría/seguridad pero se pospusieron por alcance ambiguo.',
+      'Pipeline de ingeniería integrado (skill "engineering-pipeline", paquete de comunidad auditado línea por línea antes de instalar — sin credenciales embebidas, sin shell=True, guardas reales vía flags del CLI): capa Docker propia (gh + claude + codex CLI) sobre la imagen base de Hermes, sin tocar el Dockerfile upstream. 12 repos de STP registrados en ~/.hermes/engineering-pipeline/projects.json con slugs/alias. Deja que un perfil delegue una tarea técnica real a Claude Code (worktree aislado, sin permiso de commit/push/merge/gh/docker) y a Codex como auditor de solo lectura, con aprobación humana antes de publicar. Probado de punta a punta (bootstrap real de fiscord).',
+      'Corregido: los perfiles "desarrollo"/"soporte" (HRM-7) SÍ tienen gateway propio -- la entrada anterior de esta ficha decía lo contrario (desactualizada). Causa real de que llevaran días sin poder arrancar: los tres perfiles (default incluido) compartían el mismo TELEGRAM_BOT_TOKEN. Se creó un bot dedicado para cada uno (@stp_desarrollo_bot, @stp_soporte_bot) y se activó su gateway -- sobrevive un reinicio del contenedor solo (mecanismo nativo de Hermes vía gateway_state.json, sin hooks propios).',
+      'Cambiados "desarrollo"/"soporte" de Nemotron gratis a Claude Sonnet 5 por OAuth de la suscripción Pro/Max de Pedro (hermes auth add anthropic --type oauth, NO api key) -- resolvió cuelgues reales y reproducibles del modelo gratis (clasificador de auto-aprobación colgado dos veces, y un turno abandonado en silencio tras una llamada a herramienta). De paso se puso approvals.mode=manual en ambos perfiles, quitando el paso de auto-clasificación que causaba uno de los dos tipos de cuelgue.',
+      'Gotcha de despliegue real: reconstruir la imagen sin fijar HERMES_UID=1000/HERMES_GID=1000 explícitamente remapea ~/.hermes a un UID distinto del de los archivos existentes y rompe Telegram con errores de permiso -- corregido de raíz con un ~/hermes-agent/.env fijo para que no se repita en el próximo rebuild.',
+      'Dos perfiles nuevos de Hermes (HRM-7): "desarrollo" (apoyo técnico/diagnóstico en los proyectos activos, no escribe código) y "soporte" (dueño del triage diario de STP Tickets en todos los proyectos). Clonados del perfil default, cada uno con su propio SOUL.md. Se evaluaron perfiles de supervisión/auditoría/seguridad pero se pospusieron por alcance ambiguo.',
       'Encontrado: el modelo gratis de OpenRouter (nvidia/nemotron-3-super-120b-a12b:free) tiene tope de 50 peticiones/día sin comprar créditos — con 3 perfiles activos ese tope se agota más fácil. Se decidió NO comprar créditos todavía; monitorear con `hermes cron incidents` (tipo rate_limit) antes de decidir.',
       'Dashboard web propio activado (ya venía incluido en hermes-agent, solo hacía falta prenderlo): contenedor dedicado con auth básica, expuesto en hermes.stpsoluciones.com vía Caddy restringido a VPN/LAN.',
       'Bug real encontrado y arreglado: stp-mcp-server crasheaba completo (las 13 herramientas, no solo correo) por un socket IMAP con error no manejado -- root cause del resumen diario incompleto del 2026-09-04.',
