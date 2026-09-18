@@ -1,6 +1,8 @@
 #!/bin/bash
-# Watchdog externo — corre en Oracle Cloud VM, chequea la landing pública de STP
-# desde fuera de la oficina/energía local. Alerta por Telegram + email en transiciones down<->up.
+# Watchdog externo — corre en Oracle Cloud VM, chequea un servicio publico
+# real de stp-server (NO la landing, que vive en Vercel y seguiria arriba
+# aunque el servidor se apague por completo) desde fuera de la
+# oficina/energia local. Alerta por Telegram + email en transiciones down<->up.
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/.env"
@@ -8,7 +10,10 @@ source "$DIR/.env"
 STATE_FILE="$DIR/state"
 DOWN_SINCE_FILE="$DIR/down_since"
 LOG_FILE="$DIR/watchdog.log"
-URL="https://stpsoluciones.com"
+# Mi Dia es la unica app publica a proposito (sin restriccion de VPN/LAN en
+# el Caddyfile) que de verdad corre en stp-server -- por eso se usa aqui en
+# vez de stpsoluciones.com, que hoy es solo un dominio de Vercel.
+URL="https://dia.stpsoluciones.com"
 FAIL_THRESHOLD=2
 TIMEOUT=10
 

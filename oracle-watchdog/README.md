@@ -8,7 +8,9 @@ Vigía (`stp-monitor/`) corre en el mismo host físico que monitorea. Si `stp-se
 
 ## Qué chequea
 
-`https://stpsoluciones.com` — el único subdominio público sin restricción de IP (todo lo demás en el Caddyfile está limitado a rangos VPN/LAN, no alcanzable desde la VM de Oracle a menos que se una al mesh de Headscale).
+`https://dia.stpsoluciones.com` (Mi Día) — el único subdominio público sin restricción de IP que además corre de verdad en `stp-server` (todo lo demás en el Caddyfile está limitado a rangos VPN/LAN, no alcanzable desde la VM de Oracle a menos que se una al mesh de Headscale).
+
+**Corregido 2026-09-18:** antes chequeaba `stpsoluciones.com`, pero ese dominio pasó a servirse desde **Vercel** (ver `stpsoluciones-landing`) — seguiría respondiendo "arriba" aunque `stp-server` se apagara por completo, dejando el watchdog ciego justo para el escenario que existe para cubrir. Si algún día `dia.stpsoluciones.com` deja de ser la única app pública sin VPN, hay que revisar de nuevo cuál usar.
 
 ## Deploy
 
