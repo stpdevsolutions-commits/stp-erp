@@ -176,6 +176,33 @@ export class ProjectsService {
       stale: now - r.reportedAt.getTime() > LOCAL_STALE_AFTER_MS,
       meta: PROJECT_META[r.id] ?? null,
     }));
-    return [...this.serverCache, ...local];
+
+    // Proyectos que solo tienen ficha (project-meta.ts) sin estado de git que
+    // calcular -- ej. un sitio que despliega directo desde GitHub a Vercel,
+    // sin checkout local ni montado en este contenedor. Sin esto, agregar
+    // una ficha nueva a PROJECT_META no bastaba para que apareciera en el
+    // panel: quedaba invisible aunque estuviera documentado.
+    const covered = new Set([...this.serverCache, ...local].map((p) => p.id));
+    const metaOnly: ProjectStatusDto[] = Object.entries(PROJECT_META)
+      .filter(([id]) => !covered.has(id))
+      .map(([id, meta]) => ({
+        id,
+        name: id,
+        location: 'server' as const,
+        path: '',
+        branch: null,
+        ahead: 0,
+        behind: 0,
+        dirtyFiles: 0,
+        lastCommitHash: null,
+        lastCommitMessage: null,
+        lastCommitDate: null,
+        error: null,
+        reportedAt: new Date().toISOString(),
+        stale: false,
+        meta,
+      }));
+
+    return [...this.serverCache, ...local, ...metaOnly];
   }
 }

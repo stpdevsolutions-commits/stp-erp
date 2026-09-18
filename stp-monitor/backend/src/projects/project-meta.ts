@@ -105,11 +105,24 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     ],
     links: [{ label: 'Web', url: 'https://fiscord.app' }],
   },
+  'fiscord-sitio': {
+    purpose: 'Sitio público de marketing de FiscoRD (fiscord.lat) — Astro SSG estático, separado de la app real.',
+    stack: ['Astro', 'Vercel'],
+    status:
+      'En producción, cutover hecho: fiscord.lat sirve este sitio; las rutas de la app (/login, /register, /app/*, /auth/*, /superadmin) se reenvían a interno.fiscord.lat (el proyecto de la app real). Etapa "FiscoRD · Sitio web fiscord.lat" cerrada en STP Tickets, 10/10.',
+    recentWork: [
+      'Reenvíos explícitos para /app y /superadmin sin subruta (FRD-7).',
+      'OG images (1200×630) generadas para default y recursos; menú hamburguesa móvil; overflow horizontal corregido en guías; contraste AA; QA de accesibilidad/móvil.',
+      'Cutover: fiscord.lat pasó de servir la app directo a servir este sitio Astro, con la app real detrás de interno.fiscord.lat.',
+    ],
+    links: [{ label: 'Sitio', url: 'https://fiscord.lat' }],
+  },
   'red-bendicion': {
     purpose: 'Plataforma para una red de iglesias en casa: directorio de hubs, mapa y panel administrativo interno.',
     stack: ['Next.js', 'Supabase'],
-    status: 'Activo. Único pendiente en STP Tickets: internacionalización ES/EN (RBN-3, sin empezar).',
+    status: 'Activo. Internacionalización ES/EN completada (RBN-40 y RBN-44, ambos done) — sin tickets abiertos en STP Tickets al 2026-09-18.',
     recentWork: [
+      'Internacionalización ES/EN completa, incluidas secciones ocultas del sidebar (RBN-40, RBN-44) — cerrado, no queda pendiente de idioma.',
       'Repo transferido de la cuenta personal de Pedro (PedroAngSs) a la cuenta de STP (stpdevsolutions-commits) — consolidación de todos los repos bajo una sola cuenta. Remote local actualizado y verificado con fetch.',
       'Modo claro/oscuro con next-themes (la paleta oscura ya existía en el CSS, solo faltaba conectar el provider y el botón del header).',
       'Selector de redes en la leyenda del mapa (portada pública y panel interno): al elegir una red, el mapa vuela a ella y muestra sus conteos en una tarjeta.',
@@ -119,10 +132,14 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     ],
   },
   vigacalc: {
-    purpose: 'Calculadora de vigas standalone — la herramienta original antes de unificarse en EstrucCalc RD Pro.',
+    purpose: 'Calculadora de vigas standalone — la herramienta original antes de unificarse en EstrucCalc RD Pro. Ya no existe.',
     stack: ['HTML/JS'],
-    status: 'Retirado. Ya no es donde se trabaja; toda su funcionalidad vive ahora en EstrucCalc RD Pro.',
-    recentWork: ['Repo transferido de PedroAngSs a stpdevsolutions-commits junto con el resto de los repos personales — sin cambios de código, sigue retirado.'],
+    status:
+      'Eliminado por completo el 2026-09-18: repo en GitHub borrado y carpeta local en el PC (C:\\Proyectos\\vigacalc) borrada, tras confirmar con Pedro que toda su funcionalidad ya vivía en EstrucCalc RD Pro desde el 29 de agosto. Ficha conservada solo como referencia histórica.',
+    recentWork: [
+      'Repo de GitHub y carpeta local borrados por completo (2026-09-18), como parte de una limpieza de redundancia entre los 13 repos de stpdevsolutions-commits.',
+      'Repo transferido de PedroAngSs a stpdevsolutions-commits junto con el resto de los repos personales, antes de borrarse.',
+    ],
   },
   'hermes-agent': {
     purpose:
@@ -137,6 +154,8 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     status:
       'En producción. Conectado a Tickets, Vigía (solo lectura), Cotizaciones/Clientes del ERP (solo lectura) y Mi Día app vía un servidor MCP propio (stp-mcp-server, en el repo de stp-erp) — 17 herramientas en total. Probado de punta a punta en cada una.',
     recentWork: [
+      'SOUL.md de "desarrollo" actualizado: cuando diagnostica un bug real y concreto en un proyecto registrado en el pipeline, ahora lo OFRECE explícitamente ("¿quieres que lo implemente con el pipeline de ingeniería?") en vez de solo decir "esto necesita una sesión de Claude Code" — sigue sin implementar nada sin que Pedro apruebe primero, y sigue sin poder hacer commit/push/publicar por su cuenta.',
+      'Skill "engineering-pipeline" extendido a los perfiles "desarrollo" y "soporte" (antes solo lo tenía "default") — el hook de arranque ahora siembra el skill en todos los perfiles existentes, incluidos los que se creen en el futuro.',
       'Pipeline de ingeniería integrado (skill "engineering-pipeline", paquete de comunidad auditado línea por línea antes de instalar — sin credenciales embebidas, sin shell=True, guardas reales vía flags del CLI): capa Docker propia (gh + claude + codex CLI) sobre la imagen base de Hermes, sin tocar el Dockerfile upstream. 12 repos de STP registrados en ~/.hermes/engineering-pipeline/projects.json con slugs/alias. Deja que un perfil delegue una tarea técnica real a Claude Code (worktree aislado, sin permiso de commit/push/merge/gh/docker) y a Codex como auditor de solo lectura, con aprobación humana antes de publicar. Probado de punta a punta (bootstrap real de fiscord).',
       'Corregido: los perfiles "desarrollo"/"soporte" (HRM-7) SÍ tienen gateway propio -- la entrada anterior de esta ficha decía lo contrario (desactualizada). Causa real de que llevaran días sin poder arrancar: los tres perfiles (default incluido) compartían el mismo TELEGRAM_BOT_TOKEN. Se creó un bot dedicado para cada uno (@stp_desarrollo_bot, @stp_soporte_bot) y se activó su gateway -- sobrevive un reinicio del contenedor solo (mecanismo nativo de Hermes vía gateway_state.json, sin hooks propios).',
       'Cambiados "desarrollo"/"soporte" de Nemotron gratis a Claude Sonnet 5 por OAuth de la suscripción Pro/Max de Pedro (hermes auth add anthropic --type oauth, NO api key) -- resolvió cuelgues reales y reproducibles del modelo gratis (clasificador de auto-aprobación colgado dos veces, y un turno abandonado en silencio tras una llamada a herramienta). De paso se puso approvals.mode=manual en ambos perfiles, quitando el paso de auto-clasificación que causaba uno de los dos tipos de cuelgue.',
@@ -193,5 +212,13 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
       'Quitado el healthcheck huérfano de Uptime Kuma en services.service.ts — el contenedor se dio de baja el 2026-09-05 pero el monitor seguía registrado y marcaba "down" permanente sin representar una falla real.',
     ],
     links: [{ label: 'Vigía', url: 'https://monitor.stpsoluciones.com' }],
+  },
+  'stpsoluciones-landing': {
+    purpose: 'Landing de marketing de STP Soluciones (la empresa) — HTML estático + pequeña API serverless.',
+    stack: ['HTML', 'Vercel'],
+    status:
+      'En producción, desplegado en Vercel desde el repo directamente (no necesita checkout local en el servidor — se borró una copia huérfana que había en ~/stpsoluciones-landing el 2026-09-18 porque no la usaba nada).',
+    recentWork: ['fix(seo): las tarjetas de empleado quedan fuera de los buscadores.'],
+    links: [{ label: 'Web', url: 'https://stpsoluciones.com' }],
   },
 };
