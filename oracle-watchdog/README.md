@@ -31,3 +31,27 @@ chmod 750 watchdog.sh
 - Requiere 2 fallos consecutivos (~4 min) antes de declarar caída, para evitar falsos positivos por blips de red.
 - Alerta por Telegram y email (Resend) en la transición up→down y down→up, con minutos de downtime en la recuperación.
 - Estado en `state` / `down_since` (no versionados); log de transiciones en `watchdog.log`.
+
+## Intento fallido de arreglo (2026-09-18) -- revertido
+
+Se intentó cambiar la URL a `dia.stpsoluciones.com` (justificación arriba
+sigue siendo válida en teoría: es la única app pública real de stp-server).
+**Revertido el mismo día** porque, probado en vivo, la VM de Oracle no
+logra completar una petición HTTP/HTTPS a ese dominio -- el handshake TLS
+llega bien pero la respuesta nunca llega (timeout, reproducible 100% de
+las veces, con HTTP/1.1, IPv4 forzado y User-Agent de navegador). El
+mismo curl SÍ funciona sin problema contra `stpsoluciones.com` (Vercel) y
+contra internet en general -- apunta a un bloqueo del lado de Cloudflare
+específico de la zona de `dia.stpsoluciones.com` contra el rango de IPs
+de Oracle Cloud (WAF / bot-fight-mode / firewall rule), no a un problema
+de Caddy (esa ruta no tiene restricción de IP) ni de la app en sí (responde
+en 44ms desde cualquier otra red).
+
+**Costó una alerta falsa real** (servidor caído a las 02:50 UTC del
+2026-09-18, servidor en realidad sano) antes de revertir -- si se retoma
+este arreglo, probar la conectividad Oracle→destino ANTES de dejarlo
+corriendo sin vigilancia, y/o revisar las reglas de firewall de Cloudflare
+para la zona de `dia.stpsoluciones.com` (permitir el ASN de Oracle Cloud)
+antes de cambiar la URL de nuevo. Mientras tanto, el watchdog sigue
+chequeando `stpsoluciones.com`, que como está en Vercel NO detecta un
+apagón real de stp-server -- el punto ciego original sigue sin resolver.

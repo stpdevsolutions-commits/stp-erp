@@ -13,7 +13,7 @@ LOG_FILE="$DIR/watchdog.log"
 # Mi Dia es la unica app publica a proposito (sin restriccion de VPN/LAN en
 # el Caddyfile) que de verdad corre en stp-server -- por eso se usa aqui en
 # vez de stpsoluciones.com, que hoy es solo un dominio de Vercel.
-URL="https://dia.stpsoluciones.com"
+URL="https://stpsoluciones.com"
 FAIL_THRESHOLD=2
 TIMEOUT=10
 
