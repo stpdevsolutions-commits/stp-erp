@@ -22,6 +22,15 @@ http://gw.stpsoluciones.com {
 		reverse_proxy stp-api:3001
 	}
 
+	# Webhooks publicos de eCF-SaaS (DGII necesita llegar aqui desde internet,
+	# sin VPN, para el Set de Pruebas de certificacion y en produccion): URL
+	# Recepcion e-CF y URL Aprobacion Comercial del Directorio FE. Ver
+	# ecf-saas/src/dgii/dgii-webhook.controller.ts. SOLO esta ruta; el resto
+	# de ecf-api sigue privado detras de ecf-api.stpsoluciones.com (VPN).
+	handle /api/dgii/webhook/* {
+		reverse_proxy ecf-api:3000
+	}
+
 	handle {
 		respond 404
 	}
