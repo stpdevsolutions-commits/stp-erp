@@ -20,12 +20,15 @@ interface Regla {
 }
 
 const REGLAS: Regla[] = [
+  // Iluminación primero: "Luminaria plafón 2x2 LED" es una luminaria y "panel led" no es un
+  // panel eléctrico.
+  { code: 'ILU', re: /\bluminari|\blampara|\bbombillo|\bfoco\b|\breflector|\bled\b|\bspot ?light|\bdownlight/ },
+  // Redes antes que protecciones y cables ("patch panel", "cable UTP", "organizador 1U").
+  { code: 'RED', re: /\butp\b|\bcat ?[56]|\brj-?45|\bpatch|\bfibra optica|\bjack\b|\bswitch de red|\brack\b|\borganizador|\b\d+ ?u\b|\bface ?plate|\bbandeja ventilada/ },
   // Plafón (antes que drywall: "panel de plafón").
   { code: 'PLA', re: /\bplafon|\bmain ?tee|\bcross ?tee|\bangulo perimetral|\bcielo ?(falso|raso)/ },
-  // Iluminación antes que protecciones ("panel led").
-  { code: 'ILU', re: /\bluminari|\blampara|\bbombillo|\bfoco\b|\breflector|\bled\b|\bspot ?light|\bdownlight/ },
   // Puesta a tierra antes que acero ("varilla de tierra").
-  { code: 'TIE', re: /\btierra\b|\bground|\bcopperweld|\bvarilla cooper|\bbarra de tierra/ },
+  { code: 'TIE', re: /^(?!.*\b(toma|tomacorriente|interruptor|receptaculo)\b).*(?:\btierra\b|\bground|\bcopperweld|\bvarilla cooper|\bbarra de tierra)/ },
   // Acero antes que cables ("alambre de amarre").
   { code: 'ACE', re: /\bvarilla|\bmalla (electro|soldada)|\balambre (dulce|de amarre|galvanizado)|\bacero\b|\bperfil (c|z)\b/ },
   // Tornillería antes que drywall ("TORNILLO P/PLANCHA" es un tornillo, no una plancha).
@@ -40,8 +43,7 @@ const REGLAS: Regla[] = [
   { code: 'MAD', re: /\bmadera|\bpino\b|\bplywood|\bplaywood|\bmdf\b|\btabla\b|\bcuarton/ },
   // Eléctrico genérico.
   { code: 'PRO', re: /\bbreaker|\bdisyuntor|\bcentro de carga|\bpanel (electric|de distribucion|\d)|\bgabinete|\btransfer|\bsupresor/ },
-  { code: 'RED', re: /\butp\b|\bcat ?[56]|\brj-?45|\bpatch|\bfibra optica|\bjack\b|\bswitch de red|\brack\b/ },
-  { code: 'CJA', re: /\bcaja|\bregistro\b|\boctagonal|\bcajetin|\bcondulet/ },
+  { code: 'CJA', re: /\bcaja|\bregistro\b|\boctagonal|\bcajetin|\bcondulet|\bletra (lb|ll|lr|t|c)\b/ },
   { code: 'DIS', re: /\btoma(corriente)?\b|\binterruptor|\bswitch\b|\bdimmer|\bplaca\b|\btapa\b|\benchufe|\bclavija/ },
   { code: 'CAB', re: /\bcable|\balambre|\bthhn|\bthw\b|\bconductor|\bcordon|\bawg\b|\bcinta aislante/ },
   { code: 'TUB', re: /\btubo|\btuberia|\bemt\b|\bconduit|\bcodo\b|\bcurva|\bunion\b|\bconector|\babrazadera|\bcoupling|\bniple|\bpvc\b/ },

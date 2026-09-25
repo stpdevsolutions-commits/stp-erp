@@ -39,6 +39,16 @@ describe('category-rules', () => {
     expect(cat('CEMENTO GRIS 42.5 KG')).toBe('CEM');
   });
 
+  it('materiales reales del catálogo que las reglas confundían (2026-09-25)', () => {
+    expect(cat('Patch panel 24 puntos Cat 6A')).toBe('RED');
+    expect(cat('Organizador de cables de 1U')).toBe('RED');
+    expect(cat('Cable u/utp 4 pares Cat 6A, Panduit, Nexxt, LanPRO o similar')).toBe('RED');
+    expect(cat('Tomacorriente monofásico con polo a tierra aislado tipo levitón color naranja')).toBe('DIS');
+    expect(cat('Luminaria plafón 2x2 40W led 6500k Silvania o similar')).toBe('ILU');
+    expect(cat('Conector Varilla de tierra 5/8')).toBe('TIE');
+    expect(cat('Letra LB 1/2"')).toBe('CJA');
+  });
+
   it('sin regla o sin la categoría en el catálogo: null', () => {
     expect(cat('SERVICIO DE TRANSPORTE')).toBeNull();
     expect(categoriaPorReglas('PLANCHA DENS-GLASS', [{ id: '1', code: 'CAB' }])).toBeNull();
