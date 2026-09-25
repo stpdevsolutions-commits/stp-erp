@@ -6,6 +6,10 @@ import { ExpenseCategory } from '../entities/expense.entity';
 export class QueryExpensesDto {
   @IsOptional()
   @IsUUID()
+  clientId?: string;
+
+  @IsOptional()
+  @IsUUID()
   projectId?: string;
 
   @IsOptional()

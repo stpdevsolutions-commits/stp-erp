@@ -17,6 +17,13 @@ export interface ScopedResourceDescriptor {
   strict?: boolean;
   /** Si el valor no viene en la petición, no comprobar nada (por defecto false). */
   optional?: boolean;
+  /**
+   * Roles que normalmente pasan sin comprobar pertenencia (ADMIN/MANAGER)
+   * pero que para ESTE chequeo puntual deben demostrarla igual que un USER.
+   * Caso de uso: Manager en Gastos (ERP-108) — sigue siendo unrestricted en
+   * el resto del sistema, solo se le exige pertenencia aquí.
+   */
+  restrictRoles?: readonly string[];
 }
 
 /**

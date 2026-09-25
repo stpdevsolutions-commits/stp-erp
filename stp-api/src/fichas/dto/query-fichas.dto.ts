@@ -6,6 +6,11 @@ export class QueryFichasDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
+  clientId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
   projectId?: string;
 
   @ApiPropertyOptional()

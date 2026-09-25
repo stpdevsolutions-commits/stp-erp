@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { Project } from '../../projects/entities/project.entity';
 
 export enum InventoryCategory {
   MATERIALS = 'materials',
@@ -8,6 +17,13 @@ export enum InventoryCategory {
   MECHANICAL = 'mechanical',
   CONSUMABLES = 'consumables',
   OTHER = 'other',
+}
+
+export enum InventoryLocationStatus {
+  WAREHOUSE = 'warehouse',
+  REPAIR = 'repair',
+  LOANED = 'loaned',
+  ASSIGNED = 'assigned',
 }
 
 const dec = { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) };
@@ -23,7 +39,26 @@ export class InventoryItem {
   @Column({ nullable: true }) unit: string;
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0, transformer: dec }) cost: number;
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0, transformer: dec }) price: number;
-  @Column({ nullable: true }) location: string;
+
+  @Column({
+    type: 'enum',
+    enum: InventoryLocationStatus,
+    default: InventoryLocationStatus.WAREHOUSE,
+  })
+  locationStatus: InventoryLocationStatus;
+
+  /** Solo aplica cuando `locationStatus = 'loaned'`. */
+  @Column({ type: 'varchar', nullable: true })
+  loanedToName: string | null;
+
+  @ManyToOne(() => Project, { nullable: true, onDelete: 'SET NULL', eager: false })
+  @JoinColumn({ name: 'assignedProjectId' })
+  assignedProject: Project | null;
+
+  /** Solo aplica cuando `locationStatus = 'assigned'`. */
+  @Column({ type: 'uuid', nullable: true })
+  assignedProjectId: string | null;
+
   @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true, transformer: dec }) minStock: number;
   @Column({ type: 'text', nullable: true }) notes: string;
   @Column({ default: true }) isActive: boolean;

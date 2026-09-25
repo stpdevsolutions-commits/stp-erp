@@ -1,5 +1,5 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsBoolean, Min } from 'class-validator';
-import { InventoryCategory } from '../entities/inventory-item.entity';
+import { IsString, IsOptional, IsEnum, IsNumber, IsBoolean, IsUUID, Min, ValidateIf } from 'class-validator';
+import { InventoryCategory, InventoryLocationStatus } from '../entities/inventory-item.entity';
 
 export class UpdateInventoryItemDto {
   @IsOptional()
@@ -38,8 +38,16 @@ export class UpdateInventoryItemDto {
   price?: number;
 
   @IsOptional()
+  @IsEnum(InventoryLocationStatus)
+  locationStatus?: InventoryLocationStatus;
+
+  @ValidateIf((dto) => dto.locationStatus === InventoryLocationStatus.LOANED)
   @IsString()
-  location?: string;
+  loanedToName?: string;
+
+  @ValidateIf((dto) => dto.locationStatus === InventoryLocationStatus.ASSIGNED)
+  @IsUUID()
+  assignedProjectId?: string;
 
   @IsOptional()
   @IsNumber()

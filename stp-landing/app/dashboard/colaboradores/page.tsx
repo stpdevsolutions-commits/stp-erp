@@ -15,6 +15,12 @@ import { ColaboradorActions } from '@/components/collaborators/colaborador-actio
 import { Paginacion } from '@/components/ui/paginacion'
 import { FiltrosColaboradores } from '@/components/collaborators/filtros-colaboradores'
 
+const TYPE_LABELS: Record<Collaborator['type'], string> = {
+  fixed: 'Fijo',
+  contractor: 'Contratista',
+  temporary: 'Temporero',
+}
+
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 const LIMIT = 20
 
@@ -70,7 +76,9 @@ export default async function ColaboradoresPage({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Código</TableHead>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Cargo</TableHead>
                   <TableHead>Cédula</TableHead>
                   <TableHead>Teléfono</TableHead>
@@ -83,9 +91,11 @@ export default async function ColaboradoresPage({
               <TableBody>
                 {res.data.map((col) => (
                   <TableRow key={col.id}>
+                    <TableCell className="text-muted-foreground text-sm font-mono">{col.code}</TableCell>
                     <TableCell className="font-medium">
                       {col.firstName} {col.lastName}
                     </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{TYPE_LABELS[col.type]}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{col.position ?? '—'}</TableCell>
                     <TableCell className="text-muted-foreground text-sm font-mono">{col.cedula ?? '—'}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">

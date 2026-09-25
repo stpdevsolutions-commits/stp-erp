@@ -11,6 +11,10 @@ export enum UserRole {
   ADMIN = 'admin',
   MANAGER = 'manager',
   USER = 'user',
+  /** Acceso definido por la matriz de permisos por modulo (ver
+   *  common/access/module-permissions.ts), no por el rango de RolesGuard —
+   *  ver ERP-83/ERP-85. */
+  FINANZA = 'finanza',
 }
 
 @Entity('users')

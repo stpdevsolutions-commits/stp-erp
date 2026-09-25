@@ -49,6 +49,7 @@ export default async function CotizacionesPage({
   const q = new URLSearchParams({ limit: String(LIMIT), page: String(page) })
   if (sp.search) q.set('search', sp.search)
   if (sp.status) q.set('status', sp.status)
+  if (sp.clientId) q.set('clientId', sp.clientId)
 
   let cotizacionesRes: PaginatedResponse<Quote> = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
@@ -133,7 +134,7 @@ export default async function CotizacionesPage({
         </Card>
       </div>
 
-      <FiltrosCotizaciones />
+      <FiltrosCotizaciones clients={clients} />
 
       {error ? (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">{error}</div>

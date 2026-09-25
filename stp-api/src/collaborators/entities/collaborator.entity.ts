@@ -5,6 +5,12 @@ export enum CollaboratorStatus {
   INACTIVE = 'inactive',
 }
 
+export enum CollaboratorType {
+  FIXED = 'fixed',
+  CONTRACTOR = 'contractor',
+  TEMPORARY = 'temporary',
+}
+
 const dec = { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) };
 
 @Entity('collaborators')
@@ -18,6 +24,14 @@ export class Collaborator {
   @Column({ nullable: true }) cedula: string;
   @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true, transformer: dec }) dailyRate: number;
   @Column({ type: 'enum', enum: CollaboratorStatus, default: CollaboratorStatus.ACTIVE }) status: CollaboratorStatus;
+
+  @Column({ type: 'enum', enum: CollaboratorType, default: CollaboratorType.FIXED })
+  type: CollaboratorType;
+
+  /** Correlativo por tipo (F-001, C-001, T-001), asignado una sola vez al crear. */
+  @Column({ unique: true })
+  code: string;
+
   @Column({ type: 'text', nullable: true }) notes: string;
   @CreateDateColumn() createdAt: Date;
   @UpdateDateColumn() updatedAt: Date;

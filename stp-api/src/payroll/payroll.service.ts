@@ -15,6 +15,7 @@ import { Collaborator } from '../collaborators/entities/collaborator.entity';
 import { Project } from '../projects/entities/project.entity';
 import { ExpensesService } from '../expenses/expenses.service';
 import { ExpenseCategory } from '../expenses/entities/expense.entity';
+import { CollaboratorLoansService } from './collaborator-loans.service';
 import { CreatePayrollEntryDto } from './dto/create-payroll-entry.dto';
 import { UpdatePayrollEntryDto } from './dto/update-payroll-entry.dto';
 import { QueryPayrollDto } from './dto/query-payroll.dto';
@@ -36,6 +37,7 @@ export class PayrollService {
     private readonly projectsRepository: Repository<Project>,
     private readonly expensesService: ExpensesService,
     private readonly settingsService: SettingsService,
+    private readonly loansService: CollaboratorLoansService,
   ) {}
 
   /**
@@ -72,17 +74,40 @@ export class PayrollService {
     // hace, pero la API no puede depender de eso.
     const daysWorked =
       paymentType === PayrollPaymentType.LUMP_SUM ? 1 : dto.daysWorked;
-    const amounts = computePayrollAmounts({ ...dto, dailyRate, daysWorked });
+
+    // ERP-91: si el colaborador tiene un préstamo activo, su cuota (topada al
+    // saldo) se suma a los descuentos de este pago automáticamente. Se hace
+    // ANTES de computePayrollAmounts para que netAmount ya la refleje —
+    // `deductions` es un solo total, no hay un campo aparte para "lo manual"
+    // vs "lo del préstamo" (ver comentario en la entidad).
+    const loan = await this.loansService.findActiveForCollaborator(dto.collaboratorId);
+    const loanDeductionAmount = loan
+      ? Math.round(Math.min(loan.installmentAmount, loan.balance) * 100) / 100
+      : null;
+    const totalDeductions = (dto.deductions ?? 0) + (loanDeductionAmount ?? 0);
+
+    const amounts = computePayrollAmounts({
+      ...dto,
+      dailyRate,
+      daysWorked,
+      deductions: totalDeductions,
+    });
 
     const entry = this.payrollRepository.create({
       ...dto,
       dailyRate: dailyRate as number,
       daysWorked,
+      deductions: totalDeductions,
       ...amounts,
+      loanId: loan?.id ?? null,
+      loanDeductionAmount,
       number: await this.generateNumber(),
       createdById,
     });
     const saved = await this.payrollRepository.save(entry);
+    if (loan && loanDeductionAmount) {
+      await this.loansService.applyInstallment(loan, loanDeductionAmount);
+    }
     await this.syncExpense(saved);
     return this.findOne(saved.id);
   }
@@ -187,6 +212,9 @@ export class PayrollService {
   async remove(id: string): Promise<void> {
     const entry = await this.findOne(id);
     await this.detachExpense(entry);
+    if (entry.loanId && entry.loanDeductionAmount) {
+      await this.loansService.refundInstallment(entry.loanId, entry.loanDeductionAmount);
+    }
     await this.payrollRepository.remove(entry);
   }
 

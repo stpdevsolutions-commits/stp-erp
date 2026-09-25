@@ -1,13 +1,13 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
-import type { Project, Task, Expense, Payment, FileUpload, PaginatedResponse, Ficha, User as AppUser } from '@/lib/types'
+import type { Client, Collaborator, Project, Task, Expense, Payment, FileUpload, PaginatedResponse, Ficha, User as AppUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChevronLeft, Calendar, DollarSign, FileText, User, HardHat, UserCheck, MapPin } from 'lucide-react'
 import { ProjectDetailTabs } from '@/components/projects/project-detail-tabs'
-import { MembersCard } from '@/components/access/members-card'
+import { ProjectActions } from '@/components/projects/project-actions'
 import type { Member } from '@/lib/actions/memberships'
 
 const STATUS_LABELS: Record<Project['status'], string> = {
@@ -51,18 +51,32 @@ export default async function ProyectoDetallePage({
   ])
   const files = { data: rawFiles, total: rawFiles.length, page: 1, limit: rawFiles.length || 1 }
 
-  // Panel de accesos: solo para ADMIN (los endpoints /members también lo son)
+  // Clientes/colaboradores/usuarios: para los selects del diálogo de edición
+  // (Editar requiere MANAGER, no solo ADMIN — igual que en el listado de
+  // proyectos; /users es ADMIN-only y devuelve 403 para MANAGER/USER, con su
+  // propio catch para no tumbar la carga entera de la página).
   const me = await api.get<Pick<AppUser, 'role'>>('/users/me').catch(() => ({ role: 'user' as const }))
   const isAdmin = me.role === 'admin'
-  const [members, users] = isAdmin
-    ? await Promise.all([
-        api.get<Member[]>(`/projects/${id}/members`).catch(() => [] as Member[]),
-        api
-          .get<PaginatedResponse<AppUser>>('/users?limit=100')
-          .then((r) => r.data)
-          .catch(() => [] as AppUser[]),
-      ])
-    : [[] as Member[], [] as AppUser[]]
+  const [clients, collaborators, users] = await Promise.all([
+    api
+      .get<PaginatedResponse<Client>>('/clients?limit=200&isActive=true')
+      .then((r) => r.data)
+      .catch(() => [] as Client[]),
+    api
+      .get<PaginatedResponse<Collaborator>>('/collaborators?limit=200&status=active')
+      .then((r) => r.data)
+      .catch(() => [] as Collaborator[]),
+    api
+      .get<PaginatedResponse<AppUser>>('/users?limit=100')
+      .then((r) => r.data)
+      .catch(() => [] as AppUser[]),
+  ])
+
+  // Panel de Accesos (dentro del diálogo de edición): solo para ADMIN, el
+  // endpoint /members también lo es.
+  const members = isAdmin
+    ? await api.get<Member[]>(`/projects/${id}/members`).catch(() => [] as Member[])
+    : ([] as Member[])
 
   return (
     <div className="space-y-6">
@@ -86,12 +100,23 @@ export default async function ProyectoDetallePage({
             <p className="text-muted-foreground text-sm mt-1">{project.description}</p>
           )}
         </div>
-        {/* Informes del proyecto: uno interno (económico) y otro para entregar
-            al cliente. La página elige cuál según el rol. */}
-        <Button variant="outline" size="sm" render={<Link href={`/dashboard/proyectos/${id}/informe`} />}>
-          <FileText className="size-4 mr-1.5" />
-          Informes
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Informes del proyecto: uno interno (económico) y otro para entregar
+              al cliente. La página elige cuál según el rol. */}
+          <Button variant="outline" size="sm" render={<Link href={`/dashboard/proyectos/${id}/informe`} />}>
+            <FileText className="size-4 mr-1.5" />
+            Informes
+          </Button>
+          <ProjectActions
+            proyecto={project}
+            clients={clients}
+            collaborators={collaborators}
+            users={users}
+            isAdmin={isAdmin}
+            showAccess={isAdmin}
+            members={members}
+          />
+        </div>
       </div>
 
       {/* Info cards */}
@@ -184,11 +209,6 @@ export default async function ProyectoDetallePage({
           </CardContent>
         </Card>
       </div>
-
-      {/* Accesos (solo ADMIN) */}
-      {isAdmin && (
-        <MembersCard scope="project" resourceId={id} members={members} users={users} />
-      )}
 
       {/* Tabs */}
       <ProjectDetailTabs

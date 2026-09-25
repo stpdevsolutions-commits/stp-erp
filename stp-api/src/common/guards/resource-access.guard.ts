@@ -40,10 +40,12 @@ export class ResourceAccessGuard implements CanActivate {
     const user = req.user;
     if (!user) throw new NotFoundException('Recurso no encontrado');
 
-    // ADMIN/MANAGER pasan por el mismo mecanismo, sin consultar nada.
-    if (hasUnrestrictedAccess(user.role)) return true;
-
     for (const descriptor of descriptors) {
+      // ADMIN/MANAGER pasan sin consultar nada, salvo que este descriptor
+      // puntual los excluya vía `restrictRoles` (ver ERP-108).
+      const restricted = descriptor.restrictRoles?.includes(user.role) ?? false;
+      if (!restricted && hasUnrestrictedAccess(user.role)) continue;
+
       const value = this.readValue(req, descriptor);
       if (!value) {
         if (descriptor.optional) continue;
@@ -54,6 +56,7 @@ export class ResourceAccessGuard implements CanActivate {
         descriptor.kind,
         value,
         descriptor.strict ?? false,
+        false,
       );
     }
 

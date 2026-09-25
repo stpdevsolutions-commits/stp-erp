@@ -12,6 +12,7 @@ import { Collaborator } from '../../collaborators/entities/collaborator.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { Expense } from '../../expenses/entities/expense.entity';
 import { User } from '../../users/entities/user.entity';
+import { CollaboratorLoan } from './collaborator-loan.entity';
 
 /**
  * Cómo se calculó la cantidad base del pago. `daysWorked`/`dailyRate` se leen
@@ -114,6 +115,24 @@ export class PayrollEntry {
   /** Motivo del descuento/avance, en texto libre. */
   @Column({ type: 'varchar', nullable: true })
   discountReason: string;
+
+  /**
+   * Préstamo (ERP-91) del que se descontó una cuota en este pago, si aplica.
+   * El servidor lo asigna solo al crear el pago (busca un préstamo activo del
+   * colaborador); la cuota queda incluida dentro de `deductions` para que el
+   * cálculo de `netAmount` no cambie, y `loanDeductionAmount` guarda cuánto de
+   * ese total vino del préstamo, para poder revertirlo si el pago se borra
+   * (ver PayrollService.remove).
+   */
+  @ManyToOne(() => CollaboratorLoan, { nullable: true, onDelete: 'SET NULL', eager: false })
+  @JoinColumn({ name: 'loanId' })
+  loan: CollaboratorLoan | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  loanId: string | null;
+
+  @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true, transformer: dec })
+  loanDeductionAmount: number | null;
 
   /** Porcentaje de retención aplicado sobre el bruto (0–100). Lo escribe el usuario. */
   @Column({ type: 'numeric', precision: 5, scale: 2, default: 0, transformer: dec })

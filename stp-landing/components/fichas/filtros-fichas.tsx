@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import type { FichaStatus, FichaType, Project } from '@/lib/types'
+import type { Client, FichaStatus, FichaType, Project } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -27,15 +27,16 @@ const STATUS_LABEL: Record<FichaStatus, string> = {
   enviada: 'Enviada',
 }
 
-export function FiltrosFichas({ projects }: { projects: Project[] }) {
+export function FiltrosFichas({ clients, projects }: { clients: Client[]; projects: Project[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
 
+  const clientId = params.get('clientId') ?? ''
   const projectId = params.get('projectId') ?? ''
   const type = params.get('type') ?? ''
   const status = params.get('status') ?? ''
-  const hasFilters = !!(projectId || type || status)
+  const hasFilters = !!(clientId || projectId || type || status)
 
   function set(key: string, value: string) {
     const sp = new URLSearchParams(params.toString())
@@ -45,6 +46,18 @@ export function FiltrosFichas({ projects }: { projects: Project[] }) {
 
   return (
     <div className="flex flex-wrap gap-2">
+      <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
+        <SelectTrigger className="w-48">
+          <SelectValue placeholder="Cliente" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los clientes</SelectItem>
+          {clients.map((c) => (
+            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       <Select value={projectId || 'all'} onValueChange={(v) => set('projectId', !v || v === 'all' ? '' : v)}>
         <SelectTrigger className="w-56">
           <SelectValue placeholder="Proyecto" />

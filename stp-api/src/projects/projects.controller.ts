@@ -24,6 +24,8 @@ import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
 import { MembershipsService } from '../common/access/memberships.service';
 import { AddMemberDto } from '../common/access/dto/add-member.dto';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 interface AuthUser {
@@ -32,8 +34,14 @@ interface AuthUser {
   role: UserRole;
 }
 
+/**
+ * Modulo 'proyectos' (ERP-83/ERP-85): admin/manager = manage, finanza = view,
+ * user = view (acotado por ResourceAccessGuard). Los endpoints /:id/members
+ * (accesos) siguen ADMIN-only sin tocar -- los elimina ERP-87, no esto.
+ */
 @Controller('projects')
-@UseGuards(JwtAuthGuard, ResourceAccessGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard, ModulePermissionGuard)
+@RequireModule('proyectos', 'view')
 export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
@@ -72,8 +80,7 @@ export class ProjectsController {
   }
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('proyectos', 'manage')
   create(@Body() dto: CreateProjectDto, @CurrentUser() user: AuthUser) {
     return this.projectsService.create(dto, user.id);
   }
@@ -91,8 +98,7 @@ export class ProjectsController {
 
   @Patch(':id')
   @ScopedResource('project')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('proyectos', 'manage')
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateProjectDto) {
     return this.projectsService.update(id, dto);
   }

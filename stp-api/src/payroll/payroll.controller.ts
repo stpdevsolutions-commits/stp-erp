@@ -21,6 +21,8 @@ import { QueryPayrollDto } from './dto/query-payroll.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -31,13 +33,20 @@ interface AuthUser {
 }
 
 /**
- * Nómina es información salarial: el módulo ENTERO exige MANAGER o ADMIN, también
- * en lectura. Por eso no lleva el acotado por pertenencia del resto de módulos
- * (`ResourceAccessGuard`), que existe para los USER — aquí no entra ninguno.
+ * Nómina es información salarial: el módulo ENTERO exige acceso 'manage' a
+ * `nomina` en la matriz de permisos por rol (ERP-83/ERP-85) — hoy eso es
+ * ADMIN y FINANZA, ya NO manager (antes tenía acceso vía RolesGuard por
+ * rango; la matriz lo excluye a propósito, confidencialidad salarial). No
+ * lleva el acotado por pertenencia del resto de módulos, que existe para
+ * los USER — aquí no entra ninguno de todos modos.
+ *
+ * RolesGuard se mantiene solo para el endpoint de borrado, que sigue
+ * restringido a ADMIN exclusivamente (ver @Roles ahí abajo) — una
+ * protección extra por encima de la matriz, no reemplazada por ella.
  */
 @Controller('payroll')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.MANAGER)
+@UseGuards(JwtAuthGuard, ModulePermissionGuard, RolesGuard)
+@RequireModule('nomina', 'manage')
 export class PayrollController {
   constructor(private readonly payrollService: PayrollService) {}
 

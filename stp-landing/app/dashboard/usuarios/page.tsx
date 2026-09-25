@@ -13,12 +13,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { NuevoUsuarioDialog } from '@/components/users/nuevo-usuario-dialog'
 import { UserActions } from '@/components/users/user-actions'
 
-const ROLE_LABELS = { admin: 'Administrador', manager: 'Gerente', user: 'Usuario' }
+const ROLE_LABELS = { admin: 'Administrador', manager: 'Gerente', finanza: 'Finanza', user: 'Usuario' }
 
 // Colores semánticos suaves, coherentes con el resto del ERP (Proyectos, Cotizaciones, Nómina).
 const ROLE_BADGE: Record<string, string> = {
   admin: 'bg-primary/10 text-primary',
   manager: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  finanza: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
   user: 'bg-muted text-muted-foreground',
 }
 

@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'manager' | 'user'
+export type UserRole = 'admin' | 'manager' | 'finanza' | 'user'
 
 export interface AuthUser {
   id: string
@@ -395,6 +395,8 @@ export interface ClientReport {
 
 export type InventoryCategory = 'materials' | 'equipment' | 'tools' | 'electrical' | 'mechanical' | 'consumables' | 'other'
 
+export type InventoryLocationStatus = 'warehouse' | 'repair' | 'loaned' | 'assigned'
+
 export interface InventoryItem {
   id: string
   name: string
@@ -405,7 +407,10 @@ export interface InventoryItem {
   unit?: string
   cost: number
   price: number
-  location?: string
+  locationStatus: InventoryLocationStatus
+  loanedToName?: string | null
+  assignedProjectId?: string | null
+  assignedProject?: Pick<Project, 'id' | 'name' | 'code'> | null
   minStock?: number
   notes?: string
   isActive: boolean
@@ -413,6 +418,7 @@ export interface InventoryItem {
 }
 
 export type CollaboratorStatus = 'active' | 'inactive'
+export type CollaboratorType = 'fixed' | 'contractor' | 'temporary'
 
 export interface Collaborator {
   id: string
@@ -424,6 +430,8 @@ export interface Collaborator {
   cedula?: string
   dailyRate?: number
   status: CollaboratorStatus
+  type: CollaboratorType
+  code: string
   notes?: string
   createdAt: string
 }
@@ -482,6 +490,14 @@ export interface FichasReport {
   byType: { type: FichaType; count: number }[]
   byStatus: { status: FichaStatus; count: number }[]
   byTechnician: { userId: string; name: string; total: number; enviadas: number }[]
+}
+
+export interface PayrollReport {
+  period: { from: string; to: string }
+  summary: { net: number; gross: number; retention: number; deductions: number; count: number }
+  byCollaborator: { collaboratorId?: string; collaborator: string; count: number; total: number }[]
+  byProject: { projectId?: string; project: string; count: number; total: number }[]
+  byPaymentType: { paymentType: PayrollPaymentType; count: number; total: number }[]
 }
 
 /**
@@ -856,6 +872,9 @@ export interface PayrollEntry {
   notes?: string
   /** Gasto de mano de obra generado al marcar el pago como pagado. */
   expenseId?: string
+  /** Préstamo del que se descontó una cuota en este pago, si aplica (ERP-91). Asignado solo por el servidor. */
+  loanId?: string | null
+  loanDeductionAmount?: number | null
   createdAt: string
 }
 
@@ -865,4 +884,55 @@ export interface PayrollSummary {
   paidThisMonth: number
   paidThisMonthCount: number
   paidThisYear: number
+}
+
+// ── Préstamos a colaboradores (ERP-91) ─────────────────────────────────────────
+
+export type CollaboratorLoanStatus = 'active' | 'paid' | 'cancelled'
+
+export interface CollaboratorLoan {
+  id: string
+  collaboratorId: string
+  collaborator?: Pick<Collaborator, 'id' | 'firstName' | 'lastName' | 'code'>
+  amount: number
+  /** Saldo pendiente: lo mueve el servidor al generar o borrar pagos de nómina. */
+  balance: number
+  installmentAmount: number
+  status: CollaboratorLoanStatus
+  notes?: string
+  createdAt: string
+}
+
+// ── Búsqueda global (ERP-106) ──────────────────────────────────────────────────
+
+export interface SearchResult {
+  id: string
+  label: string
+  sublabel?: string
+  href: string
+}
+
+export interface SearchResponse {
+  clients: SearchResult[]
+  projects: SearchResult[]
+  quotes: SearchResult[]
+  tasks: SearchResult[]
+  files: SearchResult[]
+  collaborators: SearchResult[]
+}
+
+// ── Notificaciones in-app (ERP-107) ────────────────────────────────────────────
+
+export type NotificationType = 'task_assigned' | 'quote_approved' | 'quote_rejected' | 'payment_received'
+
+export interface AppNotification {
+  id: string
+  userId: string
+  type: NotificationType
+  title: string
+  message?: string
+  link?: string
+  read: boolean
+  readAt?: string
+  createdAt: string
 }

@@ -1,5 +1,5 @@
 ﻿import { api, pageError } from '@/lib/api'
-import type { InventoryItem, PaginatedResponse } from '@/lib/types'
+import type { InventoryItem, Project, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -35,6 +35,13 @@ const CATEGORY_COLORS: Record<InventoryItem['category'], string> = {
   other: 'bg-muted text-muted-foreground',
 }
 
+const LOCATION_STATUS_LABELS: Record<InventoryItem['locationStatus'], string> = {
+  warehouse: 'Almacén principal',
+  repair: 'En reparación',
+  loaned: 'Prestado',
+  assigned: 'Asignado a proyecto',
+}
+
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 const LIMIT = 20
 
@@ -53,10 +60,16 @@ export default async function InventarioPage({
   if (category) query.set('category', category)
 
   let res: PaginatedResponse<InventoryItem> = { data: [], total: 0, page: 1, limit: LIMIT }
+  let projects: Project[] = []
   let error: string | null = null
 
   try {
-    res = await api.get<PaginatedResponse<InventoryItem>>(`/inventory?${query}`)
+    const [ir, pr] = await Promise.all([
+      api.get<PaginatedResponse<InventoryItem>>(`/inventory?${query}`),
+      api.get<PaginatedResponse<Project>>('/projects?limit=200'),
+    ])
+    res = ir
+    projects = pr.data
   } catch (e) {
     error = pageError(e, 'Error al cargar inventario')
   }
@@ -72,7 +85,7 @@ export default async function InventarioPage({
             {res.total} {res.total === 1 ? 'ítem' : 'ítems'} en total
           </p>
         </div>
-        <NuevoItemDialog />
+        <NuevoItemDialog projects={projects} />
       </div>
 
       <Card>
@@ -138,14 +151,22 @@ export default async function InventarioPage({
                       <TableCell className="text-muted-foreground text-sm">{item.unit ?? '—'}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{DOP.format(item.cost)}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{DOP.format(item.price)}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{item.location ?? '—'}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {LOCATION_STATUS_LABELS[item.locationStatus]}
+                        {item.locationStatus === 'loaned' && item.loanedToName && (
+                          <span className="block text-xs">a {item.loanedToName}</span>
+                        )}
+                        {item.locationStatus === 'assigned' && item.assignedProject && (
+                          <span className="block text-xs">{item.assignedProject.name}</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={item.isActive ? 'default' : 'secondary'}>
                           {item.isActive ? 'Activo' : 'Inactivo'}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <ItemActions item={item} />
+                        <ItemActions item={item} projects={projects} />
                       </TableCell>
                     </TableRow>
                   )

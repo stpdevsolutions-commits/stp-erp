@@ -86,16 +86,22 @@ export function hasUnrestrictedAccess(
 /**
  * Decide si `subject` puede acceder a `resource` dadas sus pertenencias.
  * Función pura: mismo input → mismo output. Testeada en access-policy.spec.ts.
+ *
+ * `unrestricted` por defecto sale de `hasUnrestrictedAccess(subject.role)`
+ * (ADMIN/MANAGER pasan siempre), pero el caller puede forzarlo a `false`
+ * para tratar a un rol normalmente sin restricciones como si tuviera que
+ * demostrar pertenencia — caso puntual de Manager en Gastos (ERP-108): sigue
+ * siendo unrestricted en todo lo demás, pero no aquí.
  */
 export function decideAccess(
   subject: AccessSubject | null | undefined,
   membership: Membership,
   resource: ResourceScope | null | undefined,
+  unrestricted: boolean = hasUnrestrictedAccess(subject?.role),
 ): boolean {
   if (!subject) return false;
 
-  // ADMIN / MANAGER: acceso total, pasando por el mismo mecanismo.
-  if (hasUnrestrictedAccess(subject.role)) return true;
+  if (unrestricted) return true;
 
   // Recurso inexistente o sin ámbito conocido → denegado (el guard responde 404).
   if (!resource) return false;
@@ -138,8 +144,9 @@ export interface ListScope {
 export function buildListScope(
   subject: AccessSubject | null | undefined,
   membership: Membership,
+  unrestricted: boolean = hasUnrestrictedAccess(subject?.role),
 ): ListScope | null {
-  if (subject && hasUnrestrictedAccess(subject.role)) return null;
+  if (unrestricted) return null;
   const clientIds = [...membership.clientIds];
   return {
     clientIds,

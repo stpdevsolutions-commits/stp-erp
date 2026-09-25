@@ -20,6 +20,7 @@ import {
   buildExpensesDoc,
   buildFichasDoc,
   buildIncomeDoc,
+  buildPayrollDoc,
   buildProjectDoc,
   type ExportDoc,
 } from './report-tables';
@@ -27,6 +28,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
 import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 interface AuthUser {
@@ -48,13 +51,17 @@ function parseDateRange(from?: string, to?: string): { from: string; to: string 
   return { from: f, to: t };
 }
 
-// Los reportes YA NO son exclusivos de MANAGER: cualquier usuario autenticado
-// entra, pero ReportsService acota cada agregación a su ámbito (getListScope),
-// igual que el listado de cada módulo. Un USER ve un dashboard real limitado a
-// sus proyectos/clientes; ADMIN/MANAGER lo ven todo. Las rutas por :id pasan
-// además por ResourceAccessGuard (404 si el recurso es ajeno).
+// `dashboard` y `analytics` alimentan el "Resumen" (home), no la seccion
+// "Reportes" -- se quedan abiertos a cualquier autenticado, ReportsService
+// acota cada agregación a su ámbito (getListScope) igual que el listado de
+// cada módulo, un USER ve un resumen real limitado a sus proyectos/clientes.
+// El resto de endpoints de este controlador SI son la seccion "Reportes" de
+// la matriz (ERP-83/ERP-85: admin/manager/finanza ven, user = ninguno) y
+// llevan @RequireModule('reportes','view') caso por caso, no a nivel de
+// clase, justamente para no bloquear dashboard/analytics sin querer. Las
+// rutas por :id pasan además por ResourceAccessGuard (404 si el recurso es ajeno).
 @Controller('reports')
-@UseGuards(JwtAuthGuard, ResourceAccessGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard, ModulePermissionGuard)
 export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
@@ -105,6 +112,7 @@ export class ReportsController {
   }
 
   @Get('income')
+  @RequireModule('reportes', 'view')
   getIncomeReport(
     @CurrentUser() user: AuthUser,
     @Query('from') from?: string,
@@ -115,6 +123,7 @@ export class ReportsController {
   }
 
   @Get('expenses')
+  @RequireModule('reportes', 'view')
   getExpensesReport(
     @CurrentUser() user: AuthUser,
     @Query('from') from?: string,
@@ -125,6 +134,7 @@ export class ReportsController {
   }
 
   @Get('fichas')
+  @RequireModule('reportes', 'view')
   getFichasReport(
     @CurrentUser() user: AuthUser,
     @Query('from') from?: string,
@@ -135,6 +145,32 @@ export class ReportsController {
   }
 
   /**
+   * Reporte de nómina (ERP-105). A diferencia del resto de reportes de esta
+   * sección, que exigen 'reportes' view, este exige 'nomina' view — Nómina es
+   * información salarial y su confidencialidad (admin/finanza, no manager) no
+   * puede quedar expuesta por un lateral vía Reportes (ver payroll.controller.ts).
+   */
+  @Get('payroll')
+  @RequireModule('nomina', 'view')
+  getPayrollReport(@Query('from') from?: string, @Query('to') to?: string) {
+    const range = parseDateRange(from, to);
+    return this.reportsService.getPayrollReport(range.from, range.to);
+  }
+
+  @Get('payroll/export')
+  @RequireModule('nomina', 'view')
+  async exportPayroll(
+    @Res() res: Response,
+    @Query('format') format?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<void> {
+    const range = parseDateRange(from, to);
+    const report = await this.reportsService.getPayrollReport(range.from, range.to);
+    await this.enviar(res, buildPayrollDoc(report), this.parseFormato(format));
+  }
+
+  /**
    * Reporte general del negocio en un período: ingresos, gastos y UTILIDAD, más
    * cotizaciones, nómina, proyectos y fichas.
    *
@@ -142,6 +178,7 @@ export class ReportsController {
    * una segunda pasada por ingresos y gastos).
    */
   @Get('general')
+  @RequireModule('reportes', 'view')
   getGeneralReport(
     @CurrentUser() user: AuthUser,
     @Query('from') from?: string,
@@ -155,6 +192,7 @@ export class ReportsController {
   }
 
   @Get('general/export')
+  @RequireModule('reportes', 'view')
   async exportGeneral(
     @CurrentUser() user: AuthUser,
     @Res() res: Response,
@@ -169,12 +207,14 @@ export class ReportsController {
 
   @Get('projects/:id')
   @ScopedResource('project')
+  @RequireModule('reportes', 'view')
   getProjectSummary(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.reportsService.getProjectSummary(id, user);
   }
 
   @Get('clients/:id')
   @ScopedResource('client')
+  @RequireModule('reportes', 'view')
   getClientBalance(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.reportsService.getClientBalance(id, user);
   }
@@ -185,6 +225,7 @@ export class ReportsController {
   // de lo que hay en pantalla.
 
   @Get('income/export')
+  @RequireModule('reportes', 'view')
   async exportIncome(
     @CurrentUser() user: AuthUser,
     @Res() res: Response,
@@ -198,6 +239,7 @@ export class ReportsController {
   }
 
   @Get('expenses/export')
+  @RequireModule('reportes', 'view')
   async exportExpenses(
     @CurrentUser() user: AuthUser,
     @Res() res: Response,
@@ -211,6 +253,7 @@ export class ReportsController {
   }
 
   @Get('fichas/export')
+  @RequireModule('reportes', 'view')
   async exportFichas(
     @CurrentUser() user: AuthUser,
     @Res() res: Response,
@@ -225,6 +268,7 @@ export class ReportsController {
 
   @Get('projects/:id/export')
   @ScopedResource('project')
+  @RequireModule('reportes', 'view')
   async exportProject(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
@@ -237,6 +281,7 @@ export class ReportsController {
 
   @Get('clients/:id/export')
   @ScopedResource('client')
+  @RequireModule('reportes', 'view')
   async exportClient(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,

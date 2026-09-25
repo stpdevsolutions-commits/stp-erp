@@ -73,10 +73,7 @@ const NAV: NavGroup[] = [
   },
   {
     label: 'Comercial',
-    items: [
-      { href: '/dashboard/clientes', label: 'Clientes', icon: Users },
-      { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: FileText },
-    ],
+    items: [{ href: '/dashboard/clientes', label: 'Clientes', icon: Users }],
   },
   {
     label: 'Operación',
@@ -113,18 +110,17 @@ const NAV: NavGroup[] = [
   {
     label: 'Finanzas',
     items: [
+      { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: FileText },
       { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
       { href: '/dashboard/gastos', label: 'Gastos', icon: Receipt },
+      // Nómina expone sueldos: el módulo entero es MANAGER+ también en lectura.
+      { href: '/dashboard/nomina', label: 'Nómina', icon: Wallet, minRole: 'MANAGER' },
       { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3, minRole: 'MANAGER' },
     ],
   },
   {
     label: 'Equipo',
-    items: [
-      { href: '/dashboard/colaboradores', label: 'Colaboradores', icon: HardHat },
-      // Nómina expone sueldos: el módulo entero es MANAGER+ también en lectura.
-      { href: '/dashboard/nomina', label: 'Nómina', icon: Wallet, minRole: 'MANAGER' },
-    ],
+    items: [{ href: '/dashboard/colaboradores', label: 'Colaboradores', icon: HardHat }],
   },
   {
     label: 'Administración',

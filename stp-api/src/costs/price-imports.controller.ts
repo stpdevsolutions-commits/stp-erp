@@ -28,6 +28,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 interface AuthUser {
@@ -38,12 +40,16 @@ interface AuthUser {
 /**
  * Importación de precios desde PDF de proveedor.
  *
- * Todo el módulo es MANAGER+: quien aprueba una línea está fijando el costo con el que
- * se cotiza obra, y eso no es una operación de captura.
+ * Todo el módulo exige nivel 'manage' del modulo 'costos' (ERP-83/ERP-85),
+ * no solo 'view' como el resto del catalogo de costos: quien aprueba una
+ * línea está fijando el costo con el que se cotiza obra, y eso no es una
+ * operación de captura. Esto deja a Finanza afuera de este sub-modulo en
+ * particular aunque en el resto de Costos tenga 'view' -- decision deliberada,
+ * ya existia antes de la matriz (antes era MANAGER+ a secas).
  */
 @Controller('costs/price-imports')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.MANAGER)
+@UseGuards(JwtAuthGuard, RolesGuard, ModulePermissionGuard)
+@RequireModule('costos', 'manage')
 export class PriceImportsController {
   constructor(
     private readonly importsService: PriceImportsService,

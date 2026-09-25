@@ -17,15 +17,22 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { User } from '../users/entities/user.entity';
 import { FichasService } from './fichas.service';
 import { CreateFichaDto } from './dto/create-ficha.dto';
 import { UpdateFichaDto } from './dto/update-ficha.dto';
 import { QueryFichasDto } from './dto/query-fichas.dto';
 
+/**
+ * Modulo 'fichas' (ERP-83/ERP-85): admin/manager/user = manage (user acotado
+ * por pertenencia), finanza = ninguno.
+ */
 @ApiTags('fichas')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, ResourceAccessGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard, ModulePermissionGuard)
+@RequireModule('fichas', 'manage')
 @Controller('fichas')
 export class FichasController {
   constructor(private readonly fichasService: FichasService) {}

@@ -19,20 +19,23 @@ import { QueryAcusDto } from './dto/query-acus.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 /**
- * Partidas de obra (ACU). Mismo RBAC que el resto del catálogo de costos: lectura para
- * cualquier autenticado, escritura MANAGER, borrado ADMIN.
+ * Partidas de obra (ACU). Modulo 'costos' (ERP-83/ERP-85): admin/manager =
+ * manage, finanza = view, user = ninguno; borrado ADMIN (extra, por encima
+ * de la matriz).
  */
 @Controller('costs/acus')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ModulePermissionGuard)
+@RequireModule('costos', 'view')
 export class AcusController {
   constructor(private readonly acusService: AcusService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   create(@Body() dto: CreateAcuDto) {
     return this.acusService.create(dto);
   }
@@ -54,8 +57,7 @@ export class AcusController {
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAcuDto) {
     return this.acusService.update(id, dto);
   }
@@ -71,15 +73,13 @@ export class AcusController {
   // ---------------------------------------------------------------- receta
 
   @Post(':id/items')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   addItem(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AcuItemDto) {
     return this.acusService.addItem(id, dto);
   }
 
   @Patch(':id/items/:itemId')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   updateItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('itemId', ParseUUIDPipe) itemId: string,
@@ -89,8 +89,7 @@ export class AcusController {
   }
 
   @Delete(':id/items/:itemId')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   @HttpCode(HttpStatus.NO_CONTENT)
   removeItem(
     @Param('id', ParseUUIDPipe) id: string,

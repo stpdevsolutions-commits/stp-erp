@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, FindOptionsWhere } from 'typeorm';
-import { InventoryItem } from './entities/inventory-item.entity';
+import { InventoryItem, InventoryLocationStatus } from './entities/inventory-item.entity';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto';
 import { QueryInventoryDto } from './dto/query-inventory.dto';
@@ -33,6 +33,7 @@ export class InventoryService {
 
     const [data, total] = await this.inventoryRepository.findAndCount({
       where,
+      relations: { assignedProject: true },
       order: { name: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -42,13 +43,23 @@ export class InventoryService {
   }
 
   async findOne(id: string): Promise<InventoryItem> {
-    const item = await this.inventoryRepository.findOne({ where: { id } });
+    const item = await this.inventoryRepository.findOne({
+      where: { id },
+      relations: { assignedProject: true },
+    });
     if (!item) throw new NotFoundException('Inventory item not found');
     return item;
   }
 
+  /** Solo uno de loanedToName/assignedProjectId tiene sentido según el status; el otro no debe quedar con un valor viejo. */
+  private clearIrrelevantLocationFields(item: InventoryItem): void {
+    if (item.locationStatus !== InventoryLocationStatus.LOANED) item.loanedToName = null;
+    if (item.locationStatus !== InventoryLocationStatus.ASSIGNED) item.assignedProjectId = null;
+  }
+
   async create(dto: CreateInventoryItemDto): Promise<InventoryItem> {
     const item = this.inventoryRepository.create(dto);
+    this.clearIrrelevantLocationFields(item);
     return this.inventoryRepository.save(item);
   }
 
@@ -58,6 +69,7 @@ export class InventoryService {
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
     Object.assign(item, defined);
+    if (defined.locationStatus) this.clearIrrelevantLocationFields(item);
     return this.inventoryRepository.save(item);
   }
 

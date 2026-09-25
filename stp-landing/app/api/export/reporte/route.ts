@@ -16,6 +16,7 @@ const RUTAS: Record<string, (id: string | null) => string | null> = {
   ingresos: () => '/reports/income/export',
   gastos: () => '/reports/expenses/export',
   fichas: () => '/reports/fichas/export',
+  nomina: () => '/reports/payroll/export',
   proyecto: (id) => (id ? `/reports/projects/${id}/export` : null),
   cliente: (id) => (id ? `/reports/clients/${id}/export` : null),
 }

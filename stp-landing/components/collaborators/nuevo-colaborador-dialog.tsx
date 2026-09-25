@@ -24,6 +24,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { createColaborador } from '@/lib/actions/colaboradores'
+import type { CollaboratorType } from '@/lib/types'
+
+const TYPES: { value: CollaboratorType; label: string }[] = [
+  { value: 'fixed', label: 'Fijo' },
+  { value: 'contractor', label: 'Contratista' },
+  { value: 'temporary', label: 'Temporero' },
+]
 
 const schema = z.object({
   firstName: z.string().min(1, 'Requerido'),
@@ -34,6 +41,7 @@ const schema = z.object({
   cedula: z.string().optional(),
   dailyRate: z.string().optional().refine((v) => !v || (!isNaN(parseFloat(v)) && parseFloat(v) >= 0), 'Número inválido'),
   status: z.enum(['active', 'inactive']),
+  type: z.enum(['fixed', 'contractor', 'temporary']),
   notes: z.string().optional(),
 })
 
@@ -45,7 +53,7 @@ export function NuevoColaboradorDialog() {
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { status: 'active' },
+    defaultValues: { status: 'active', type: 'fixed' },
   })
 
   async function onSubmit(data: FormValues) {
@@ -59,6 +67,7 @@ export function NuevoColaboradorDialog() {
       cedula: data.cedula || undefined,
       dailyRate: data.dailyRate ? parseFloat(data.dailyRate) : undefined,
       status: data.status,
+      type: data.type,
       notes: data.notes || undefined,
     })
     if (!result.ok) {
@@ -129,6 +138,16 @@ export function NuevoColaboradorDialog() {
                 <SelectContent>
                   <SelectItem value="active">Activo</SelectItem>
                   <SelectItem value="inactive">Inactivo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Tipo</Label>
+              <Select value={watch('type')} onValueChange={(v) => v && setValue('type', v as CollaboratorType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

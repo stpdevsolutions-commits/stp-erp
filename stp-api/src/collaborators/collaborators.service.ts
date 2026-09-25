@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, FindOptionsWhere } from 'typeorm';
-import { Collaborator } from './entities/collaborator.entity';
+import { Collaborator, CollaboratorType } from './entities/collaborator.entity';
 import { CreateCollaboratorDto } from './dto/create-collaborator.dto';
 import { UpdateCollaboratorDto } from './dto/update-collaborator.dto';
 import { QueryCollaboratorsDto } from './dto/query-collaborators.dto';
@@ -49,8 +49,29 @@ export class CollaboratorsService {
     return collaborator;
   }
 
+  private static readonly CODE_SEQUENCE: Record<CollaboratorType, string> = {
+    [CollaboratorType.FIXED]: 'collaborators_code_seq_fixed',
+    [CollaboratorType.CONTRACTOR]: 'collaborators_code_seq_contractor',
+    [CollaboratorType.TEMPORARY]: 'collaborators_code_seq_temporary',
+  };
+
+  private static readonly CODE_PREFIX: Record<CollaboratorType, string> = {
+    [CollaboratorType.FIXED]: 'F',
+    [CollaboratorType.CONTRACTOR]: 'C',
+    [CollaboratorType.TEMPORARY]: 'T',
+  };
+
+  /** Correlativo atómico por tipo vía secuencia de Postgres (evita colisiones con creaciones concurrentes). */
+  private async nextCode(type: CollaboratorType): Promise<string> {
+    const seq = CollaboratorsService.CODE_SEQUENCE[type];
+    const [{ nextval }] = await this.collaboratorsRepository.query(`SELECT nextval('${seq}') AS nextval`);
+    return `${CollaboratorsService.CODE_PREFIX[type]}-${String(nextval).padStart(3, '0')}`;
+  }
+
   async create(dto: CreateCollaboratorDto): Promise<Collaborator> {
-    const collaborator = this.collaboratorsRepository.create(dto);
+    const type = dto.type ?? CollaboratorType.FIXED;
+    const code = await this.nextCode(type);
+    const collaborator = this.collaboratorsRepository.create({ ...dto, type, code });
     return this.collaboratorsRepository.save(collaborator);
   }
 

@@ -29,6 +29,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import type { Quote } from './entities/quote.entity';
 import {
@@ -66,14 +68,22 @@ interface QuoteItemRow {
   total: number;
 }
 
+/**
+ * Modulo 'cotizaciones' (ERP-83/ERP-85): en la matriz solo hay dos niveles
+ * reales aqui -- admin/manager/finanza = manage, user = ninguno (no existe
+ * ningun rol en 'view' nada mas) -- asi que el gate de clase ya es 'manage'
+ * y no hace falta repetirlo en cada endpoint de escritura. Antes cualquier
+ * autenticado podia listar/leer (ver comentario de exportXlsx mas abajo);
+ * la matriz cierra eso a proposito (finanza SI puede gestionar, antes no
+ * existia el rol).
+ */
 @Controller('quotes')
-@UseGuards(JwtAuthGuard, ResourceAccessGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard, ModulePermissionGuard)
+@RequireModule('cotizaciones', 'manage')
 export class QuotesController {
   constructor(private readonly quotesService: QuotesService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
   create(@Body() dto: CreateQuoteDto, @CurrentUser() user: AuthUser) {
     return this.quotesService.create(dto, user.id);
   }
@@ -202,16 +212,12 @@ export class QuotesController {
 
   @Patch(':id')
   @ScopedResource('quote')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateQuoteDto, @CurrentUser() user: AuthUser) {
     return this.quotesService.update(id, dto, user.role);
   }
 
   @Post(':id/send')
   @ScopedResource('quote')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)
   sendEmail(@Param('id', ParseUUIDPipe) id: string) {
     return this.quotesService.sendEmail(id);
@@ -219,16 +225,12 @@ export class QuotesController {
 
   @Post(':id/revise')
   @ScopedResource('quote')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
   revise(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.quotesService.revise(id, user.id);
   }
 
   @Post(':id/convert-to-project')
   @ScopedResource('quote')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
   convertToProject(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.quotesService.convertToProject(id, user.id);
   }
@@ -250,8 +252,6 @@ export class QuotesController {
    */
   @Get(':id/acu-drift')
   @ScopedResource('quote')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
   acuDrift(@Param('id', ParseUUIDPipe) id: string) {
     return this.quotesService.acuDrift(id);
   }
@@ -262,8 +262,6 @@ export class QuotesController {
    */
   @Post(':id/acu-refresh')
   @ScopedResource('quote')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
   refreshAcuPrices(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RefreshAcuPricesDto,
@@ -276,8 +274,6 @@ export class QuotesController {
 
   @Post(':id/items')
   @ScopedResource('quote')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
   addItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateQuoteItemDto,
@@ -288,8 +284,6 @@ export class QuotesController {
 
   @Patch(':id/items/:itemId')
   @ScopedResource('quote')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
   updateItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('itemId', ParseUUIDPipe) itemId: string,
@@ -301,8 +295,6 @@ export class QuotesController {
 
   @Delete(':id/items/:itemId')
   @ScopedResource('quote')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.OK)
   removeItem(
     @Param('id', ParseUUIDPipe) id: string,

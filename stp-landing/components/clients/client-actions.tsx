@@ -30,8 +30,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Client } from '@/lib/types'
+import { Separator } from '@/components/ui/separator'
+import type { Client, User } from '@/lib/types'
 import { updateClient, deleteClient } from '@/lib/actions/clients'
+import { MembersCard } from '@/components/access/members-card'
+import type { Member } from '@/lib/actions/memberships'
 
 // ── Zod schema ────────────────────────────────────────────────────────────────
 
@@ -60,10 +63,22 @@ function EditDialog({
   cliente,
   open,
   onOpenChange,
+  isAdmin,
+  showAccess,
+  members,
+  users,
 }: {
   cliente: Client
   open: boolean
   onOpenChange: (o: boolean) => void
+  isAdmin: boolean
+  // El listado de clientes también usa este diálogo pero no carga members/users
+  // (evita un fetch extra por fila): sin esta bandera, ahí se vería "Accesos:
+  // nadie asignado" aunque sí hubiera gente asignada. Solo la ficha de detalle,
+  // que carga los datos reales, la pone en true.
+  showAccess: boolean
+  members: Member[]
+  users: User[]
 }) {
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -217,6 +232,17 @@ function EditDialog({
             </Button>
           </DialogFooter>
         </form>
+
+        {/* ERP-86: vivía como tarjeta siempre visible en la ficha del cliente;
+            se movió aquí (solo ADMIN) para no ocupar espacio permanente en una
+            función que se usa poco — sigue siendo la única forma de darle
+            pertenencia a un `user`, así que no se quitó, solo se reubicó. */}
+        {isAdmin && showAccess && (
+          <>
+            <Separator />
+            <MembersCard scope="client" resourceId={cliente.id} members={members} users={users} />
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )
@@ -281,7 +307,19 @@ function DeleteDialog({
 
 // ── Row actions ───────────────────────────────────────────────────────────────
 
-export function ClientActions({ cliente, userRole }: { cliente: Client; userRole: string }) {
+export function ClientActions({
+  cliente,
+  userRole,
+  showAccess = false,
+  members = [],
+  users = [],
+}: {
+  cliente: Client
+  userRole: string
+  showAccess?: boolean
+  members?: Member[]
+  users?: User[]
+}) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -318,7 +356,15 @@ export function ClientActions({ cliente, userRole }: { cliente: Client; userRole
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <EditDialog cliente={cliente} open={editOpen} onOpenChange={setEditOpen} />
+      <EditDialog
+        cliente={cliente}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        isAdmin={isAdmin}
+        showAccess={showAccess}
+        members={members}
+        users={users}
+      />
       <DeleteDialog cliente={cliente} open={deleteOpen} onOpenChange={setDeleteOpen} />
     </>
   )

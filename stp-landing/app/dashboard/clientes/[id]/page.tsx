@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
-import type { Client, Project, FileUpload, PaginatedResponse, User as AppUser } from '@/lib/types'
+import type { Client, Project, PaginatedResponse, User as AppUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,10 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ChevronLeft, Building2, Phone, Mail, MapPin, User, Hash } from 'lucide-react'
+import { ChevronLeft, Building2, Phone, Mail, MapPin, User, Hash, FolderOpen } from 'lucide-react'
 import { ClientActions } from '@/components/clients/client-actions'
-import { ArchivoViewer } from '@/components/files/archivo-viewer'
-import { MembersCard } from '@/components/access/members-card'
 import type { Member } from '@/lib/actions/memberships'
 
 const TYPE_LABELS = { company: 'Empresa', individual: 'Persona física' }
@@ -53,12 +51,9 @@ export default async function ClienteDetallePage({
     notFound()
   }
 
-  const [projectsRes, files] = await Promise.all([
-    api.get<PaginatedResponse<Project>>(`/projects?clientId=${id}&limit=100`).catch(
-      () => ({ data: [], total: 0, page: 1, limit: 100 }) as PaginatedResponse<Project>,
-    ),
-    api.get<FileUpload[]>(`/files/clients/${id}`).catch(() => [] as FileUpload[]),
-  ])
+  const projectsRes = await api
+    .get<PaginatedResponse<Project>>(`/projects?clientId=${id}&limit=100`)
+    .catch(() => ({ data: [], total: 0, page: 1, limit: 100 }) as PaginatedResponse<Project>)
 
   // Panel de accesos: solo para ADMIN (los endpoints /members también lo son)
   const me = await api.get<Pick<AppUser, 'role'>>('/users/me').catch(() => ({ role: 'user' as const }))
@@ -96,7 +91,20 @@ export default async function ClienteDetallePage({
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
         </div>
-        <ClientActions cliente={client} userRole={me.role} />
+        <div className="flex items-center gap-2">
+          {/* Se saca a su propia página (en pestaña nueva) en vez de vivir al final
+              de esta: la ficha de cliente ya es larga y Archivos rara vez se
+              consulta junto con el resto de la info. */}
+          <Button
+            variant="outline"
+            size="sm"
+            render={<a href={`/dashboard/clientes/${id}/archivos`} target="_blank" rel="noopener noreferrer" />}
+          >
+            <FolderOpen className="size-4 mr-1.5" />
+            Archivos
+          </Button>
+          <ClientActions cliente={client} userRole={me.role} showAccess={isAdmin} members={members} users={users} />
+        </div>
       </div>
 
       {/* Info cards */}
@@ -231,21 +239,6 @@ export default async function ClienteDetallePage({
             </TableBody>
           </Table>
         </div>
-      </div>
-
-      {/* Accesos (solo ADMIN) */}
-      {isAdmin && (
-        <MembersCard scope="client" resourceId={id} members={members} users={users} />
-      )}
-
-      {/* Archivos */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Archivos</h2>
-        <ArchivoViewer
-          files={files}
-          clientId={id}
-          canDelete={true}
-        />
       </div>
     </div>
   )

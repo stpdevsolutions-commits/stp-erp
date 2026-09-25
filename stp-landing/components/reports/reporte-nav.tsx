@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Project, Client } from '@/lib/types'
 
-type TabKey = 'general' | 'proyecto' | 'cliente' | 'ingresos' | 'gastos' | 'fichas'
+type TabKey = 'general' | 'proyecto' | 'cliente' | 'ingresos' | 'gastos' | 'fichas' | 'nomina'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'general', label: 'General' },
@@ -22,6 +22,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'ingresos', label: 'Ingresos' },
   { key: 'gastos', label: 'Gastos' },
   { key: 'fichas', label: 'Fichas' },
+  { key: 'nomina', label: 'Nómina' },
 ]
 
 const PROJECT_STATUS_LABELS: Record<Project['status'], string> = {
@@ -87,6 +88,7 @@ export function ReporteNav({
   activeFrom,
   activeTo,
   activeTab,
+  showNomina = true,
 }: {
   projects: Project[]
   clients: Client[]
@@ -96,8 +98,10 @@ export function ReporteNav({
   activeFrom?: string
   activeTo?: string
   activeTab?: string
+  showNomina?: boolean
 }) {
   const router = useRouter()
+  const tabs = showNomina ? TABS : TABS.filter((t) => t.key !== 'nomina')
 
   const currentTab: TabKey = activeProyecto
     ? 'proyecto'
@@ -110,7 +114,7 @@ export function ReporteNav({
 
   function handleTabClick(tab: TabKey) {
     if (tab === 'proyecto') {
-      router.push('/dashboard/reportes')
+      router.push('/dashboard/reportes?tab=proyecto')
     } else if (tab === 'cliente') {
       router.push('/dashboard/reportes?tab=cliente')
     } else {
@@ -129,7 +133,7 @@ export function ReporteNav({
     <div className="space-y-3">
       {/* Tab bar */}
       <div className="flex gap-1 border-b pb-0">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => handleTabClick(tab.key)}
@@ -227,7 +231,8 @@ export function ReporteNav({
       {(currentTab === 'general' ||
         currentTab === 'ingresos' ||
         currentTab === 'gastos' ||
-        currentTab === 'fichas') && (
+        currentTab === 'fichas' ||
+        currentTab === 'nomina') && (
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">Desde</p>

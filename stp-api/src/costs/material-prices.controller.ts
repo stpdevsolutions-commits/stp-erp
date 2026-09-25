@@ -2,9 +2,9 @@ import { Controller, Get, Post, Body, Param, UseGuards, ParseUUIDPipe } from '@n
 import { MaterialPricesService } from './material-prices.service';
 import { VoidMaterialPriceDto } from './dto/void-material-price.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 interface AuthUser {
@@ -15,9 +15,12 @@ interface AuthUser {
 /**
  * Operaciones sobre un precio concreto. No hay PATCH ni DELETE: el historial de precios
  * es append-only y un precio equivocado se ANULA (dejando rastro) y se reemplaza por otro.
+ *
+ * Modulo 'costos' (ERP-83/ERP-85): admin/manager = manage, finanza = view, user = ninguno.
  */
 @Controller('costs/prices')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ModulePermissionGuard)
+@RequireModule('costos', 'view')
 export class MaterialPricesController {
   constructor(private readonly pricesService: MaterialPricesService) {}
 
@@ -27,8 +30,7 @@ export class MaterialPricesController {
   }
 
   @Post(':id/void')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   void(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: VoidMaterialPriceDto,

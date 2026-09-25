@@ -11,6 +11,7 @@ import { Expense } from '../expenses/entities/expense.entity';
 import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
 import { Ficha, FichaStatus } from '../fichas/entities/ficha.entity';
 import { Collaborator } from '../collaborators/entities/collaborator.entity';
+import { PayrollEntry, PayrollStatus } from '../payroll/entities/payroll-entry.entity';
 
 /** Etiquetas de mes en español, índice 0 = enero. */
 const MONTH_LABELS = [
@@ -72,6 +73,8 @@ export class ReportsService {
     private readonly fichasRepo: Repository<Ficha>,
     @InjectRepository(Collaborator)
     private readonly collaboratorsRepo: Repository<Collaborator>,
+    @InjectRepository(PayrollEntry)
+    private readonly payrollRepo: Repository<PayrollEntry>,
     private readonly access: AccessControlService,
   ) {}
 
@@ -989,6 +992,90 @@ export class ReportsService {
         name: r.userName,
         total: parseInt(r.count),
         enviadas: parseInt(r.enviadas),
+      })),
+    };
+  }
+
+  /**
+   * Reporte de nómina (ERP-105), mismo patrón que expenses/fichas. Solo pagos
+   * ya PAGADOS en el rango (por `paymentDate`, igual que `PayrollService.summary`)
+   * — un pago pendiente no es todavía un costo real. Sin acotado por
+   * pertenencia: a diferencia del resto de reportes, Nómina no tiene concepto
+   * de "USER ve lo suyo" (el módulo entero es admin/finanza, ver
+   * payroll.controller.ts), así que basta con el @RequireModule('nomina') del
+   * controller — no hay nada que acotar aquí.
+   */
+  async getPayrollReport(from: string, to: string) {
+    const base = () =>
+      this.payrollRepo
+        .createQueryBuilder('p')
+        .leftJoin('p.collaborator', 'collaborator')
+        .leftJoin('p.project', 'project')
+        .where('p.status = :status', { status: PayrollStatus.PAID })
+        .andWhere('p.paymentDate >= :from AND p.paymentDate <= :to', { from, to });
+
+    const byCollaboratorQb = base()
+      .select('collaborator.id', 'collaboratorId')
+      .addSelect("CONCAT(collaborator.firstName, ' ', collaborator.lastName)", 'collaboratorName')
+      .addSelect('COALESCE(SUM(p.netAmount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('collaborator.id, collaborator.firstName, collaborator.lastName')
+      .orderBy('SUM(p.netAmount)', 'DESC');
+
+    const byProjectQb = base()
+      .select('project.id', 'projectId')
+      .addSelect('project.name', 'projectName')
+      .addSelect('COALESCE(SUM(p.grossAmount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('project.id, project.name')
+      .orderBy('SUM(p.grossAmount)', 'DESC');
+
+    const byPaymentTypeQb = base()
+      .select('p.paymentType', 'paymentType')
+      .addSelect('COALESCE(SUM(p.netAmount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('p.paymentType')
+      .orderBy('SUM(p.netAmount)', 'DESC');
+
+    const totalQb = base()
+      .select('COALESCE(SUM(p.netAmount), 0)', 'net')
+      .addSelect('COALESCE(SUM(p.grossAmount), 0)', 'gross')
+      .addSelect('COALESCE(SUM(p.retentionAmount), 0)', 'retention')
+      .addSelect('COALESCE(SUM(p.deductions), 0)', 'deductions')
+      .addSelect('COUNT(*)', 'count');
+
+    const [byCollaborator, byProject, byPaymentType, total] = await Promise.all([
+      byCollaboratorQb.getRawMany(),
+      byProjectQb.getRawMany(),
+      byPaymentTypeQb.getRawMany(),
+      totalQb.getRawOne<{ net: string; gross: string; retention: string; deductions: string; count: string }>(),
+    ]);
+
+    return {
+      period: { from, to },
+      summary: {
+        net: num(total?.net),
+        gross: num(total?.gross),
+        retention: num(total?.retention),
+        deductions: num(total?.deductions),
+        count: int(total?.count),
+      },
+      byCollaborator: byCollaborator.map((r) => ({
+        collaboratorId: r.collaboratorId,
+        collaborator: r.collaboratorName ?? 'Sin colaborador',
+        count: parseInt(r.count),
+        total: parseFloat(r.total),
+      })),
+      byProject: byProject.map((r) => ({
+        projectId: r.projectId,
+        project: r.projectName ?? 'Sin proyecto',
+        count: parseInt(r.count),
+        total: parseFloat(r.total),
+      })),
+      byPaymentType: byPaymentType.map((r) => ({
+        paymentType: r.paymentType,
+        count: parseInt(r.count),
+        total: parseFloat(r.total),
       })),
     };
   }

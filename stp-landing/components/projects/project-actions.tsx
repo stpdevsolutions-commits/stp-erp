@@ -31,9 +31,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
 import type { Client, Collaborator, Project, User } from '@/lib/types'
 import { updateProject, deleteProject } from '@/lib/actions/projects'
 import { SIN_ASIGNAR } from '@/components/tasks/asignado-select'
+import { MembersCard } from '@/components/access/members-card'
+import type { Member } from '@/lib/actions/memberships'
 
 const editSchema = z
   .object({
@@ -72,6 +75,9 @@ function EditDialog({
   users,
   open,
   onOpenChange,
+  isAdmin,
+  showAccess,
+  members,
 }: {
   proyecto: Project
   clients: Client[]
@@ -79,6 +85,13 @@ function EditDialog({
   users: User[]
   open: boolean
   onOpenChange: (o: boolean) => void
+  isAdmin: boolean
+  // El listado de proyectos también usa este diálogo pero no carga members
+  // (evita un fetch extra por fila): sin esta bandera, ahí se vería "Accesos:
+  // nadie asignado" aunque sí hubiera gente asignada. Solo la ficha de detalle,
+  // que carga los datos reales, la pone en true.
+  showAccess: boolean
+  members: Member[]
 }) {
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -310,6 +323,17 @@ function EditDialog({
             </Button>
           </DialogFooter>
         </form>
+
+        {/* ERP-87: vivía como tarjeta siempre visible en la ficha del proyecto;
+            se movió aquí (solo ADMIN) para no ocupar espacio permanente en una
+            función que se usa poco — sigue siendo la única forma de darle
+            pertenencia a un `user`, así que no se quitó, solo se reubicó. */}
+        {isAdmin && showAccess && (
+          <>
+            <Separator />
+            <MembersCard scope="project" resourceId={proyecto.id} members={members} users={users} />
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )
@@ -377,11 +401,17 @@ export function ProjectActions({
   clients,
   collaborators,
   users,
+  isAdmin = false,
+  showAccess = false,
+  members = [],
 }: {
   proyecto: Project
   clients: Client[]
   collaborators: Collaborator[]
   users: User[]
+  isAdmin?: boolean
+  showAccess?: boolean
+  members?: Member[]
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -419,6 +449,9 @@ export function ProjectActions({
         users={users}
         open={editOpen}
         onOpenChange={setEditOpen}
+        isAdmin={isAdmin}
+        showAccess={showAccess}
+        members={members}
       />
       <DeleteDialog proyecto={proyecto} open={deleteOpen} onOpenChange={setDeleteOpen} />
     </>

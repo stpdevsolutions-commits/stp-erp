@@ -23,6 +23,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 interface AuthUser {
@@ -30,8 +32,10 @@ interface AuthUser {
   role: UserRole;
 }
 
+/** Modulo 'costos' (ERP-83/ERP-85): admin/manager = manage, finanza = view, user = ninguno. */
 @Controller('costs/materials')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ModulePermissionGuard)
+@RequireModule('costos', 'view')
 export class MaterialsController {
   constructor(
     private readonly materialsService: MaterialsService,
@@ -39,8 +43,7 @@ export class MaterialsController {
   ) {}
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   create(@Body() dto: CreateMaterialDto) {
     return this.materialsService.create(dto);
   }
@@ -65,8 +68,7 @@ export class MaterialsController {
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateMaterialDto) {
     return this.materialsService.update(id, dto);
   }
@@ -82,8 +84,7 @@ export class MaterialsController {
   // --- Precios del material (append-only: no hay PATCH ni DELETE) ---
 
   @Post(':id/prices')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   addPrice(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateMaterialPriceDto,

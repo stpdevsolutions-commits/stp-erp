@@ -121,21 +121,23 @@ export class AccessControlService {
   async canAccess(
     user: AccessSubject | undefined,
     scope: ResourceScope | null,
+    unrestricted: boolean = hasUnrestrictedAccess(user?.role),
   ): Promise<boolean> {
     if (!user) return false;
-    if (hasUnrestrictedAccess(user.role)) return true;
+    if (unrestricted) return true;
     const membership = user.id
       ? await this.getMembership(user.id)
       : EMPTY_MEMBERSHIP;
-    return decideAccess(user, membership, scope);
+    return decideAccess(user, membership, scope, unrestricted);
   }
 
   /** Lanza 404 (nunca 403: revelar la existencia del recurso ya es una fuga). */
   async assertAccess(
     user: AccessSubject | undefined,
     scope: ResourceScope | null,
+    unrestricted: boolean = hasUnrestrictedAccess(user?.role),
   ): Promise<void> {
-    if (!(await this.canAccess(user, scope))) {
+    if (!(await this.canAccess(user, scope, unrestricted))) {
       throw new NotFoundException('Recurso no encontrado');
     }
   }
@@ -296,33 +298,42 @@ export class AccessControlService {
     kind: ResourceKind,
     id: string,
     strictClient = false,
+    unrestricted: boolean = hasUnrestrictedAccess(user?.role),
   ): Promise<void> {
-    if (user && hasUnrestrictedAccess(user.role)) return;
+    if (unrestricted) return;
     const scope = await this.resolveResource(kind, id);
-    await this.assertAccess(user, scope ? { ...scope, strictClient } : null);
+    await this.assertAccess(user, scope ? { ...scope, strictClient } : null, unrestricted);
   }
 
   // ── Filtrado de listados ───────────────────────────────────────────────────
 
-  /** `null` = sin restricciones. */
+  /**
+   * `null` = sin restricciones. `unrestricted` por defecto sale del rol
+   * (ADMIN/MANAGER); un caller puede forzarlo a `false` para acotar por
+   * pertenencia a un rol que normalmente no la necesita — ver ERP-108
+   * (Manager en el listado de Gastos).
+   */
   async getListScope(
     user: AccessSubject | undefined,
+    unrestricted: boolean = hasUnrestrictedAccess(user?.role),
   ): Promise<ListScope | null> {
     if (!user) return { clientIds: [], projectIds: [], visibleClientIds: [] };
-    if (hasUnrestrictedAccess(user.role)) return null;
-    return buildListScope(user, await this.getMembership(user.id));
+    if (unrestricted) return null;
+    return buildListScope(user, await this.getMembership(user.id), unrestricted);
   }
 
   /**
    * Añade el filtro de pertenencia a un query builder. No hace nada para
-   * ADMIN/MANAGER. Para USER: `projectExpr IN (...) OR clientExpr IN (...)`.
+   * ADMIN/MANAGER (salvo que el caller pase `unrestricted: false`, ver
+   * `getListScope`). Para USER: `projectExpr IN (...) OR clientExpr IN (...)`.
    */
   async applyScope<T extends object>(
     qb: SelectQueryBuilder<T>,
     user: AccessSubject | undefined,
     columns: ScopeColumns,
+    unrestricted: boolean = hasUnrestrictedAccess(user?.role),
   ): Promise<SelectQueryBuilder<T>> {
-    const scope = await this.getListScope(user);
+    const scope = await this.getListScope(user, unrestricted);
     if (!scope) return qb;
 
     const conditions: string[] = [];

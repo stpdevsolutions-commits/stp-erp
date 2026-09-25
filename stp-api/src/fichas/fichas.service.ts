@@ -58,6 +58,7 @@ export class FichasService {
   async findAll(query: QueryFichasDto, currentUser: User): Promise<Ficha[]> {
     const where: FindOptionsWhere<Ficha> = {};
 
+    if (query.clientId) where.project = { clientId: query.clientId };
     if (query.projectId) where.projectId = query.projectId;
     if (query.type) where.type = query.type;
     if (query.status) where.status = query.status;

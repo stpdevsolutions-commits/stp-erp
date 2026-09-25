@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { api } from '@/lib/api'
-import type { Ficha, FichaStatus, FichaType, Project, PaginatedResponse } from '@/lib/types'
+import type { Ficha, FichaStatus, FichaType, Project, Client, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,18 +33,20 @@ const STATUS_VARIANT: Record<FichaStatus, 'default' | 'secondary' | 'destructive
 export default async function FichasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ projectId?: string; type?: string; status?: string }>
+  searchParams: Promise<{ clientId?: string; projectId?: string; type?: string; status?: string }>
 }) {
-  const { projectId, type, status } = await searchParams
+  const { clientId, projectId, type, status } = await searchParams
 
   const params = new URLSearchParams()
+  if (clientId) params.set('clientId', clientId)
   if (projectId) params.set('projectId', projectId)
   if (type) params.set('type', type)
   if (status) params.set('status', status)
 
-  const [fichas, projects] = await Promise.all([
+  const [fichas, projects, clients] = await Promise.all([
     api.get<Ficha[]>(`/fichas?${params}`).catch(() => [] as Ficha[]),
     api.get<PaginatedResponse<Project>>('/projects?limit=200').catch(() => ({ data: [] as Project[], total: 0, page: 1, limit: 200 })),
+    api.get<PaginatedResponse<Client>>('/clients?limit=200').catch(() => ({ data: [] as Client[], total: 0, page: 1, limit: 200 })),
   ])
 
   return (
@@ -57,7 +59,7 @@ export default async function FichasPage({
       </div>
 
       {/* Filtros */}
-      <FiltrosFichas projects={projects.data} />
+      <FiltrosFichas clients={clients.data} projects={projects.data} />
 
       {/* Tabla */}
       <div className="rounded-md border overflow-x-auto">

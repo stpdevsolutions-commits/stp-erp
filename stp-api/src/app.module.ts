@@ -44,6 +44,7 @@ import { ClientMember } from './clients/entities/client-member.entity';
 import { AccessModule } from './common/access/access.module';
 import { CostsModule } from './costs/costs.module';
 import { PayrollModule } from './payroll/payroll.module';
+import { SearchModule } from './search/search.module';
 import { Unit } from './costs/entities/unit.entity';
 import { MaterialCategory } from './costs/entities/material-category.entity';
 import { Material } from './costs/entities/material.entity';
@@ -53,6 +54,8 @@ import { AcuItem } from './costs/entities/acu-item.entity';
 import { PriceImport } from './costs/entities/price-import.entity';
 import { PriceImportLine } from './costs/entities/price-import-line.entity';
 import { PayrollEntry } from './payroll/entities/payroll-entry.entity';
+import { CollaboratorLoan } from './payroll/entities/collaborator-loan.entity';
+import { Notification } from './notifications/entities/notification.entity';
 import { ProjectReport } from './reports/entities/project-report.entity';
 
 @Module({
@@ -64,7 +67,7 @@ import { ProjectReport } from './reports/entities/project-report.entity';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry, ProjectReport],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry, CollaboratorLoan, ProjectReport, Notification],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',
@@ -102,6 +105,7 @@ import { ProjectReport } from './reports/entities/project-report.entity';
     SchedulerModule,
     CostsModule,
     PayrollModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

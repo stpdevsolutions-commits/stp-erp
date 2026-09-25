@@ -11,10 +11,13 @@ import type {
   IncomeReport,
   ExpensesReport,
   FichasReport,
+  PayrollReport,
+  PayrollPaymentType,
   PaymentMethod,
   FichaType,
   FichaStatus,
   GeneralReport,
+  User,
 } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -737,6 +740,126 @@ function FichasReportView({ report }: { report: FichasReport }) {
   )
 }
 
+// ── Payroll Report ────────────────────────────────────────────────────────────
+
+const PAYROLL_PAYMENT_TYPE_LABELS: Record<PayrollPaymentType, string> = {
+  day: 'Por día',
+  m2: 'Por m²',
+  m3: 'Por m³',
+  ml: 'Por ml',
+  lump_sum: 'Suma alzada (P.A.)',
+}
+
+function PayrollReportView({ report }: { report: PayrollReport }) {
+  const { period, summary, byCollaborator, byProject, byPaymentType } = report
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <h2 className="text-lg font-semibold">Reporte de Nómina</h2>
+        <PeriodBadge from={period.from} to={period.to} />
+      </div>
+
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="text-xl font-bold tabular-nums">{DOP.format(summary.net)}</div>
+            <p className="text-xs text-muted-foreground mt-0.5">Neto entregado</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="text-xl font-bold tabular-nums text-muted-foreground">{DOP.format(summary.gross)}</div>
+            <p className="text-xs text-muted-foreground mt-0.5">Bruto</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="text-xl font-bold tabular-nums text-muted-foreground">
+              {DOP.format(summary.retention + summary.deductions)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">Retenciones + descuentos</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="text-xl font-bold tabular-nums">{summary.count}</div>
+            <p className="text-xs text-muted-foreground mt-0.5">Pagos realizados</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        {byCollaborator.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Por colaborador</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {byCollaborator.map((row, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground truncate max-w-[60%]">{row.collaborator}</span>
+                  <span className="font-medium tabular-nums">{DOP.format(row.total)}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {byPaymentType.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Por tipo de pago</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {byPaymentType.map((row) => (
+                <div key={row.paymentType} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {PAYROLL_PAYMENT_TYPE_LABELS[row.paymentType] ?? row.paymentType}
+                  </span>
+                  <span className="font-medium tabular-nums">{DOP.format(row.total)}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {byProject.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Por proyecto</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Proyecto</TableHead>
+                  <TableHead className="text-center">Pagos</TableHead>
+                  <TableHead className="text-right">Bruto</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {byProject.map((row, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="py-2 text-sm">{row.project}</TableCell>
+                    <TableCell className="py-2 text-sm text-center tabular-nums">{row.count}</TableCell>
+                    <TableCell className="py-2 text-sm text-right tabular-nums font-medium">{DOP.format(row.total)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {summary.count === 0 && (
+        <p className="text-sm text-muted-foreground py-8 text-center">Sin pagos de nómina en el período seleccionado.</p>
+      )}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function ReportesPage({
@@ -746,22 +869,36 @@ export default async function ReportesPage({
 }) {
   const { proyecto, cliente, view, from, to, tab } = await searchParams
   // Sin filtro ni pestaña elegidos, "General" es la vista por defecto — igual
-  // que en el mockup de identidad, donde General siempre llega activa.
-  const effectiveView = view ?? (proyecto || cliente ? undefined : 'general')
+  // que en el mockup de identidad, donde General siempre llega activa. Pero si
+  // se pidió explícitamente la pestaña Proyecto/Cliente (tab=...) sin haber
+  // elegido aún uno, NO debe caer a 'general': eso pisaba el valor que
+  // ReporteNav necesita para saber cuál tab resaltar (ver bug ERP-104 — el
+  // selector nunca aparecía porque el `??` de ReporteNav nunca llegaba a leer
+  // `tab`, ya que este valor por defecto nunca era undefined).
+  const isPickingProjectOrClient = tab === 'proyecto' || tab === 'cliente'
+  const effectiveView =
+    view ?? (proyecto || cliente || isPickingProjectOrClient ? undefined : 'general')
 
-  const [projectsResult, clientsResult] = await Promise.allSettled([
+  const [projectsResult, clientsResult, meResult] = await Promise.allSettled([
     api.get<PaginatedResponse<Project>>('/projects?limit=200'),
     api.get<PaginatedResponse<Client>>('/clients?limit=200'),
+    api.get<Pick<User, 'role'>>('/users/me'),
   ])
 
   const projects = projectsResult.status === 'fulfilled' ? projectsResult.value.data : []
   const clients = clientsResult.status === 'fulfilled' ? clientsResult.value.data : []
+  const userRole = meResult.status === 'fulfilled' ? meResult.value.role : 'user'
+  // Nómina es admin/finanza únicamente (ni manager) — ver payroll.controller.ts.
+  // No tiene sentido ofrecer la pestaña a quien el backend le va a rechazar el
+  // reporte con 403 de todos modos.
+  const canSeePayrollReport = userRole === 'admin' || userRole === 'finanza'
 
   let projectReport: ProjectReport | null = null
   let clientReport: ClientReport | null = null
   let incomeReport: IncomeReport | null = null
   let expensesReport: ExpensesReport | null = null
   let fichasReport: FichasReport | null = null
+  let payrollReport: PayrollReport | null = null
   let generalReport: GeneralReport | null = null
 
   if (proyecto) {
@@ -777,12 +914,15 @@ export default async function ReportesPage({
   } else if (effectiveView === 'fichas') {
     const q = from && to ? `?from=${from}&to=${to}` : ''
     try { fichasReport = await api.get<FichasReport>(`/reports/fichas${q}`) } catch {}
+  } else if (effectiveView === 'nomina') {
+    const q = from && to ? `?from=${from}&to=${to}` : ''
+    try { payrollReport = await api.get<PayrollReport>(`/reports/payroll${q}`) } catch {}
   } else if (effectiveView === 'general') {
     const q = from && to ? `?from=${from}&to=${to}` : ''
     try { generalReport = await api.get<GeneralReport>(`/reports/general${q}`) } catch {}
   }
 
-  const hasContent = projectReport || clientReport || incomeReport || expensesReport || fichasReport || generalReport
+  const hasContent = projectReport || clientReport || incomeReport || expensesReport || fichasReport || payrollReport || generalReport
 
   return (
     <div className="space-y-6">
@@ -815,6 +955,7 @@ export default async function ReportesPage({
         {incomeReport && <ExportarReporte tipo="ingresos" from={from} to={to} />}
         {expensesReport && <ExportarReporte tipo="gastos" from={from} to={to} />}
         {fichasReport && <ExportarReporte tipo="fichas" from={from} to={to} />}
+        {payrollReport && <ExportarReporte tipo="nomina" from={from} to={to} />}
         {generalReport && <ExportarReporte tipo="general" from={from} to={to} />}
       </div>
 
@@ -827,6 +968,7 @@ export default async function ReportesPage({
         activeFrom={from}
         activeTo={to}
         activeTab={tab}
+        showNomina={canSeePayrollReport}
       />
 
       <Separator />
@@ -855,6 +997,9 @@ export default async function ReportesPage({
       {(effectiveView === 'fichas') && !fichasReport && (
         <p className="text-sm text-destructive">No se pudo cargar el reporte de fichas.</p>
       )}
+      {(effectiveView === 'nomina') && !payrollReport && (
+        <p className="text-sm text-destructive">No se pudo cargar el reporte de nómina.</p>
+      )}
       {(effectiveView === 'general') && !generalReport && (
         <p className="text-sm text-destructive">No se pudo cargar el reporte general.</p>
       )}
@@ -864,6 +1009,7 @@ export default async function ReportesPage({
       {incomeReport && <IncomeReportView report={incomeReport} />}
       {expensesReport && <ExpensesReportView report={expensesReport} />}
       {fichasReport && <FichasReportView report={fichasReport} />}
+      {payrollReport && <PayrollReportView report={payrollReport} />}
       {generalReport && <ReporteGeneral report={generalReport} />}
     </div>
   )

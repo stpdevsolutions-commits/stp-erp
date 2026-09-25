@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
+import type { Client, Project } from '@/lib/types'
 
-export function FiltrosGastos() {
+export function FiltrosGastos({ clients, projects }: { clients: Client[]; projects: Project[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -20,7 +21,9 @@ export function FiltrosGastos() {
   const category = params.get('category') ?? ''
   const dateFrom = params.get('dateFrom') ?? ''
   const dateTo = params.get('dateTo') ?? ''
-  const hasFilters = !!(category || dateFrom || dateTo)
+  const clientId = params.get('clientId') ?? ''
+  const projectId = params.get('projectId') ?? ''
+  const hasFilters = !!(category || dateFrom || dateTo || clientId || projectId)
 
   function set(key: string, value: string) {
     const sp = new URLSearchParams(params.toString())
@@ -35,6 +38,30 @@ export function FiltrosGastos() {
 
   return (
     <div className="flex flex-wrap gap-2">
+      <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
+        <SelectTrigger className="w-48">
+          <SelectValue placeholder="Cliente" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los clientes</SelectItem>
+          {clients.map((c) => (
+            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={projectId || 'all'} onValueChange={(v) => set('projectId', !v || v === 'all' ? '' : v)}>
+        <SelectTrigger className="w-56">
+          <SelectValue placeholder="Proyecto" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los proyectos</SelectItem>
+          {projects.map((p) => (
+            <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       <Select value={category || 'all'} onValueChange={(v) => set('category', !v || v === 'all' ? '' : v)}>
         <SelectTrigger className="w-40">
           <SelectValue placeholder="Categoría" />

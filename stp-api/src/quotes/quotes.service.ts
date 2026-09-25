@@ -49,6 +49,8 @@ import {
   type QuoteNodeAcu,
 } from './quote-tree';
 import { AcusService } from '../costs/acus.service';
+import { AppNotificationsService } from '../notifications/app-notifications.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 import {
   applyMarkup,
   compareAcuLine,
@@ -175,6 +177,7 @@ export class QuotesService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly access: AccessControlService,
     private readonly acus: AcusService,
+    private readonly appNotifications: AppNotificationsService,
   ) {}
 
   onModuleInit() {
@@ -201,6 +204,22 @@ export class QuotesService implements OnModuleInit {
     } catch (err) {
       this.logger.error(`Notification (${action}) failed: ${(err as Error).message}`);
     }
+  }
+
+  /** Notificación in-app (ERP-107) a quien creó la cotización, al decidirse. */
+  private async notifyInAppQuoteDecision(
+    quote: Pick<Quote, 'id' | 'number' | 'title' | 'createdById'>,
+    status: QuoteStatus.APPROVED | QuoteStatus.REJECTED,
+  ): Promise<void> {
+    if (!quote.createdById) return;
+    const approved = status === QuoteStatus.APPROVED;
+    void this.appNotifications.notifyUser(
+      quote.createdById,
+      approved ? NotificationType.QUOTE_APPROVED : NotificationType.QUOTE_REJECTED,
+      `Cotización ${approved ? 'aprobada' : 'rechazada'}: ${quote.number}`,
+      quote.title,
+      `/dashboard/cotizaciones/${quote.id}`,
+    );
   }
 
   /**
@@ -304,6 +323,7 @@ export class QuotesService implements OnModuleInit {
         }),
       );
     }
+    void this.notifyInAppQuoteDecision(quote, newStatus);
 
     return { kind: 'success', status: newStatus, quoteNumber: quote.number };
   }
@@ -625,6 +645,9 @@ export class QuotesService implements OnModuleInit {
             quoteTitle: updated.title,
           }),
         );
+      }
+      if (dto.status === QuoteStatus.APPROVED || dto.status === QuoteStatus.REJECTED) {
+        void this.notifyInAppQuoteDecision(updated, dto.status);
       }
     }
 

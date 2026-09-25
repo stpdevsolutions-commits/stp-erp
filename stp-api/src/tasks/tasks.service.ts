@@ -17,6 +17,8 @@ import type { AccessSubject } from '../common/access/access-policy';
 import { taskResourceScope } from './task-access';
 import { loadForUpdate } from '../common/load-for-update';
 import { WhatsappService } from '../notifications/whatsapp.service';
+import { AppNotificationsService } from '../notifications/app-notifications.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 
 @Injectable()
 export class TasksService {
@@ -31,6 +33,7 @@ export class TasksService {
     private readonly collaboratorsRepository: Repository<Collaborator>,
     private readonly access: AccessControlService,
     private readonly whatsapp: WhatsappService,
+    private readonly appNotifications: AppNotificationsService,
   ) {}
 
   async create(dto: CreateTaskDto, createdById: string): Promise<Task> {
@@ -45,6 +48,7 @@ export class TasksService {
     const task = this.tasksRepository.create({ ...dto, createdById });
     const saved = await this.tasksRepository.save(task);
     if (dto.notifyCollaborator !== false) void this.notifyAssignment(saved);
+    if (saved.assignedToId) void this.notifyInAppAssignment(saved);
     return saved;
   }
 
@@ -53,6 +57,7 @@ export class TasksService {
       search,
       status,
       priority,
+      clientId,
       projectId,
       assignedToId,
       collaboratorId,
@@ -75,6 +80,7 @@ export class TasksService {
     }
     if (status) qb.andWhere('task.status = :status', { status });
     if (priority) qb.andWhere('task.priority = :priority', { priority });
+    if (clientId) qb.andWhere('project.clientId = :clientId', { clientId });
     if (projectId) qb.andWhere('task.projectId = :projectId', { projectId });
     if (assignedToId)
       qb.andWhere('task.assignedToId = :assignedToId', { assignedToId });
@@ -116,6 +122,7 @@ export class TasksService {
       await this.access.assertProjectAccess(user, dto.projectId);
     }
     const previousCollaboratorId = task.collaboratorId;
+    const previousAssignedToId = task.assignedToId;
     if (dto.assignedToId && dto.assignedToId !== task.assignedToId) {
       await this.assertUserExists(dto.assignedToId);
     }
@@ -157,6 +164,12 @@ export class TasksService {
       void this.notifyAssignment(updated);
     }
 
+    const reassignedToNewUser =
+      dto.assignedToId !== undefined && dto.assignedToId !== previousAssignedToId && dto.assignedToId;
+    if (reassignedToNewUser) {
+      void this.notifyInAppAssignment(updated);
+    }
+
     return updated;
   }
 
@@ -195,6 +208,22 @@ export class TasksService {
       taskText: task.description || task.title,
       dueDate: task.dueDate,
     });
+  }
+
+  /**
+   * Notificación in-app (ERP-107) al usuario del sistema asignado — distinta
+   * de notifyAssignment (WhatsApp), que solo avisa a Colaborador. Un mismo
+   * cambio puede disparar ambas si la tarea tiene los dos a la vez.
+   */
+  private async notifyInAppAssignment(task: Task): Promise<void> {
+    if (!task.assignedToId) return;
+    void this.appNotifications.notifyUser(
+      task.assignedToId,
+      NotificationType.TASK_ASSIGNED,
+      `Nueva tarea: ${task.title}`,
+      task.description || undefined,
+      `/dashboard/tareas/${task.id}`,
+    );
   }
 
   // ── Acceso ────────────────────────────────────────────────────────────────

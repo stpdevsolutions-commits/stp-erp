@@ -21,6 +21,7 @@ import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { QueryExpensesDto } from './dto/query-expenses.dto';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
+import { UserRole } from '../users/entities/user.entity';
 import { MaterialPricesService } from '../costs/material-prices.service';
 import { Material } from '../costs/entities/material.entity';
 import { auditLog } from '../common/audit-log';
@@ -67,7 +68,7 @@ export class ExpensesService {
   }
 
   async findAll(query: QueryExpensesDto, user?: AccessSubject) {
-    const { projectId, category, dateFrom, dateTo, page = 1, limit = 20 } = query;
+    const { clientId, projectId, category, dateFrom, dateTo, page = 1, limit = 20 } = query;
 
     const qb = this.expensesRepository
       .createQueryBuilder('expense')
@@ -81,18 +82,31 @@ export class ExpensesService {
       .skip((page - 1) * limit)
       .take(limit);
 
+    if (clientId) qb.andWhere('project.clientId = :clientId', { clientId });
     if (projectId) qb.andWhere('expense.projectId = :projectId', { projectId });
     if (category) qb.andWhere('expense.category = :category', { category });
     if (dateFrom) qb.andWhere('expense.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('expense.date <= :dateTo', { dateTo });
 
-    await this.access.applyScope(qb, user, {
-      projectExpr: 'expense.projectId',
-      clientExpr: 'project.clientId',
-    });
+    await this.access.applyScope(
+      qb,
+      user,
+      { projectExpr: 'expense.projectId', clientExpr: 'project.clientId' },
+      this.scopeOverride(user),
+    );
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit };
+  }
+
+  /**
+   * Manager está en UNRESTRICTED_ROLES en el resto del sistema, pero en
+   * Gastos debe acotarse a sus proyectos igual que un USER (ERP-108). `undefined`
+   * deja que `applyScope`/`getListScope` calculen el valor por defecto
+   * (sin cambios para ADMIN/FINANZA/USER).
+   */
+  private scopeOverride(user?: AccessSubject): boolean | undefined {
+    return user?.role === UserRole.MANAGER ? false : undefined;
   }
 
   /**
@@ -118,10 +132,12 @@ export class ExpensesService {
     if (query.projectId) qb.andWhere('expense.projectId = :projectId', { projectId: query.projectId });
     if (query.category) qb.andWhere('expense.category = :category', { category: query.category });
 
-    await this.access.applyScope(qb, user, {
-      projectExpr: 'expense.projectId',
-      clientExpr: 'project.clientId',
-    });
+    await this.access.applyScope(
+      qb,
+      user,
+      { projectExpr: 'expense.projectId', clientExpr: 'project.clientId' },
+      this.scopeOverride(user),
+    );
 
     const { sum } = await qb.getRawOne();
     return parseFloat(sum ?? '0');

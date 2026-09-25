@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsEnum, IsNumber, Min } from 'class-validator';
-import { CollaboratorStatus } from '../entities/collaborator.entity';
+import { CollaboratorStatus, CollaboratorType } from '../entities/collaborator.entity';
 
 export class CreateCollaboratorDto {
   @IsString()
@@ -32,6 +32,10 @@ export class CreateCollaboratorDto {
   @IsOptional()
   @IsEnum(CollaboratorStatus)
   status?: CollaboratorStatus;
+
+  @IsOptional()
+  @IsEnum(CollaboratorType)
+  type?: CollaboratorType;
 
   @IsOptional()
   @IsString()

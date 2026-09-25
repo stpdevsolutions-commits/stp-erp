@@ -12,8 +12,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Search, X } from 'lucide-react'
+import type { Client } from '@/lib/types'
 
-export function FiltrosCotizaciones() {
+export function FiltrosCotizaciones({ clients }: { clients: Client[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -21,7 +22,8 @@ export function FiltrosCotizaciones() {
 
   const search = params.get('search') ?? ''
   const status = params.get('status') ?? ''
-  const hasFilters = !!(search || status)
+  const clientId = params.get('clientId') ?? ''
+  const hasFilters = !!(search || status || clientId)
 
   function set(key: string, value: string) {
     const sp = new URLSearchParams(params.toString())
@@ -65,6 +67,18 @@ export function FiltrosCotizaciones() {
           <SelectItem value="approved">Aprobada</SelectItem>
           <SelectItem value="rejected">Rechazada</SelectItem>
           <SelectItem value="expired">Expirada</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
+        <SelectTrigger className="w-48">
+          <SelectValue placeholder="Cliente" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los clientes</SelectItem>
+          {clients.map((c) => (
+            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          ))}
         </SelectContent>
       </Select>
 

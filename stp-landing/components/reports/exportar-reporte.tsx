@@ -14,7 +14,7 @@ export function ExportarReporte({
   from,
   to,
 }: {
-  tipo: 'general' | 'ingresos' | 'gastos' | 'fichas' | 'proyecto' | 'cliente'
+  tipo: 'general' | 'ingresos' | 'gastos' | 'fichas' | 'nomina' | 'proyecto' | 'cliente'
   id?: string
   from?: string
   to?: string

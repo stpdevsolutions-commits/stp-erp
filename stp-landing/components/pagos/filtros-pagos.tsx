@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
+import type { Client } from '@/lib/types'
 
-export function FiltrosPagos() {
+export function FiltrosPagos({ clients }: { clients: Client[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -21,7 +22,8 @@ export function FiltrosPagos() {
   const method = params.get('method') ?? ''
   const dateFrom = params.get('dateFrom') ?? ''
   const dateTo = params.get('dateTo') ?? ''
-  const hasFilters = !!(status || method || dateFrom || dateTo)
+  const clientId = params.get('clientId') ?? ''
+  const hasFilters = !!(status || method || dateFrom || dateTo || clientId)
 
   function set(key: string, value: string) {
     const sp = new URLSearchParams(params.toString())
@@ -36,6 +38,18 @@ export function FiltrosPagos() {
 
   return (
     <div className="flex flex-wrap gap-2">
+      <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
+        <SelectTrigger className="w-48">
+          <SelectValue placeholder="Cliente" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los clientes</SelectItem>
+          {clients.map((c) => (
+            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
         <SelectTrigger className="w-36">
           <SelectValue placeholder="Estado" />

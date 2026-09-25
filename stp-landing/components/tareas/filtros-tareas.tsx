@@ -12,8 +12,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Search, X } from 'lucide-react'
+import type { Client, Project } from '@/lib/types'
 
-export function FiltrosTareas() {
+export function FiltrosTareas({ clients, projects }: { clients: Client[]; projects: Project[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -22,7 +23,9 @@ export function FiltrosTareas() {
   const search = params.get('search') ?? ''
   const status = params.get('status') ?? ''
   const priority = params.get('priority') ?? ''
-  const hasFilters = !!(search || status || priority)
+  const clientId = params.get('clientId') ?? ''
+  const projectId = params.get('projectId') ?? ''
+  const hasFilters = !!(search || status || priority || clientId || projectId)
 
   function set(key: string, value: string) {
     const sp = new URLSearchParams(params.toString())
@@ -54,6 +57,30 @@ export function FiltrosTareas() {
           className="pl-8 w-52"
         />
       </form>
+
+      <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
+        <SelectTrigger className="w-48">
+          <SelectValue placeholder="Cliente" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los clientes</SelectItem>
+          {clients.map((c) => (
+            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={projectId || 'all'} onValueChange={(v) => set('projectId', !v || v === 'all' ? '' : v)}>
+        <SelectTrigger className="w-56">
+          <SelectValue placeholder="Proyecto" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los proyectos</SelectItem>
+          {projects.map((p) => (
+            <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
         <SelectTrigger className="w-36">

@@ -7,6 +7,12 @@ const ROLE_RANK: Record<UserRole, number> = {
   [UserRole.ADMIN]: 3,
   [UserRole.MANAGER]: 2,
   [UserRole.USER]: 1,
+  // FINANZA no encaja en este rango lineal (ERP-83/ERP-85: su acceso real
+  // lo decide module-permissions.ts, no este guard). Rango 0 a propósito:
+  // en cualquier endpoint que todavía use @Roles() y no se haya migrado a
+  // @RequireModule(), Finanza queda denegado por defecto en vez de heredar
+  // de más por accidente.
+  [UserRole.FINANZA]: 0,
 };
 
 @Injectable()

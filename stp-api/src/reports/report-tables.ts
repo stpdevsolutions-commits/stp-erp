@@ -131,6 +131,14 @@ const ESTADO_FICHA_ES: Record<string, string> = {
   enviada: 'Enviada',
 };
 
+const TIPO_PAGO_NOMINA_ES: Record<string, string> = {
+  day: 'Por día',
+  m2: 'Por m²',
+  m3: 'Por m³',
+  ml: 'Por ml',
+  lump_sum: 'Suma alzada (P.A.)',
+};
+
 const es = (mapa: Record<string, string>, clave: string): string => mapa[clave] ?? clave;
 
 /**
@@ -193,6 +201,14 @@ export interface FichasReportShape {
   byType: { type: string; count: number }[];
   byStatus: { status: string; count: number }[];
   byTechnician: { name: string; total: number; enviadas: number }[];
+}
+
+export interface PayrollReportShape {
+  period: { from: string | Date; to: string | Date };
+  summary: { net: number; gross: number; retention: number; deductions: number; count: number };
+  byCollaborator: { collaborator: string; count: number; total: number }[];
+  byProject: { project: string; count: number; total: number }[];
+  byPaymentType: { paymentType: string; count: number; total: number }[];
 }
 
 export interface ProjectReportShape {
@@ -373,6 +389,64 @@ export function buildFichasDoc(r: FichasReportShape): ExportDoc {
         rows: r.byTechnician.map((t) => [t.name, t.total, t.enviadas]),
         totals: true,
         vacio: 'Sin fichas en el período',
+      },
+    ],
+  };
+}
+
+export function buildPayrollDoc(r: PayrollReportShape): ExportDoc {
+  return {
+    title: 'Reporte de nómina',
+    filename: 'reporte-nomina',
+    filters: periodoFiltros(r.period),
+    tables: [
+      {
+        name: 'Resumen',
+        title: 'Resumen del período',
+        columns: [{ header: 'Concepto' }, { header: 'Cantidad', type: 'int' }, { header: 'Monto', type: 'money' }],
+        rows: [
+          ['Pagos realizados', r.summary.count, null],
+          ['Bruto', null, r.summary.gross],
+          ['Retenciones', null, r.summary.retention],
+          ['Descuentos', null, r.summary.deductions],
+          ['Neto entregado', null, r.summary.net],
+        ],
+      },
+      {
+        name: 'Por colaborador',
+        title: 'Nómina por colaborador',
+        columns: [
+          { header: 'Colaborador' },
+          { header: 'Pagos', type: 'int', total: true },
+          { header: 'Neto', type: 'money', total: true },
+        ],
+        rows: r.byCollaborator.map((c) => [c.collaborator, c.count, c.total]),
+        totals: true,
+        vacio: 'Sin pagos en el período',
+      },
+      {
+        name: 'Por proyecto',
+        title: 'Nómina por proyecto',
+        columns: [
+          { header: 'Proyecto' },
+          { header: 'Pagos', type: 'int', total: true },
+          { header: 'Bruto', type: 'money', total: true },
+        ],
+        rows: r.byProject.map((p) => [p.project, p.count, p.total]),
+        totals: true,
+        vacio: 'Sin proyectos en el período',
+      },
+      {
+        name: 'Por tipo de pago',
+        title: 'Nómina por tipo de pago',
+        columns: [
+          { header: 'Tipo' },
+          { header: 'Pagos', type: 'int', total: true },
+          { header: 'Neto', type: 'money', total: true },
+        ],
+        rows: r.byPaymentType.map((t) => [es(TIPO_PAGO_NOMINA_ES, t.paymentType), t.count, t.total]),
+        totals: true,
+        vacio: 'Sin pagos en el período',
       },
     ],
   };

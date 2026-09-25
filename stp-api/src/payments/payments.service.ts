@@ -24,8 +24,12 @@ import { auditLog } from '../common/audit-log';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
 import { PaymentStatus } from './entities/payment.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AppNotificationsService } from '../notifications/app-notifications.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
+import { money } from '../notifications/email-layout';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
+import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class PaymentsService {
@@ -43,6 +47,7 @@ export class PaymentsService {
     @InjectRepository(FileUpload)
     private readonly fileRepo: Repository<FileUpload>,
     private readonly notifications: NotificationsService,
+    private readonly appNotifications: AppNotificationsService,
     private readonly settingsService: SettingsService,
     private readonly access: AccessControlService,
   ) {}
@@ -80,6 +85,16 @@ export class PaymentsService {
     } catch (err) {
       this.logger.error(`Payment notification failed for ${payment.id}: ${(err as Error).message}`);
     }
+    // In-app (ERP-107): a todo admin/finanza, no a una persona puntual — son
+    // los únicos roles con acceso al módulo Pagos completo (ver
+    // module-permissions.ts; manager solo tiene 'view').
+    void this.appNotifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.FINANZA],
+      NotificationType.PAYMENT_RECEIVED,
+      `Pago recibido: ${money(payment.amount)}`,
+      payment.client?.name ? `${payment.client.name} — ${payment.description}` : payment.description,
+      `/dashboard/pagos`,
+    );
   }
 
   async findAll(query: QueryPaymentsDto, user?: AccessSubject) {

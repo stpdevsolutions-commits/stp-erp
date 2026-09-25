@@ -25,6 +25,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import type { Expense } from './entities/expense.entity';
 import {
@@ -47,13 +49,33 @@ const EXPENSE_CATEGORY_ES: Record<string, string> = {
   other: 'Otro',
 };
 
+/**
+ * Modulo 'gastos' (ERP-83/ERP-85): admin/manager/finanza = manage, user =
+ * ninguno -- antes crear un gasto no tenia @Roles en absoluto (cualquier
+ * autenticado con pertenencia al proyecto podia), la matriz lo cierra a
+ * proposito.
+ *
+ * ERP-108: Manager esta en UNRESTRICTED_ROLES (bypasa pertenencia) en el
+ * resto del sistema, pero aqui se le excluye a proposito via
+ * `restrictRoles: [MANAGER]` en cada @ScopedResource -- para Gastos debe
+ * comportarse como un USER: solo ve/crea/edita gastos de sus proyectos
+ * asignados (pertenencia via Accesos o campo Encargado), no de cualquiera.
+ * Admin sigue sin restriccion. Finanza ya pasaba por pertenencia desde
+ * antes (nunca estuvo en UNRESTRICTED_ROLES).
+ */
 @Controller('expenses')
-@UseGuards(JwtAuthGuard, ResourceAccessGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard, ModulePermissionGuard)
+@RequireModule('gastos', 'manage')
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
   @Post()
-  @ScopedResource({ kind: 'project', param: 'projectId', in: 'body' })
+  @ScopedResource({
+    kind: 'project',
+    param: 'projectId',
+    in: 'body',
+    restrictRoles: [UserRole.MANAGER],
+  })
   create(@Body() dto: CreateExpenseDto, @CurrentUser() user: AuthUser) {
     return this.expensesService.create(dto, user.id);
   }
@@ -127,13 +149,13 @@ export class ExpensesController {
   }
 
   @Get(':id')
-  @ScopedResource('expense')
+  @ScopedResource({ kind: 'expense', restrictRoles: [UserRole.MANAGER] })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.expensesService.findOne(id);
   }
 
   @Get(':id/pdf-file')
-  @ScopedResource('expense')
+  @ScopedResource({ kind: 'expense', restrictRoles: [UserRole.MANAGER] })
   async getPdfFile(@Param('id', ParseUUIDPipe) id: string) {
     const file = await this.expensesService.findPdfFile(id);
     if (!file) throw new NotFoundException('PDF no disponible todavía');
@@ -141,9 +163,7 @@ export class ExpensesController {
   }
 
   @Patch(':id')
-  @ScopedResource('expense')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @ScopedResource({ kind: 'expense', restrictRoles: [UserRole.MANAGER] })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateExpenseDto,

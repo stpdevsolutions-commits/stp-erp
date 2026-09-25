@@ -24,6 +24,8 @@ import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
 import { MembershipsService } from '../common/access/memberships.service';
 import { AddMemberDto } from '../common/access/dto/add-member.dto';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 interface AuthUser {
@@ -32,8 +34,18 @@ interface AuthUser {
   role: UserRole;
 }
 
+/**
+ * Modulo 'clientes' en la matriz de permisos (ERP-83/ERP-85): admin/manager
+ * = manage, finanza = view, user = view (acotado por ResourceAccessGuard,
+ * que sigue intacto -- este guard solo decide el modulo, no el registro).
+ *
+ * Los endpoints /:id/members (dar acceso a un usuario puntual) siguen
+ * ADMIN-only sin tocar: es la UI de "accesos" que ERP-86 va a eliminar,
+ * no forma parte de esta migracion.
+ */
 @Controller('clients')
-@UseGuards(JwtAuthGuard, ResourceAccessGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard, ModulePermissionGuard)
+@RequireModule('clientes', 'view')
 export class ClientsController {
   constructor(
     private readonly clientsService: ClientsService,
@@ -72,8 +84,7 @@ export class ClientsController {
   }
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('clientes', 'manage')
   create(@Body() dto: CreateClientDto) {
     return this.clientsService.create(dto);
   }
@@ -91,8 +102,7 @@ export class ClientsController {
 
   @Patch(':id')
   @ScopedResource('client')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('clientes', 'manage')
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateClientDto) {
     return this.clientsService.update(id, dto);
   }

@@ -17,16 +17,19 @@ import { UpdateMaterialCategoryDto } from './dto/update-material-category.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
+/** Modulo 'costos' (ERP-83/ERP-85): admin/manager = manage, finanza = view, user = ninguno. */
 @Controller('costs/material-categories')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ModulePermissionGuard)
+@RequireModule('costos', 'view')
 export class MaterialCategoriesController {
   constructor(private readonly categoriesService: MaterialCategoriesService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   create(@Body() dto: CreateMaterialCategoryDto) {
     return this.categoriesService.create(dto);
   }
@@ -42,8 +45,7 @@ export class MaterialCategoriesController {
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('costos', 'manage')
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateMaterialCategoryDto) {
     return this.categoriesService.update(id, dto);
   }

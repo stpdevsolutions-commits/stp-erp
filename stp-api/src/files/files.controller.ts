@@ -36,17 +36,29 @@ import {
   FILE_UPLOAD_BODY,
 } from './files.utils';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
+/**
+ * Modulo 'archivos' (ERP-83/ERP-85): admin/manager = manage, finanza = view,
+ * user = "Ver/Subir" (acotado por pertenencia via ScopedResource).
+ *
+ * ERP-109 (resuelto): los endpoints de subida piden 'contribute', no
+ * 'manage' -- 'user' tiene 'contribute' en la matriz (ve + sube, sin poder
+ * borrar lo de otros) y 'finanza' se queda en 'view' (sigue sin poder
+ * subir). Solo el borrado (@Delete) sigue pidiendo 'manage': con
+ * 'contribute' unicamente, 'user' hubiera podido subir Y borrar cualquier
+ * archivo de su alcance, que la matriz nunca quiso darle.
+ */
 @ApiTags('files')
 @ApiBearerAuth()
 @Controller('files')
-@UseGuards(JwtAuthGuard, ResourceAccessGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard, ModulePermissionGuard)
+@RequireModule('archivos', 'view')
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 
@@ -72,8 +84,7 @@ export class FilesController {
 
   @Post('clients/:clientId/profile')
   @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('archivos', 'contribute')
   @UseInterceptors(FileInterceptor('file', clientProfileOpts))
   @ApiOperation({ summary: 'Subir imagen de perfil del cliente' })
   @ApiConsumes('multipart/form-data')
@@ -101,8 +112,7 @@ export class FilesController {
 
   @Post('clients/:clientId/documents')
   @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('archivos', 'contribute')
   @UseInterceptors(FileInterceptor('file', clientDocumentsOpts))
   @ApiOperation({ summary: 'Subir documento al cliente' })
   @ApiConsumes('multipart/form-data')
@@ -129,8 +139,7 @@ export class FilesController {
 
   @Post('clients/:clientId/quotes')
   @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('archivos', 'contribute')
   @UseInterceptors(FileInterceptor('file', clientQuotesOpts))
   @ApiOperation({ summary: 'Subir documento de cotización del cliente' })
   @ApiConsumes('multipart/form-data')
@@ -148,8 +157,7 @@ export class FilesController {
 
   @Post('clients/:clientId/projects/:projectId/photos')
   @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('archivos', 'contribute')
   @UseInterceptors(FileInterceptor('file', projectPhotosOpts))
   @ApiOperation({ summary: 'Subir foto al proyecto' })
   @ApiConsumes('multipart/form-data')
@@ -168,8 +176,7 @@ export class FilesController {
 
   @Post('clients/:clientId/projects/:projectId/documents')
   @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('archivos', 'contribute')
   @UseInterceptors(FileInterceptor('file', projectDocumentsOpts))
   @ApiOperation({ summary: 'Subir documento al proyecto' })
   @ApiConsumes('multipart/form-data')
@@ -188,8 +195,7 @@ export class FilesController {
 
   @Post('clients/:clientId/projects/:projectId/expenses')
   @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('archivos', 'contribute')
   @UseInterceptors(FileInterceptor('file', projectExpensesOpts))
   @ApiOperation({ summary: 'Subir comprobante de gasto al proyecto' })
   @ApiConsumes('multipart/form-data')
@@ -208,8 +214,7 @@ export class FilesController {
 
   @Post('clients/:clientId/projects/:projectId/quotes')
   @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('archivos', 'contribute')
   @UseInterceptors(FileInterceptor('file', projectQuotesOpts))
   @ApiOperation({ summary: 'Subir archivo de cotización al proyecto' })
   @ApiConsumes('multipart/form-data')
@@ -228,8 +233,7 @@ export class FilesController {
 
   @Post('clients/:clientId/payments')
   @ScopedResource({ kind: 'client', param: 'clientId', strict: true })
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('archivos', 'contribute')
   @UseInterceptors(FileInterceptor('file', clientPaymentsOpts))
   @ApiOperation({ summary: 'Subir comprobante de pago del cliente' })
   @ApiConsumes('multipart/form-data')
@@ -247,8 +251,7 @@ export class FilesController {
 
   @Post('clients/:clientId/projects/:projectId/payments')
   @ScopedResource({ kind: 'client', param: 'clientId' }, { kind: 'project', param: 'projectId' })
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('archivos', 'contribute')
   @UseInterceptors(FileInterceptor('file', projectPaymentsOpts))
   @ApiOperation({ summary: 'Subir comprobante de pago del proyecto' })
   @ApiConsumes('multipart/form-data')
@@ -318,8 +321,7 @@ export class FilesController {
 
   @Delete(':id')
   @ScopedResource('file')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('archivos', 'manage')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Eliminar un archivo' })
   remove(@Param('id', ParseUUIDPipe) id: string) {

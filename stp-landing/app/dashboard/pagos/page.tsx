@@ -59,6 +59,7 @@ export default async function PagosPage({
   if (method) query.set('method', method)
   if (dateFrom) query.set('dateFrom', dateFrom)
   if (dateTo) query.set('dateTo', dateTo)
+  if (sp.clientId) query.set('clientId', sp.clientId)
 
   let pagosRes: PaginatedResponse<Payment> = { data: [], total: 0, page: 1, limit: LIMIT }
   let clients: Client[] = []
@@ -134,7 +135,7 @@ export default async function PagosPage({
         </Card>
       </div>
 
-      <FiltrosPagos />
+      <FiltrosPagos clients={clients} />
 
       {error ? (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">{error}</div>

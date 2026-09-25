@@ -2,6 +2,7 @@ import { api, pageError } from '@/lib/api'
 import type {
   AuthUser,
   Collaborator,
+  CollaboratorLoan,
   PaginatedResponse,
   PayrollEntry,
   PayrollSummary,
@@ -21,6 +22,20 @@ import { Paginacion } from '@/components/ui/paginacion'
 import { FiltrosNomina } from '@/components/nomina/filtros-nomina'
 import { NuevoPagoNominaDialog } from '@/components/nomina/nuevo-pago-nomina-dialog'
 import { PagoNominaActions } from '@/components/nomina/pago-nomina-actions'
+import { NuevoPrestamoDialog } from '@/components/nomina/nuevo-prestamo-dialog'
+import { PrestamoActions } from '@/components/nomina/prestamo-actions'
+
+const LOAN_STATUS_LABELS: Record<CollaboratorLoan['status'], string> = {
+  active: 'Activo',
+  paid: 'Saldado',
+  cancelled: 'Anulado',
+}
+
+const LOAN_STATUS_BADGE: Record<CollaboratorLoan['status'], string> = {
+  active: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  paid: 'bg-green-600/10 text-green-700 dark:text-green-400',
+  cancelled: 'bg-muted text-muted-foreground',
+}
 
 const STATUS_LABELS: Record<PayrollEntry['status'], string> = {
   pending: 'Pendiente',
@@ -79,11 +94,12 @@ export default async function NominaPage({
   let summary: PayrollSummary | null = null
   let collaborators: Collaborator[] = []
   let projects: Project[] = []
+  let loans: CollaboratorLoan[] = []
   let isAdmin = false
   let error: string | null = null
 
   try {
-    const [res, sum, colabRes, proyRes, me] = await Promise.all([
+    const [res, sum, colabRes, proyRes, me, loansRes] = await Promise.all([
       api.get<PaginatedResponse<PayrollEntry>>(`/payroll?${query}`),
       api.get<PayrollSummary>('/payroll/summary'),
       api.get<PaginatedResponse<Collaborator>>('/collaborators?limit=200'),
@@ -91,12 +107,14 @@ export default async function NominaPage({
       // Solo ADMIN puede borrar (DELETE /payroll/:id): sin esto el menú ofrecería
       // una acción que la API rechaza.
       api.get<Pick<AuthUser, 'role'>>('/users/me').catch(() => ({ role: 'user' as const })),
+      api.get<PaginatedResponse<CollaboratorLoan>>('/payroll/loans?limit=50'),
     ])
     pagosRes = res
     summary = sum
     collaborators = colabRes.data
     projects = proyRes.data
     isAdmin = me.role === 'admin'
+    loans = loansRes.data
   } catch (e) {
     error = pageError(e, 'Error al cargar la nómina')
   }
@@ -229,6 +247,11 @@ export default async function NominaPage({
                             bruto {DOP.format(p.grossAmount)}
                           </div>
                         )}
+                        {!!p.loanDeductionAmount && (
+                          <div className="text-xs text-muted-foreground">
+                            incl. cuota préstamo {DOP.format(p.loanDeductionAmount)}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge className={STATUS_BADGE[p.status]}>{STATUS_LABELS[p.status]}</Badge>
@@ -262,6 +285,60 @@ export default async function NominaPage({
           <Paginacion total={pagosRes.total} page={page} limit={LIMIT} />
         </>
       )}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">Préstamos a colaboradores</CardTitle>
+            <p className="text-muted-foreground text-sm">
+              La cuota se descuenta automáticamente en cada pago de nómina del colaborador
+            </p>
+          </div>
+          <NuevoPrestamoDialog collaborators={collaborators} />
+        </CardHeader>
+        <CardContent className="p-0">
+          {loans.length === 0 ? (
+            <p className="text-muted-foreground text-sm px-6 py-8 text-center">
+              No hay préstamos registrados.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Colaborador</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead className="text-right">Cuota</TableHead>
+                  <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Notas</TableHead>
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loans.map((loan) => (
+                  <TableRow key={loan.id}>
+                    <TableCell className="font-medium">
+                      {loan.collaborator
+                        ? `${loan.collaborator.code} — ${loan.collaborator.firstName} ${loan.collaborator.lastName}`
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm">{DOP.format(loan.amount)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{DOP.format(loan.installmentAmount)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{DOP.format(loan.balance)}</TableCell>
+                    <TableCell>
+                      <Badge className={LOAN_STATUS_BADGE[loan.status]}>{LOAN_STATUS_LABELS[loan.status]}</Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{loan.notes ?? '—'}</TableCell>
+                    <TableCell>
+                      <PrestamoActions loan={loan} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

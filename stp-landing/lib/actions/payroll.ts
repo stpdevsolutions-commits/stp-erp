@@ -103,3 +103,52 @@ function clean(input: PayrollInput | Partial<PayrollInput>): Record<string, unkn
     Object.entries(input).filter(([, v]) => v !== undefined && v !== ''),
   )
 }
+
+// ── Préstamos a colaboradores (ERP-91) ─────────────────────────────────────────
+
+export interface CollaboratorLoanInput {
+  collaboratorId: string
+  amount: number
+  installmentAmount: number
+  notes?: string
+}
+
+function revalidateLoans() {
+  revalidatePath('/dashboard/nomina')
+}
+
+export async function createCollaboratorLoan(input: CollaboratorLoanInput): Promise<ActionResult> {
+  try {
+    const res = await authFetch('/payroll/loans', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return { ok: false, error: apiError(err, 'Error al registrar el préstamo') }
+    }
+    revalidateLoans()
+    return { ok: true }
+  } catch (err) {
+    if (isRedirectError(err)) throw err
+    return { ok: false, error: 'Error de conexión' }
+  }
+}
+
+export async function cancelCollaboratorLoan(id: string): Promise<ActionResult> {
+  try {
+    const res = await authFetch(`/payroll/loans/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'cancelled' }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return { ok: false, error: apiError(err, 'Error al anular el préstamo') }
+    }
+    revalidateLoans()
+    return { ok: true }
+  } catch (err) {
+    if (isRedirectError(err)) throw err
+    return { ok: false, error: 'Error de conexión' }
+  }
+}

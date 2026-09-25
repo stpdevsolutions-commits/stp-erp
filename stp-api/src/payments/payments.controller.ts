@@ -25,6 +25,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import type { Payment } from './entities/payment.entity';
 import {
@@ -53,14 +55,20 @@ const PAYMENT_STATUS_ES: Record<string, string> = {
   refunded: 'Reembolsado',
 };
 
+/**
+ * Modulo 'pagos' (ERP-83/ERP-85): admin/finanza = manage, manager = view
+ * (CAMBIO real de comportamiento: antes manager podia crear/editar pagos via
+ * @Roles(MANAGER); la matriz lo baja a solo lectura y le da la gestion a
+ * Finanza), user = ninguno.
+ */
 @Controller('payments')
-@UseGuards(JwtAuthGuard, ResourceAccessGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard, ModulePermissionGuard)
+@RequireModule('pagos', 'view')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('pagos', 'manage')
   create(@Body() dto: CreatePaymentDto, @CurrentUser() user: AuthUser) {
     return this.paymentsService.create(dto, user.id);
   }
@@ -154,8 +162,7 @@ export class PaymentsController {
 
   @Patch(':id')
   @ScopedResource('payment')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.MANAGER)
+  @RequireModule('pagos', 'manage')
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePaymentDto,

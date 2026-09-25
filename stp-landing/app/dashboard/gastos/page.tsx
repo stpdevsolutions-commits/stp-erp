@@ -1,6 +1,6 @@
 ﻿﻿import Link from 'next/link'
 import { api, pageError } from '@/lib/api'
-import type { Expense, Project, Supplier, PaginatedResponse, Material, User } from '@/lib/types'
+import type { Expense, Project, Client, Supplier, PaginatedResponse, Material, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -41,9 +41,12 @@ export default async function GastosPage({
   if (sp.category) q.set('category', sp.category)
   if (sp.dateFrom) q.set('dateFrom', sp.dateFrom)
   if (sp.dateTo) q.set('dateTo', sp.dateTo)
+  if (sp.clientId) q.set('clientId', sp.clientId)
+  if (sp.projectId) q.set('projectId', sp.projectId)
 
   let gastosRes: PaginatedResponse<Expense> = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
+  let clients: Client[] = []
   let suppliers: Supplier[] = []
   let materials: Material[] = []
   let error: string | null = null
@@ -54,9 +57,10 @@ export default async function GastosPage({
   if (sp.category) summaryQuery.set('category', sp.category)
 
   try {
-    const [gr, proyRes, provRes, me, esteMes] = await Promise.all([
+    const [gr, proyRes, clientesRes, provRes, me, esteMes] = await Promise.all([
       api.get<PaginatedResponse<Expense>>(`/expenses?${q.toString()}`),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
+      api.get<PaginatedResponse<Client>>('/clients?limit=200'),
       api.get<PaginatedResponse<Supplier>>('/suppliers?limit=200&isActive=true'),
       api.get<Pick<User, 'role'>>('/users/me'),
       // Total real del mes calendario, no solo de la página actual (ver ExpensesController.summary).
@@ -64,6 +68,7 @@ export default async function GastosPage({
     ])
     gastosRes = gr
     projects = proyRes.data
+    clients = clientesRes.data
     suppliers = provRes.data
     userRole = me.role
     totalEsteMes = esteMes
@@ -120,7 +125,7 @@ export default async function GastosPage({
         </Card>
       </div>
 
-      <FiltrosGastos />
+      <FiltrosGastos clients={clients} projects={projects} />
 
       {error ? (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">{error}</div>
@@ -150,7 +155,9 @@ export default async function GastosPage({
                   gastos.map((g) => (
                     <TableRow key={g.id}>
                       <TableCell className="font-medium">
-                        {g.description}
+                        <Link href={`/dashboard/gastos/${g.id}`} className="hover:underline">
+                          {g.description}
+                        </Link>
                         {g.quantity != null && g.unitPrice != null && (
                           <span className="text-muted-foreground block text-xs font-normal">
                             {g.quantity} {g.unit?.code ?? ''} × {DOP.format(g.unitPrice)}

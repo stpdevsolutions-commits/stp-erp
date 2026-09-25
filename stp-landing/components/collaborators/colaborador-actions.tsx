@@ -32,6 +32,12 @@ import {
 import { updateColaborador, deleteColaborador } from '@/lib/actions/colaboradores'
 import type { Collaborator } from '@/lib/types'
 
+const TYPE_LABELS: Record<Collaborator['type'], string> = {
+  fixed: 'Fijo',
+  contractor: 'Contratista',
+  temporary: 'Temporero',
+}
+
 const schema = z.object({
   firstName: z.string().min(1, 'Requerido'),
   lastName: z.string().min(1, 'Requerido'),
@@ -115,6 +121,10 @@ export function ColaboradorActions({ colaborador }: { colaborador: Collaborator 
           <DialogHeader><DialogTitle>Editar colaborador</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="col-span-full flex gap-4 text-sm text-muted-foreground">
+                <span>Código: <span className="font-mono text-foreground">{colaborador.code}</span></span>
+                <span>Tipo: <span className="text-foreground">{TYPE_LABELS[colaborador.type]}</span></span>
+              </div>
               <div className="space-y-1.5">
                 <Label>Nombre <span className="text-destructive">*</span></Label>
                 <Input {...register('firstName')} />

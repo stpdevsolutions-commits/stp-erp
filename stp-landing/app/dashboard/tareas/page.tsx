@@ -1,5 +1,6 @@
-﻿﻿import { api, pageError } from '@/lib/api'
-import type { Collaborator, Project, Task, User, PaginatedResponse } from '@/lib/types'
+﻿﻿import Link from 'next/link'
+import { api, pageError } from '@/lib/api'
+import type { Client, Collaborator, Project, Task, User, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -60,9 +61,12 @@ export default async function TareasPage({
   if (sp.search) q.set('search', sp.search)
   if (sp.status) q.set('status', sp.status)
   if (sp.priority) q.set('priority', sp.priority)
+  if (sp.clientId) q.set('clientId', sp.clientId)
+  if (sp.projectId) q.set('projectId', sp.projectId)
 
   let tareasRes: PaginatedResponse<Task> = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
+  let clients: Client[] = []
   let collaborators: Collaborator[] = []
   let users: User[] = []
   let error: string | null = null
@@ -73,9 +77,10 @@ export default async function TareasPage({
     // Una tarea se asigna a un colaborador (personal de campo) o a un usuario del
     // sistema. `/users` es ADMIN-only: para MANAGER y USER devuelve 403, así que va
     // con su propio catch — antes tumbaba la carga entera de la página.
-    const [tr, proyRes, colabRes, usersRes] = await Promise.all([
+    const [tr, proyRes, clientesRes, colabRes, usersRes] = await Promise.all([
       api.get<PaginatedResponse<Task>>(`/tasks?${q.toString()}`),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
+      api.get<PaginatedResponse<Client>>('/clients?limit=200'),
       api
         .get<PaginatedResponse<Collaborator>>('/collaborators?limit=200&status=active')
         .catch(() => empty as PaginatedResponse<Collaborator>),
@@ -85,6 +90,7 @@ export default async function TareasPage({
     ])
     tareasRes = tr
     projects = proyRes.data
+    clients = clientesRes.data
     collaborators = colabRes.data
     users = usersRes.data
   } catch (e) {
@@ -136,7 +142,7 @@ export default async function TareasPage({
         </Card>
       </div>
 
-      <FiltrosTareas />
+      <FiltrosTareas clients={clients} projects={projects} />
 
       {error ? (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">{error}</div>
@@ -165,14 +171,21 @@ export default async function TareasPage({
                 ) : (
                   tareas.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell className="font-medium">
-                        <div>{t.title}</div>
+                      <TableCell className="font-medium max-w-[220px]">
+                        <Link href={`/dashboard/tareas/${t.id}`} className="hover:underline block truncate" title={t.title}>
+                          {t.title}
+                        </Link>
                         {t.description && (
                           <div className="text-xs text-muted-foreground line-clamp-1">{t.description}</div>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {t.project ? `${t.project.code} — ${t.project.name}` : '—'}
+                      <TableCell className="text-sm text-muted-foreground max-w-[160px]">
+                        {t.project ? (
+                          <div title={`${t.project.code} — ${t.project.name}`}>
+                            <div className="truncate">{t.project.name}</div>
+                            <div className="text-xs font-mono">{t.project.code}</div>
+                          </div>
+                        ) : '—'}
                       </TableCell>
                       <TableCell>
                         <Badge variant={PRIORITY_VARIANTS[t.priority]}>{PRIORITY_LABELS[t.priority]}</Badge>

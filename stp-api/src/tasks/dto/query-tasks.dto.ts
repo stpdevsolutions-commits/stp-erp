@@ -18,6 +18,10 @@ export class QueryTasksDto {
 
   @IsOptional()
   @IsUUID()
+  clientId?: string;
+
+  @IsOptional()
+  @IsUUID()
   projectId?: string;
 
   @IsOptional()
