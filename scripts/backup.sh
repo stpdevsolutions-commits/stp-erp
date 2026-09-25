@@ -36,6 +36,9 @@ LOG_PREFIX="[backup $DATE]"
 LOCAL_RETENTION_DAYS=14
 REMOTE_RETENTION_DAYS=30
 RCLONE_OPTS=(--retries 5 --retries-sleep 30s --low-level-retries 20 --tpslimit 4 --log-level INFO)
+# --fast-list: lista Drive entero en pocas llamadas en vez de una por carpeta
+# (con --tpslimit 4, Nextcloud tardaba 11 min solo en comparar).
+RCLONE_SYNC=(--fast-list)
 # De día (8:00–23:00) la subida se limita para no ahogar el internet de la casa.
 RCLONE_BW=(--bwlimit "08:00,3M 23:00,off")
 IMMICH_LOCK=/tmp/backup-immich.lock
@@ -198,7 +201,7 @@ step "subida del snapshot a Drive" \
 sync_seguro() {
   local origen="$1" destino="$2"; shift 2
   rclone_retry sync "$origen" "$RCLONE_REMOTE/$destino/" \
-    --backup-dir "$RCLONE_REMOTE/_eliminados/$DATE/$destino" "${RCLONE_BW[@]}" "$@"
+    --backup-dir "$RCLONE_REMOTE/_eliminados/$DATE/$destino" "${RCLONE_BW[@]}" "${RCLONE_SYNC[@]}" "$@"
 }
 log "Sync incremental de archivos..."
 step "sync de nextcloud"   sync_seguro /storage/nextcloud   nextcloud
@@ -214,7 +217,7 @@ immich_sync() {
   fi
   rclone_retry sync /storage/immich "$RCLONE_REMOTE/immich/" \
     --exclude 'thumbs/**' --exclude 'encoded-video/**' \
-    --backup-dir "$RCLONE_REMOTE/_eliminados/$DATE/immich" "${RCLONE_BW[@]}" --transfers 4
+    --backup-dir "$RCLONE_REMOTE/_eliminados/$DATE/immich" "${RCLONE_BW[@]}" "${RCLONE_SYNC[@]}" --transfers 4
   local rc=$?
   flock -u 9
   return $rc
