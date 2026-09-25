@@ -9,6 +9,7 @@ import {
   rematchPriceImport,
   retryPriceImport,
 } from '@/lib/actions/price-imports'
+import { esErrorDeVersion, MENSAJE_VERSION } from '@/components/version-guard'
 
 /** Acciones sobre el lote entero: volver a leer, volver a emparejar, eliminar. */
 export function LoteAcciones({
@@ -30,7 +31,10 @@ export function LoteAcciones({
   async function run(kind: string, fn: () => Promise<{ ok: boolean; error?: string }>, ok: string) {
     setBusy(kind)
     setMsg(null)
-    const r = await fn()
+    const r = await fn().catch((err: unknown) => ({
+      ok: false,
+      error: esErrorDeVersion(err) ? MENSAJE_VERSION : 'Error de conexión',
+    }))
     setBusy(null)
     setMsg(r.ok ? ok : (r.error ?? 'No se pudo completar'))
     startTransition(() => router.refresh())
@@ -57,7 +61,11 @@ export function LoteAcciones({
           onClick={async () => {
             setBusy('rematch')
             setMsg(null)
-            const r = await rematchPriceImport(importId)
+            const r = await rematchPriceImport(importId).catch((err: unknown) => ({
+              ok: false,
+              assigned: 0,
+              error: esErrorDeVersion(err) ? MENSAJE_VERSION : 'Error de conexión',
+            }))
             setBusy(null)
             setMsg(
               r.ok

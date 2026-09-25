@@ -28,6 +28,7 @@ import type {
 import { LINE_STATUS } from './import-labels'
 import { CrearMaterialLineaDialog } from './crear-material-linea-dialog'
 import { CrearMaterialesFaltantesDialog } from './crear-materiales-faltantes-dialog'
+import { esErrorDeVersion, MENSAJE_VERSION } from '@/components/version-guard'
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 
@@ -101,7 +102,10 @@ export function RevisionLineas({
   async function guardarLinea(lineId: string, input: PriceImportLineUpdate) {
     setBusyLine(lineId)
     setError(null)
-    const result = await updatePriceImportLine(importId, lineId, input)
+    const result = await updatePriceImportLine(importId, lineId, input).catch((err: unknown) => ({
+      ok: false,
+      error: esErrorDeVersion(err) ? MENSAJE_VERSION : 'Error de conexión',
+    }))
     setBusyLine(null)
     if (!result.ok) {
       setError(result.error ?? 'No se pudo guardar')
@@ -122,7 +126,11 @@ export function RevisionLineas({
     if (selected.size === 0) return
     setError(null)
     setResumen(null)
-    const result = await approvePriceImport(importId, [...selected])
+    const result = await approvePriceImport(importId, [...selected]).catch((err: unknown) => ({
+      ok: false as const,
+      error: esErrorDeVersion(err) ? MENSAJE_VERSION : 'Error de conexión',
+      result: undefined,
+    }))
     if (!result.ok) {
       setError(result.error ?? 'No se pudo aprobar')
       return

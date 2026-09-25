@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select'
 import { createMaterialFromLine } from '@/lib/actions/price-imports'
 import type { MaterialCategory, PriceImportLine, Unit } from '@/lib/types'
+import { esErrorDeVersion, MENSAJE_VERSION } from '@/components/version-guard'
 
 /** Siglas que se escriben en mayúscula ("Tubo PVC", no "Tubo Pvc"). */
 const SIGLAS = new Set(['pvc', 'emt', 'thhn', 'thw', 'sdr', 'led', 'gfci', 'upvc', 'cpvc', 'ul', 'awg'])
@@ -99,6 +100,7 @@ export function CrearMaterialLineaDialog({
     if (o) {
       setName(nombreSugerido(line.rawDescription))
       setUnitId(unidadSugerida(line, units))
+      setCategoryId(line.suggestedCategoryId ?? '')
       setError(null)
     }
   }
@@ -110,11 +112,16 @@ export function CrearMaterialLineaDialog({
     }
     setSaving(true)
     setError(null)
-    const r = await createMaterialFromLine(importId, line.id, {
-      name: name.trim(),
-      unitId,
-      ...(categoryId ? { categoryId } : {}),
-    })
+    let r: { ok: boolean; error?: string }
+    try {
+      r = await createMaterialFromLine(importId, line.id, {
+        name: name.trim(),
+        unitId,
+        ...(categoryId ? { categoryId } : {}),
+      })
+    } catch (err) {
+      r = { ok: false, error: esErrorDeVersion(err) ? MENSAJE_VERSION : 'Error de conexión' }
+    }
     setSaving(false)
     if (!r.ok) {
       setError(r.error ?? 'No se pudo crear')

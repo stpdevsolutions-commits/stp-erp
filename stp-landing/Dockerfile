@@ -13,7 +13,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Baked at build time so server components can reach the API inside Docker
 ARG NEXT_PUBLIC_API_URL=http://stp-api:3001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-RUN npm run build
+# Id de esta compilación para next.config (deploymentId): la fecha basta, cada
+# build nueva la cambia y una capa cacheada conserva la de su build.
+RUN DEPLOYMENT_VERSION=$(date +%Y%m%d%H%M%S) npm run build
 
 # Stage 3: Run
 FROM node:20-alpine AS runner

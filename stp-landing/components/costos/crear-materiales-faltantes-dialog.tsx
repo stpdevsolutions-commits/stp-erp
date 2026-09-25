@@ -24,6 +24,7 @@ import {
 import { createMaterialsFromLines } from '@/lib/actions/price-imports'
 import type { MaterialCategory, PriceImportLine, Unit } from '@/lib/types'
 import { nombreSugerido, unidadSugerida } from './crear-material-linea-dialog'
+import { esErrorDeVersion, MENSAJE_VERSION } from '@/components/version-guard'
 
 interface Fila {
   lineId: string
@@ -31,6 +32,7 @@ interface Fila {
   precio: string
   name: string
   unitId: string
+  categoryId: string
   marcada: boolean
   /** Tiene un material parecido en el catálogo: puede que NO haga falta crearlo. */
   parecido: string | null
@@ -57,7 +59,6 @@ export function CrearMaterialesFaltantesDialog({
 }) {
   const [open, setOpen] = useState(false)
   const [filas, setFilas] = useState<Fila[]>([])
-  const [categoryId, setCategoryId] = useState('')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -74,6 +75,7 @@ export function CrearMaterialesFaltantesDialog({
           precio: l.price.toLocaleString('es-DO', { minimumFractionDigits: 2 }),
           name: nombreSugerido(l.rawDescription),
           unitId: unidadSugerida(l, units),
+          categoryId: l.suggestedCategoryId ?? '',
           // Si ya hay algo parecido en el catálogo, por defecto NO se crea: mejor
           // aceptar la sugerencia que duplicar el material.
           marcada: !parecido,
@@ -96,15 +98,20 @@ export function CrearMaterialesFaltantesDialog({
     }
     setSaving(true)
     setMsg(null)
-    const r = await createMaterialsFromLines(
-      importId,
-      marcadas.map((f) => ({
-        lineId: f.lineId,
-        name: f.name.trim(),
-        unitId: f.unitId,
-        ...(categoryId ? { categoryId } : {}),
-      })),
-    )
+    let r: Awaited<ReturnType<typeof createMaterialsFromLines>>
+    try {
+      r = await createMaterialsFromLines(
+        importId,
+        marcadas.map((f) => ({
+          lineId: f.lineId,
+          name: f.name.trim(),
+          unitId: f.unitId,
+          ...(f.categoryId ? { categoryId: f.categoryId } : {}),
+        })),
+      )
+    } catch (err) {
+      r = { ok: false, error: esErrorDeVersion(err) ? MENSAJE_VERSION : 'Error de conexión' }
+    }
     setSaving(false)
     if (!r.ok) {
       setMsg(r.error ?? 'No se pudieron crear')
@@ -141,10 +148,18 @@ export function CrearMaterialesFaltantesDialog({
         </DialogHeader>
 
         <div className="space-y-1.5">
-          <Label>Categoría para todos (opcional)</Label>
-          <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? '')}>
+          <Label>Categoría</Label>
+          <p className="text-muted-foreground text-xs">
+            Cada renglón trae la categoría que detectó el sistema (por el material parecido del
+            catálogo o por palabras como &quot;tornillo&quot;, &quot;plancha&quot;, &quot;breaker&quot;).
+            Corrígela en el renglón, o cámbiala para todos los marcados a la vez:
+          </p>
+          <Select
+            value=""
+            onValueChange={(v) => v && setFilas((prev) => prev.map((f) => (f.marcada ? { ...f, categoryId: v } : f)))}
+          >
             <SelectTrigger className="sm:w-72">
-              <SelectValue placeholder="Sin categoría" />
+              <SelectValue placeholder="Poner a todos los marcados…" />
             </SelectTrigger>
             <SelectContent>
               {categories.map((c) => (
@@ -178,13 +193,29 @@ export function CrearMaterialesFaltantesDialog({
                     className="h-8 text-sm"
                   />
                   <Select value={f.unitId} onValueChange={(v) => v && cambiar(i, { unitId: v })} disabled={!f.marcada}>
-                    <SelectTrigger className="h-8 sm:w-40">
+                    <SelectTrigger className="h-8 sm:w-36">
                       <SelectValue placeholder="Unidad" />
                     </SelectTrigger>
                     <SelectContent>
                       {units.map((u) => (
                         <SelectItem key={u.id} value={u.id}>
                           {u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={f.categoryId}
+                    onValueChange={(v) => cambiar(i, { categoryId: v ?? '' })}
+                    disabled={!f.marcada}
+                  >
+                    <SelectTrigger className="h-8 sm:w-48">
+                      <SelectValue placeholder="Sin categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -681,6 +681,11 @@ export interface PriceImportLine {
    * viene en renglones pendientes sin material; la API los calcula al leer.
    */
   suggestions?: PriceImportSuggestion[]
+  /**
+   * Categoría probable si hay que crear el material: la del material más
+   * parecido del catálogo o la de las reglas por palabra clave.
+   */
+  suggestedCategoryId?: string | null
 }
 
 export interface PriceImportSuggestion {

@@ -198,8 +198,19 @@ export class MaterialsService {
     return this.materialsRepository.find({
       where: { isActive: true },
       relations: { unit: true },
-      select: { id: true, code: true, name: true, unit: { id: true, code: true, name: true } },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        categoryId: true,
+        unit: { id: true, code: true, name: true },
+      },
     });
+  }
+
+  /** Categorías activas (id y código), para sugerir la de un renglón de cotización. */
+  async findActiveCategories(): Promise<MaterialCategory[]> {
+    return this.categoriesRepository.find({ where: { isActive: true }, select: { id: true, code: true, name: true } });
   }
 
   /**

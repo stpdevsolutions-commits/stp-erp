@@ -26,6 +26,7 @@ import { CleanExtractedLine } from './price-extraction';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { CreateLineMaterialsDto } from './dto/create-line-materials.dto';
 import { asignacionSegura, rankear } from './material-match';
+import { categoriaPorReglas } from './category-rules';
 
 /** Sugerencia de material para un renglón sin asignar (no se guarda: se calcula al leer). */
 export interface SugerenciaMaterial {
@@ -35,6 +36,15 @@ export interface SugerenciaMaterial {
   unit: string | null;
   score: number;
 }
+
+type LineaConSugerencias = PriceImportLine & {
+  suggestions?: SugerenciaMaterial[];
+  /**
+   * Categoría probable para crear el material si no existe: la del material del
+   * catálogo más parecido o, si no hay ninguno, la de las reglas por palabra clave.
+   */
+  suggestedCategoryId?: string | null;
+};
 
 /** Carpeta de los PDF de importación, relativa a la raíz de subidas. */
 const IMPORTS_DIR = join('costs', 'imports');
@@ -159,7 +169,7 @@ export class PriceImportsService {
     return { data, total, page, limit };
   }
 
-  async findOne(id: string): Promise<PriceImport & { lines: (PriceImportLine & { suggestions?: SugerenciaMaterial[] })[] }> {
+  async findOne(id: string): Promise<PriceImport & { lines: LineaConSugerencias[] }> {
     const record = await this.importsRepository.findOne({
       where: { id },
       relations: {
@@ -177,23 +187,26 @@ export class PriceImportsService {
       (l) => l.status === PriceImportLineStatus.PENDING && !l.materialId,
     );
     if (sinMaterial.length > 0) {
-      const catalogo = await this.materialsService.findAllForMatching();
-      for (const line of sinMaterial) {
-        (line as PriceImportLine & { suggestions?: SugerenciaMaterial[] }).suggestions = rankear(
-          line.rawDescription,
-          catalogo,
-        )
-          .slice(0, 3)
-          .map((c) => ({
-            id: c.item.id,
-            code: c.item.code,
-            name: c.item.name,
-            unit: c.item.unit?.name ?? null,
-            score: c.score,
-          }));
+      const [catalogo, categorias] = await Promise.all([
+        this.materialsService.findAllForMatching(),
+        this.materialsService.findActiveCategories(),
+      ]);
+      for (const line of sinMaterial as LineaConSugerencias[]) {
+        const ranking = rankear(line.rawDescription, catalogo);
+        line.suggestions = ranking.slice(0, 3).map((c) => ({
+          id: c.item.id,
+          code: c.item.code,
+          name: c.item.name,
+          unit: c.item.unit?.name ?? null,
+          score: c.score,
+        }));
+        line.suggestedCategoryId =
+          ranking.find((c) => c.item.categoryId)?.item.categoryId ??
+          categoriaPorReglas(line.rawDescription, categorias)?.id ??
+          null;
       }
     }
-    return record as PriceImport & { lines: (PriceImportLine & { suggestions?: SugerenciaMaterial[] })[] };
+    return record as PriceImport & { lines: LineaConSugerencias[] };
   }
 
   /**
