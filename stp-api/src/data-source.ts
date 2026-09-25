@@ -28,6 +28,8 @@ import { PayrollEntry } from './payroll/entities/payroll-entry.entity';
 import { CollaboratorLoan } from './payroll/entities/collaborator-loan.entity';
 import { Notification } from './notifications/entities/notification.entity';
 import { ProjectReport } from './reports/entities/project-report.entity';
+import { MaterialCalc } from './material-calcs/entities/material-calc.entity';
+import { CalcMaterialLink } from './material-calcs/entities/calc-material-link.entity';
 
 dotenv.config();
 
@@ -40,6 +42,7 @@ export const AppDataSource = new DataSource({
     ProjectMember, ClientMember,
     Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem,
     PayrollEntry, CollaboratorLoan, ProjectReport, Notification,
+    MaterialCalc, CalcMaterialLink,
   ],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,

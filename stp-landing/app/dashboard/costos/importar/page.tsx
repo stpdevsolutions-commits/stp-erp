@@ -17,6 +17,7 @@ import { SubirCotizacionDialog } from '@/components/costos/subir-cotizacion-dial
 import { AutoRefresh } from '@/components/costos/auto-refresh'
 import { IMPORT_STATUS } from '@/components/costos/import-labels'
 import { CostosTabs } from '@/components/costos/costos-tabs'
+import { ImportarPasos } from '@/components/costos/importar-pasos'
 
 const LIMIT = 25
 
@@ -64,14 +65,16 @@ export default async function ImportarPreciosPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Importar precios</h1>
           <p className="text-muted-foreground text-sm">
-            Sube la cotización del proveedor en PDF. La IA extrae los renglones y{' '}
-            <strong>tú apruebas</strong> cuáles entran al historial.
+            Actualiza los precios del catálogo con la cotización de un proveedor: la IA lee el PDF
+            y <strong>tú confirmas</strong> qué material es cada renglón antes de que entre.
           </p>
         </div>
         <SubirCotizacionDialog suppliers={suppliers} />
       </div>
 
       <CostosTabs />
+
+      <ImportarPasos />
 
       {error && (
         <Card className="border-destructive/50">

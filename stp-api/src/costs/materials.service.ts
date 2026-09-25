@@ -189,6 +189,33 @@ export class MaterialsService {
     return qb.orderBy('m.name', 'ASC').take(limit).getMany();
   }
 
+  /**
+   * Catálogo activo (id, código, nombre, unidad) para emparejar renglones de
+   * cotizaciones con `material-match.ts`. Son unos cientos de filas: se cargan
+   * de una vez en vez de preguntarle a la base por cada renglón.
+   */
+  async findAllForMatching(): Promise<Material[]> {
+    return this.materialsRepository.find({
+      where: { isActive: true },
+      relations: { unit: true },
+      select: { id: true, code: true, name: true, unit: { id: true, code: true, name: true } },
+    });
+  }
+
+  /**
+   * Materiales por id con su resumen de precios. Lo usa la calculadora de
+   * materiales de la app de técnicos (MOB-1) para valorar su lista con el
+   * precio vigente del catálogo.
+   */
+  async findManyWithPrices(ids: string[]): Promise<MaterialWithSummary[]> {
+    if (ids.length === 0) return [];
+    const data = await this.materialsRepository.find({
+      where: { id: In(ids) },
+      relations: { unit: true },
+    });
+    return this.attachPriceSummaries(data);
+  }
+
   private async attachPriceSummaries(materials: Material[]): Promise<MaterialWithSummary[]> {
     const ids = materials.map((m) => m.id);
     // Sin ORDER BY, el cap se aplicaba a un subconjunto arbitrario de filas — podía

@@ -676,6 +676,20 @@ export interface PriceImportLine {
   status: PriceImportLineStatus
   createdPriceId?: string
   notes?: string
+  /**
+   * Hasta 3 materiales del catálogo parecidos, para asignar con un clic. Solo
+   * viene en renglones pendientes sin material; la API los calcula al leer.
+   */
+  suggestions?: PriceImportSuggestion[]
+}
+
+export interface PriceImportSuggestion {
+  id: string
+  code: string
+  name: string
+  unit: string | null
+  /** 0–1: qué parte del nombre del catálogo aparece en la cotización. */
+  score: number
 }
 
 export interface PriceImport {

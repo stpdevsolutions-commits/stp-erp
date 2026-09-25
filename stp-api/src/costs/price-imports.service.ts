@@ -23,6 +23,18 @@ import { CreatePriceImportDto } from './dto/create-price-import.dto';
 import { UpdatePriceImportLineDto } from './dto/update-price-import-line.dto';
 import { ApprovePriceImportDto } from './dto/approve-price-import.dto';
 import { CleanExtractedLine } from './price-extraction';
+import { CreateMaterialDto } from './dto/create-material.dto';
+import { CreateLineMaterialsDto } from './dto/create-line-materials.dto';
+import { asignacionSegura, rankear } from './material-match';
+
+/** Sugerencia de material para un renglón sin asignar (no se guarda: se calcula al leer). */
+export interface SugerenciaMaterial {
+  id: string;
+  code: string;
+  name: string;
+  unit: string | null;
+  score: number;
+}
 
 /** Carpeta de los PDF de importación, relativa a la raíz de subidas. */
 const IMPORTS_DIR = join('costs', 'imports');
@@ -147,7 +159,7 @@ export class PriceImportsService {
     return { data, total, page, limit };
   }
 
-  async findOne(id: string): Promise<PriceImport> {
+  async findOne(id: string): Promise<PriceImport & { lines: (PriceImportLine & { suggestions?: SugerenciaMaterial[] })[] }> {
     const record = await this.importsRepository.findOne({
       where: { id },
       relations: {
@@ -158,7 +170,118 @@ export class PriceImportsService {
       order: { lines: { position: 'ASC' } },
     });
     if (!record) throw new NotFoundException(`Importación ${id} no encontrada`);
-    return record;
+
+    // Hasta 3 sugerencias por renglón sin material: la revisión se resuelve con
+    // un clic en vez de buscar a mano cada uno.
+    const sinMaterial = (record.lines ?? []).filter(
+      (l) => l.status === PriceImportLineStatus.PENDING && !l.materialId,
+    );
+    if (sinMaterial.length > 0) {
+      const catalogo = await this.materialsService.findAllForMatching();
+      for (const line of sinMaterial) {
+        (line as PriceImportLine & { suggestions?: SugerenciaMaterial[] }).suggestions = rankear(
+          line.rawDescription,
+          catalogo,
+        )
+          .slice(0, 3)
+          .map((c) => ({
+            id: c.item.id,
+            code: c.item.code,
+            name: c.item.name,
+            unit: c.item.unit?.name ?? null,
+            score: c.score,
+          }));
+      }
+    }
+    return record as PriceImport & { lines: (PriceImportLine & { suggestions?: SugerenciaMaterial[] })[] };
+  }
+
+  /**
+   * Crea un material nuevo en el catálogo a partir de un renglón y se lo
+   * asigna. Es el camino para lo que el proveedor vende y el catálogo todavía
+   * no tiene — antes no había forma de hacerlo desde la revisión y el
+   * renglón quedaba sin poder aprobarse.
+   */
+  async createMaterialForLine(importId: string, lineId: string, dto: CreateMaterialDto) {
+    const line = await this.findLineOrFail(importId, lineId);
+    if (line.status !== PriceImportLineStatus.PENDING) {
+      throw new UnprocessableEntityException('Este renglón ya no está pendiente de revisión');
+    }
+    // MaterialsService.create valida unidad/categoría y rechaza un nombre duplicado.
+    const material = await this.materialsService.create(dto);
+    line.materialId = material.id;
+    line.matchCount = 1;
+    await this.linesRepository.save(line);
+    return material;
+  }
+
+  /**
+   * Crea en lote los materiales que faltan, uno por renglón, y los asigna.
+   * Un renglón que falle (nombre duplicado, ya revisado...) no tumba a los
+   * demás: se informa en `skipped` con el motivo, igual que `approve`.
+   */
+  async createMaterialsForLines(importId: string, dto: CreateLineMaterialsDto) {
+    await this.findOneOrFail(importId);
+    let created = 0;
+    const skipped: { lineId: string; name: string; reason: string }[] = [];
+    for (const item of dto.items) {
+      try {
+        const { lineId, ...material } = item;
+        await this.createMaterialForLine(importId, lineId, material);
+        created += 1;
+      } catch (err) {
+        skipped.push({ lineId: item.lineId, name: item.name, reason: (err as Error).message });
+      }
+    }
+    return { created, skipped };
+  }
+
+  /**
+   * Vuelve a buscar coincidencias para los renglones pendientes sin material
+   * (útil después de crear materiales o en lotes leídos con el emparejamiento
+   * viejo). Solo asigna cuando hay un candidato seguro; lo demás queda como
+   * sugerencia.
+   */
+  async rematch(importId: string): Promise<{ assigned: number }> {
+    await this.findOneOrFail(importId);
+    const lines = await this.linesRepository.find({
+      where: { importId, status: PriceImportLineStatus.PENDING },
+    });
+    const catalogo = await this.materialsService.findAllForMatching();
+    let assigned = 0;
+    for (const line of lines) {
+      if (line.materialId) continue;
+      const ranking = rankear(line.rawDescription, catalogo);
+      const seguro = asignacionSegura(ranking);
+      line.matchCount = ranking.length;
+      if (seguro) {
+        line.materialId = seguro.id;
+        assigned += 1;
+      }
+    }
+    await this.linesRepository.save(lines);
+    return { assigned };
+  }
+
+  /**
+   * Vuelve a poner el lote en la cola para leerlo otra vez. Solo si falló o
+   * si la lectura no encontró ningún renglón (nunca sobre uno con revisión en
+   * curso: se perdería lo ya revisado).
+   */
+  async prepareRetry(importId: string): Promise<PriceImport> {
+    const record = await this.findOneOrFail(importId);
+    const lineas = await this.linesRepository.countBy({ importId });
+    const reintentable =
+      record.status === PriceImportStatus.FAILED ||
+      (record.status === PriceImportStatus.REVIEW && lineas === 0);
+    if (!reintentable) {
+      throw new UnprocessableEntityException('Solo se puede volver a leer un lote que falló o que quedó sin renglones');
+    }
+    await this.importsRepository.update(importId, {
+      status: PriceImportStatus.PENDING,
+      error: null as unknown as string,
+    });
+    return this.findOneOrFail(importId);
   }
 
   /** Correcciones de la revisión. Los campos `raw*` no se tocan nunca. */
@@ -274,27 +397,28 @@ export class PriceImportsService {
   }
 
   /**
-   * Empareja cada línea con un material del catálogo por nombre.
+   * Empareja cada línea con un material del catálogo (`material-match.ts`).
    *
-   * Solo propone cuando el candidato es **único**: con varios candidatos, elegir "el
-   * primero" convierte una duda en un dato aparentemente confirmado, que es justo lo
-   * que la revisión debería atrapar y no atraparía.
+   * Solo asigna cuando el candidato es **seguro** (cobertura completa y sin empate): con
+   * duda, elegir "el primero" convierte una duda en un dato aparentemente confirmado,
+   * que es justo lo que la revisión debería atrapar. Los demás candidatos se muestran
+   * como sugerencias en la revisión.
    */
   private async buildLines(
     importId: string,
     extracted: CleanExtractedLine[],
   ): Promise<PriceImportLine[]> {
     const lines: PriceImportLine[] = [];
+    let catalogo: Material[] = [];
+    try {
+      catalogo = await this.materialsService.findAllForMatching();
+    } catch (err) {
+      this.logger.warn(`No se pudo cargar el catálogo para emparejar: ${(err as Error).message}`);
+    }
 
     for (const line of extracted) {
-      let candidates: Material[] = [];
-      try {
-        candidates = await this.materialsService.findSimilar(line.rawDescription, 5);
-      } catch (err) {
-        this.logger.warn(
-          `No se pudo emparejar "${line.rawDescription}": ${(err as Error).message}`,
-        );
-      }
+      const ranking = rankear(line.rawDescription, catalogo);
+      const seguro = asignacionSegura(ranking);
 
       lines.push(
         this.linesRepository.create({
@@ -307,8 +431,8 @@ export class PriceImportsService {
           currency: line.currency,
           itbisIncluded: line.itbisIncluded,
           discountPct: line.discountPct,
-          materialId: candidates.length === 1 ? candidates[0].id : undefined,
-          matchCount: candidates.length,
+          materialId: seguro?.id,
+          matchCount: ranking.length,
           status: PriceImportLineStatus.PENDING,
         }),
       );

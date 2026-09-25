@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { AlertTriangle, Check, HelpCircle, X } from 'lucide-react'
+import { AlertTriangle, Check, Info, Sparkles, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,29 +16,46 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import { approvePriceImport, updatePriceImportLine } from '@/lib/actions/price-imports'
-import type { Material, PriceImportLine, PriceImportLineUpdate } from '@/lib/types'
+import type {
+  Material,
+  MaterialCategory,
+  PriceImportLine,
+  PriceImportLineUpdate,
+  Unit,
+} from '@/lib/types'
 import { LINE_STATUS } from './import-labels'
+import { CrearMaterialLineaDialog } from './crear-material-linea-dialog'
+import { CrearMaterialesFaltantesDialog } from './crear-materiales-faltantes-dialog'
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
+
+type Filtro = 'todos' | 'sin-material' | 'listos'
 
 /**
  * Revisión línea por línea de lo que extrajo la IA.
  *
  * El botón de aprobar manda la lista explícita de ids: no existe un "aprobar todo lo
  * que haya" que pudiera arrastrar líneas que nadie miró. Una línea sin material
- * asignado no se puede marcar, porque no hay dónde registrar su precio.
+ * asignado no se puede marcar, porque no hay dónde registrar su precio — por eso cada
+ * renglón sin material ofrece las tres salidas: aceptar una sugerencia, buscar en el
+ * catálogo o crear el material nuevo.
  */
 export function RevisionLineas({
   importId,
   lines,
   materials,
+  units,
+  categories,
   documentDate,
   supplierName,
 }: {
   importId: string
   lines: PriceImportLine[]
   materials: Material[]
+  units: Unit[]
+  categories: MaterialCategory[]
   documentDate?: string
   supplierName?: string
 }) {
@@ -49,9 +66,22 @@ export function RevisionLineas({
   const [error, setError] = useState<string | null>(null)
   const [resumen, setResumen] = useState<string | null>(null)
   const [filtroMaterial, setFiltroMaterial] = useState<Record<string, string>>({})
+  const [filtro, setFiltro] = useState<Filtro>('todos')
 
   const activos = useMemo(() => materials.filter((m) => m.isActive), [materials])
   const revisables = lines.filter((l) => l.status === 'pending')
+  const listos = revisables.filter((l) => l.materialId)
+  const sinMaterial = revisables.filter((l) => !l.materialId)
+  const aprobadas = lines.filter((l) => l.status === 'approved').length
+  const descartadas = lines.filter((l) => l.status === 'rejected').length
+
+  const visibles = lines.filter((l) =>
+    filtro === 'sin-material'
+      ? l.status === 'pending' && !l.materialId
+      : filtro === 'listos'
+        ? l.status === 'pending' && !!l.materialId
+        : true,
+  )
 
   function toggle(lineId: string) {
     setSelected((prev) => {
@@ -64,7 +94,7 @@ export function RevisionLineas({
 
   /** Marca todas las que se PUEDEN aprobar: pendientes y con material asignado. */
   function toggleTodas() {
-    const elegibles = revisables.filter((l) => l.materialId).map((l) => l.id)
+    const elegibles = listos.map((l) => l.id)
     setSelected((prev) => (prev.size === elegibles.length ? new Set() : new Set(elegibles)))
   }
 
@@ -77,6 +107,14 @@ export function RevisionLineas({
       setError(result.error ?? 'No se pudo guardar')
       return
     }
+    // Recién asignado = listo para aprobar: se deja marcado para no obligar a un
+    // segundo clic por renglón. Al quitar el material o descartar, se desmarca.
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (input.materialId) next.add(lineId)
+      else next.delete(lineId)
+      return next
+    })
     startTransition(() => router.refresh())
   }
 
@@ -92,7 +130,7 @@ export function RevisionLineas({
     const { created = 0, skipped = [] } = result.result ?? {}
     setResumen(
       skipped.length === 0
-        ? `${created} precio(s) registrado(s).`
+        ? `${created} precio(s) registrado(s) en el catálogo.`
         : `${created} precio(s) registrado(s). ${skipped.length} línea(s) no entraron: ` +
             skipped.map((s) => s.reason).join('; '),
     )
@@ -102,23 +140,77 @@ export function RevisionLineas({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
-        <div>
-          <CardTitle className="text-base">Renglones extraídos</CardTitle>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Compara cada descripción con el PDF antes de aprobar. Los precios entran como{' '}
-            {supplierName ? `precios de ${supplierName}` : 'precios sin proveedor'}
-            {documentDate ? `, con fecha ${documentDate}` : ' con la fecha de hoy'}.
-          </p>
+      <CardHeader className="space-y-3">
+        <div className="flex flex-row flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">Renglones de la cotización</CardTitle>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Los precios entran como{' '}
+              {supplierName ? `precios de ${supplierName}` : 'precios sin proveedor'}
+              {documentDate ? `, con fecha ${documentDate}` : ' con la fecha de hoy'}.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={toggleTodas} disabled={listos.length === 0}>
+              Seleccionar los listos ({listos.length})
+            </Button>
+            <Button size="sm" onClick={aprobar} disabled={selected.size === 0 || pending}>
+              <Check className="size-4" />
+              Aprobar {selected.size > 0 ? `${selected.size} precio(s)` : ''}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={toggleTodas} disabled={revisables.length === 0}>
-            Marcar aprobables
-          </Button>
-          <Button size="sm" onClick={aprobar} disabled={selected.size === 0 || pending}>
-            Aprobar {selected.size > 0 && `(${selected.size})`}
-          </Button>
+
+        {/* Resumen + filtro: con 100+ renglones hay que poder ir directo a lo que falta. */}
+        <div className="flex flex-wrap gap-2 text-sm">
+          {(
+            [
+              ['todos', `Todos (${lines.length})`],
+              ['sin-material', `Sin material (${sinMaterial.length})`],
+              ['listos', `Listos para aprobar (${listos.length})`],
+            ] as [Filtro, string][]
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setFiltro(k)}
+              className={cn(
+                'rounded-full border px-3 py-1 text-xs font-medium',
+                filtro === k ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+          <span className="text-muted-foreground self-center text-xs">
+            · {aprobadas} aprobado(s) · {descartadas} descartado(s)
+          </span>
         </div>
+
+        {sinMaterial.length > 0 && (
+          <div className="bg-muted/50 flex flex-col gap-3 rounded-md p-3 sm:flex-row sm:items-center">
+            <p className="text-muted-foreground flex flex-1 gap-2 text-xs leading-relaxed">
+              <Info className="mt-0.5 size-4 shrink-0" />
+              <span>
+                Un renglón solo se puede aprobar si está ligado a un <strong>material del catálogo</strong>{' '}
+                (ahí se guarda su precio). A los {sinMaterial.length} que no lo tienen: toca una
+                sugerencia, búscalo, o <strong>créalos desde esta cotización</strong> si el catálogo no
+                los tiene. Lo que no quieras registrar, descártalo con la ✕.
+              </span>
+            </p>
+            <CrearMaterialesFaltantesDialog
+              importId={importId}
+              lines={sinMaterial}
+              units={units}
+              categories={categories}
+              onDone={(creados) => {
+                // Recién creados = listos para aprobar: quedan marcados.
+                setSelected((prev) => new Set([...prev, ...creados]))
+                startTransition(() => router.refresh())
+              }}
+            />
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-3">
@@ -128,14 +220,14 @@ export function RevisionLineas({
             {error}
           </p>
         )}
-        {resumen && <p className="text-sm">{resumen}</p>}
+        {resumen && <p className="text-sm font-medium">{resumen}</p>}
 
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8" />
-                <TableHead>Descripción en el documento</TableHead>
+                <TableHead>Lo que dice la cotización</TableHead>
                 <TableHead>Material del catálogo</TableHead>
                 <TableHead className="text-right">Precio</TableHead>
                 <TableHead>Estado</TableHead>
@@ -143,17 +235,25 @@ export function RevisionLineas({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lines.map((line) => {
+              {visibles.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-muted-foreground py-8 text-center text-sm">
+                    Nada en este filtro.
+                  </TableCell>
+                </TableRow>
+              )}
+              {visibles.map((line) => {
                 const estado = LINE_STATUS[line.status]
                 const editable = line.status === 'pending'
-                const filtro = (filtroMaterial[line.id] ?? '').trim().toLowerCase()
-                const opciones = filtro
+                const filtroTxt = (filtroMaterial[line.id] ?? '').trim().toLowerCase()
+                const opciones = filtroTxt
                   ? activos
                       .filter((m) =>
-                        `${m.code} ${m.name} ${m.brand ?? ''}`.toLowerCase().includes(filtro),
+                        `${m.code} ${m.name} ${m.brand ?? ''}`.toLowerCase().includes(filtroTxt),
                       )
                       .slice(0, 25)
                   : []
+                const sugerencias = line.suggestions ?? []
 
                 return (
                   <TableRow key={line.id} className={editable ? undefined : 'opacity-60'}>
@@ -165,6 +265,7 @@ export function RevisionLineas({
                         disabled={!editable || !line.materialId}
                         onChange={() => toggle(line.id)}
                         aria-label={`Aprobar ${line.rawDescription}`}
+                        title={!line.materialId && editable ? 'Asígnale un material primero' : undefined}
                       />
                     </TableCell>
 
@@ -175,7 +276,7 @@ export function RevisionLineas({
                       </p>
                     </TableCell>
 
-                    <TableCell className="min-w-[16rem]">
+                    <TableCell className="min-w-[18rem]">
                       {line.material ? (
                         <div className="flex items-center gap-2">
                           <Link
@@ -184,10 +285,14 @@ export function RevisionLineas({
                           >
                             {line.material.name}
                           </Link>
+                          {line.material.unit && (
+                            <span className="text-muted-foreground text-xs">({line.material.unit.name})</span>
+                          )}
                           {editable && (
                             <Button
                               variant="ghost"
                               size="sm"
+                              title="Quitar el material"
                               disabled={busyLine === line.id}
                               onClick={() => guardarLinea(line.id, { materialId: null })}
                             >
@@ -196,13 +301,30 @@ export function RevisionLineas({
                           )}
                         </div>
                       ) : editable ? (
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
+                          {sugerencias.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {sugerencias.map((s) => (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  disabled={busyLine === line.id}
+                                  onClick={() => guardarLinea(line.id, { materialId: s.id })}
+                                  className="border-primary/40 bg-primary/5 hover:bg-primary/10 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs"
+                                  title={`${s.code} · coincide ${Math.round(s.score * 100)}%`}
+                                >
+                                  <Sparkles className="text-primary size-3" />
+                                  ¿Es {s.name}?
+                                </button>
+                              ))}
+                            </div>
+                          )}
                           <Input
                             value={filtroMaterial[line.id] ?? ''}
                             onChange={(e) =>
                               setFiltroMaterial((prev) => ({ ...prev, [line.id]: e.target.value }))
                             }
-                            placeholder="Buscar material…"
+                            placeholder={sugerencias.length ? 'O busca otro material…' : 'Buscar en el catálogo…'}
                             className="h-8 text-sm"
                           />
                           {opciones.length > 0 && (
@@ -221,17 +343,21 @@ export function RevisionLineas({
                               ))}
                             </ul>
                           )}
-                          {line.matchCount > 1 && (
-                            <p className="text-muted-foreground flex items-center gap-1 text-xs">
-                              <HelpCircle className="size-3" />
-                              {line.matchCount} materiales parecidos: elige tú
-                            </p>
-                          )}
-                          {line.matchCount === 0 && (
-                            <p className="text-muted-foreground text-xs">
-                              Sin coincidencias en el catálogo
-                            </p>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <CrearMaterialLineaDialog
+                              importId={importId}
+                              line={line}
+                              units={units}
+                              categories={categories}
+                              onCreated={() => {
+                                setSelected((prev) => new Set(prev).add(line.id))
+                                startTransition(() => router.refresh())
+                              }}
+                            />
+                            {sugerencias.length === 0 && (
+                              <span className="text-muted-foreground text-xs">No está en el catálogo</span>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>
@@ -284,7 +410,7 @@ export function RevisionLineas({
                         <Button
                           variant="ghost"
                           size="sm"
-                          title="Descartar esta línea"
+                          title="Descartar este renglón (no se registra su precio)"
                           disabled={busyLine === line.id}
                           onClick={() => guardarLinea(line.id, { status: 'rejected' })}
                         >

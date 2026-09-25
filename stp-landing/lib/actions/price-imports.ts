@@ -98,3 +98,90 @@ export async function deletePriceImport(importId: string): Promise<Result> {
     return { ok: false, error: 'Error de conexión' }
   }
 }
+
+/**
+ * Crea un material nuevo en el catálogo desde un renglón de la cotización y se
+ * lo asigna. Para lo que el proveedor vende y el catálogo todavía no tiene.
+ */
+export async function createMaterialFromLine(
+  importId: string,
+  lineId: string,
+  input: { name: string; unitId: string; categoryId?: string },
+): Promise<Result> {
+  try {
+    const res = await authFetch(`/costs/price-imports/${importId}/lines/${lineId}/material`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      return { ok: false, error: apiError(data, 'No se pudo crear el material') }
+    }
+    revalidatePath(`${IMPORTS}/${importId}`)
+    revalidatePath(MATERIALES)
+    return { ok: true }
+  } catch (err) {
+    if (isRedirectError(err)) throw err
+    return { ok: false, error: 'Error de conexión' }
+  }
+}
+
+/** Vuelve a buscar en el catálogo los renglones sin material (asigna solo los seguros). */
+export async function rematchPriceImport(
+  importId: string,
+): Promise<{ ok: boolean; error?: string; assigned?: number }> {
+  try {
+    const res = await authFetch(`/costs/price-imports/${importId}/rematch`, { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: apiError(data, 'No se pudo buscar de nuevo') }
+    revalidatePath(`${IMPORTS}/${importId}`)
+    return { ok: true, assigned: (data as { assigned?: number }).assigned ?? 0 }
+  } catch (err) {
+    if (isRedirectError(err)) throw err
+    return { ok: false, error: 'Error de conexión' }
+  }
+}
+
+/** Vuelve a leer con la IA un lote que falló o que no encontró renglones. */
+export async function retryPriceImport(importId: string): Promise<Result> {
+  try {
+    const res = await authFetch(`/costs/price-imports/${importId}/retry`, { method: 'POST' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      return { ok: false, error: apiError(data, 'No se pudo volver a leer') }
+    }
+    revalidatePath(`${IMPORTS}/${importId}`)
+    revalidatePath(IMPORTS)
+    return { ok: true }
+  } catch (err) {
+    if (isRedirectError(err)) throw err
+    return { ok: false, error: 'Error de conexión' }
+  }
+}
+
+/** Crea de una vez los materiales que faltan (uno por renglón) y los asigna. */
+export async function createMaterialsFromLines(
+  importId: string,
+  items: { lineId: string; name: string; unitId: string; categoryId?: string }[],
+): Promise<{
+  ok: boolean
+  error?: string
+  created?: number
+  skipped?: { lineId: string; name: string; reason: string }[]
+}> {
+  try {
+    const res = await authFetch(`/costs/price-imports/${importId}/materials`, {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: apiError(data, 'No se pudieron crear los materiales') }
+    revalidatePath(`${IMPORTS}/${importId}`)
+    revalidatePath(MATERIALES)
+    const r = data as { created?: number; skipped?: { lineId: string; name: string; reason: string }[] }
+    return { ok: true, created: r.created ?? 0, skipped: r.skipped ?? [] }
+  } catch (err) {
+    if (isRedirectError(err)) throw err
+    return { ok: false, error: 'Error de conexión' }
+  }
+}

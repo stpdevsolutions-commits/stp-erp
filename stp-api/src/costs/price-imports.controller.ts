@@ -23,6 +23,8 @@ import { PRICE_IMPORT_QUEUE, PriceImportJob } from './price-import.processor';
 import { CreatePriceImportDto } from './dto/create-price-import.dto';
 import { UpdatePriceImportLineDto } from './dto/update-price-import-line.dto';
 import { ApprovePriceImportDto } from './dto/approve-price-import.dto';
+import { CreateMaterialDto } from './dto/create-material.dto';
+import { CreateLineMaterialsDto } from './dto/create-line-materials.dto';
 import { MAX_FILE_SIZE } from '../files/files.utils';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -73,9 +75,14 @@ export class PriceImportsController {
     @CurrentUser() user: AuthUser,
   ) {
     const record = await this.importsService.create(file, dto, user.id);
-    await this.queue.add(
+    await this.encolar(record.id);
+    return record;
+  }
+
+  private encolar(importId: string) {
+    return this.queue.add(
       'extract',
-      { importId: record.id },
+      { importId },
       {
         // Reintentar dos veces cubre un corte de red o un 529 de la API; más sería
         // pagar tres veces la misma extracción por un PDF que no se puede leer.
@@ -85,7 +92,36 @@ export class PriceImportsController {
         removeOnFail: 500,
       },
     );
+  }
+
+  /** Vuelve a leer un lote que falló o que no encontró ningún renglón. */
+  @Post(':id/retry')
+  async retry(@Param('id', ParseUUIDPipe) id: string) {
+    const record = await this.importsService.prepareRetry(id);
+    await this.encolar(id);
     return record;
+  }
+
+  /** Vuelve a buscar en el catálogo los renglones pendientes que no tienen material. */
+  @Post(':id/rematch')
+  rematch(@Param('id', ParseUUIDPipe) id: string) {
+    return this.importsService.rematch(id);
+  }
+
+  /** Crea de una vez los materiales que faltan (uno por renglón) y los asigna. */
+  @Post(':id/materials')
+  createMaterials(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateLineMaterialsDto) {
+    return this.importsService.createMaterialsForLines(id, dto);
+  }
+
+  /** Crea un material nuevo en el catálogo desde un renglón y se lo asigna. */
+  @Post(':id/lines/:lineId/material')
+  createMaterial(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('lineId', ParseUUIDPipe) lineId: string,
+    @Body() dto: CreateMaterialDto,
+  ) {
+    return this.importsService.createMaterialForLine(id, lineId, dto);
   }
 
   @Get()

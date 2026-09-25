@@ -99,7 +99,8 @@ export function SubirCotizacionDialog({ suppliers }: { suppliers: Supplier[] }) 
         <DialogHeader>
           <DialogTitle>Subir cotización de proveedor</DialogTitle>
           <DialogDescription>
-            La IA extrae los renglones del PDF. Ninguno entra al historial de precios
+            Una cotización o factura de proveedor <strong>con precios</strong> (listas o plantillas
+            con precios en 0 no sirven). La IA extrae los renglones y ninguno entra al catálogo
             hasta que lo apruebes tú.
           </DialogDescription>
         </DialogHeader>
