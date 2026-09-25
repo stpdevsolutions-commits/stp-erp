@@ -44,14 +44,22 @@ export class AuthService {
     // token de Google válido pero emitido para cualquier otra app (con solo
     // permiso de leer el email) también serviría para entrar aquí, mientras
     // el email coincida con un usuario ya registrado.
-    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
-    if (clientId) {
+    //
+    // "Este ERP" son dos clientes OAuth del mismo proyecto de Google: el web
+    // (GOOGLE_CLIENT_ID) y el de la app Android de técnicos
+    // (GOOGLE_ANDROID_CLIENT_ID) — los tokens que pide la app traen como
+    // `aud` el cliente Android, no el web.
+    const allowedAudiences = [
+      this.config.get<string>('GOOGLE_CLIENT_ID'),
+      this.config.get<string>('GOOGLE_ANDROID_CLIENT_ID'),
+    ].filter((id): id is string => !!id);
+    if (allowedAudiences.length > 0) {
       const tokenInfoRes = await fetch(
         `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`,
       );
       if (!tokenInfoRes.ok) throw new UnauthorizedException('Token de Google inválido');
       const tokenInfo = (await tokenInfoRes.json()) as { aud?: string };
-      if (tokenInfo.aud !== clientId) {
+      if (!tokenInfo.aud || !allowedAudiences.includes(tokenInfo.aud)) {
         throw new UnauthorizedException('Token de Google no emitido para esta aplicación');
       }
     }

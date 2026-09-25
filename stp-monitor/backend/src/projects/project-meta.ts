@@ -40,11 +40,14 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
   },
   'stp-mobile': {
     purpose:
-      'App móvil para los técnicos de campo de STP: llenar fichas técnicas (eléctrico, civil, electromecánico, levantamiento, domótica, evaluación de daños) desde el sitio, con fotos, firma y GPS.',
-    stack: ['Expo', 'React Native', 'TypeScript', 'expo-router'],
+      'App móvil para los técnicos de campo de STP: llenar fichas técnicas (eléctrico, civil, electromecánico, levantamiento, domótica, evaluación de daños) desde el sitio, con fotos, firma y GPS, y calculadora de materiales con cuadrilla y días de trabajo.',
+    stack: ['Expo', 'React Native', 'TypeScript', 'expo-router', 'EAS Update'],
     status:
-      'Al día, distribuida por apk.stpsoluciones.com (no Play Store). Login con Google funcionando además del de correo/contraseña.',
+      'Nativa (se descartó pasarla a PWA el 24/9). APK nueva del 24/9 publicada en apk.stpsoluciones.com, ya con actualizaciones OTA: de aquí en adelante los cambios llegan solos sin reinstalar. Calculadora de materiales (MOB-1) en curso: coeficientes pendientes de revisión de Pedro; faltan precios del catálogo ERP, guardar en proyecto y PDF.',
     recentWork: [
+      'Calculadora de materiales (MOB-1): pestaña nueva con 9 calculadoras — muro de block (mortero, relleno de celdas, varilla, pañete), mortero, hormigón f\'c 180-300, losa (encofrado, puntales, recubrimiento), sheetrock/Densglass, plafón 2x2/2x4, cerámica, pintura y eléctrico — todas con cuadrilla y días. Funciona sin conexión; coeficientes centralizados en lib/calc/constantes.ts.',
+      'Actualizaciones OTA con EAS Update (plan gratis): aviso "Reiniciar" dentro de la app y versión visible en Perfil. APK compilada en local en el servidor (no gasta cupo de EAS Build), solo ARM: 61 MB en vez de 107 MB.',
+      'Firma unificada con la llave de Expo: la APK de agosto publicada estaba firmada con la llave debug, así que quien la tenga debe sincronizar, desinstalar e instalar una sola vez (aviso en la página de descargas).',
       'Corregido el redirect_uri del login con Google (Error 400 invalid_request de Meta).',
       'Levantamiento general separado de Domótica: puntos eléctricos (cajitas/tomas/interruptores/luminarias) y materiales tomados del catálogo real del ERP.',
       'Nueva ficha de Domótica independiente (conectividad, panel eléctrico, ambientes, cotización).',
