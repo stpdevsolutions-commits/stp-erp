@@ -135,8 +135,11 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
   'red-bendicion': {
     purpose: 'Plataforma para una red de iglesias en casa: directorio de hubs, mapa y panel administrativo interno.',
     stack: ['Next.js', 'Supabase'],
-    status: 'Activo. Internacionalización ES/EN completada (RBN-40 y RBN-44, ambos done) — sin tickets abiertos en STP Tickets al 2026-09-18.',
+    status: 'Activo. Rediseño del mapa + Curva 1/2 + base para importar desde CCB Cloud hecho el 2026-09-27 (migraciones aplicadas en producción); integración CCB en espera de la documentación de su API.',
     recentWork: [
+      'Portada rediseñada (2026-09-27): columna izquierda con la leyenda "Red" como filtro de capas (Redes → Hubs → Clústeres → Iglesias en Casa → Líderes → Miembros) + lista de redes; mapa centrado en América con zoom libre y sin zooms automáticos; tarjeta de casa con "Cómo llegar" a Google Maps/Waze; botón al mapa desde el login y contraste del login en modo oscuro corregido.',
+      'Nueva clasificación Curva 1 (en proceso de transicionar) / Curva 2 (Iglesia en Casa) en BD, editores, mapa y filtros; cifras públicas por nodo ("N miembros · M líderes") con nodes_publico_resumen().',
+      'Alta de entidades con selector "Ingresar manualmente | Importar desde CCB Cloud" y capa de integración preparada (external_links, sync_runs, mapeo declarativo) sin inventar la API de CCB. Historial de migraciones del repo sincronizado 1:1 con la base (supabase migration fetch).',
       'Internacionalización ES/EN completa, incluidas secciones ocultas del sidebar (RBN-40, RBN-44) — cerrado, no queda pendiente de idioma.',
       'Repo transferido de la cuenta personal de Pedro (PedroAngSs) a la cuenta de STP (stpdevsolutions-commits) — consolidación de todos los repos bajo una sola cuenta. Remote local actualizado y verificado con fetch.',
       'Modo claro/oscuro con next-themes (la paleta oscura ya existía en el CSS, solo faltaba conectar el provider y el botón del header).',
