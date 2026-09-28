@@ -288,6 +288,16 @@ export interface Payment {
   date: string
   reference?: string
   notes?: string
+  // Comprobante fiscal electronico (e-CF), si se emitio para este pago.
+  ecfId?: string | null
+  ecfEncf?: string | null
+  ecfTipo?: string | null
+  ecfUuid?: string | null
+  ecfEstado?: string | null
+  ecfCodigoSeguridad?: string | null
+  ecfQrUrl?: string | null
+  ecfError?: string | null
+  ecfEmitidoAt?: string | null
   createdAt: string
 }
 

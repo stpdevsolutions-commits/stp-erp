@@ -83,3 +83,40 @@ export async function deletePayment(id: string): Promise<ActionResult> {
   revalidatePath('/dashboard')
   return { ok: true }
 }
+
+export interface EmitirEcfInput {
+  transmitir?: boolean
+  itbisIncluido?: boolean
+  tasaItbis?: number
+}
+
+export interface EmitirEcfResult extends ActionResult {
+  encf?: string | null
+  estado?: string | null
+  qrUrl?: string | null
+}
+
+export async function emitirEcfPago(
+  id: string,
+  input: EmitirEcfInput = {},
+): Promise<EmitirEcfResult> {
+  const res = await authFetch(`/payments/${id}/emitir-ecf`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    return { ok: false, error: apiError(err, 'Error al emitir el comprobante') }
+  }
+
+  const pago = await res.json().catch(() => ({}))
+  revalidatePath('/dashboard/pagos')
+  revalidatePath('/dashboard')
+  return {
+    ok: true,
+    encf: pago.ecfEncf ?? null,
+    estado: pago.ecfEstado ?? null,
+    qrUrl: pago.ecfQrUrl ?? null,
+  }
+}
