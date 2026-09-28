@@ -51,6 +51,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     status:
       'Nativa, con actualizaciones OTA (la APK del 24/9 en apk.stpsoluciones.com ya las trae). Calculadora de materiales (MOB-1) completa: 9 calculadoras, enlazada a proyectos, precios del catálogo del ERP y PDF. Pendiente: que Pedro revise los coeficientes y cargar al catálogo los materiales de albañilería para que salgan con precio.',
     recentWork: [
+      'fix(calc/sheetrock 2026-09-28): claves paral_3-5/8 y canal_3-5/8 fallaban la validación del servidor (regex [a-z0-9_]); ahora se sanitiza el perfil antes de usarlo en la clave (paral_3_5_8). Bloqueaba el guardado y el enlace de materiales en calculadoras Sheetrock con perfil 3-5/8 o 2-1/2. Publicado por OTA (update 23714946).',
       'MOB-112 (2026-09-28): en las calculadoras, los huecos ahora se agregan de distintos tamanos (ancho x alto x cantidad, un muro con varias puertas/ventanas) en vez de un solo numero. Publicado por OTA a produccion.',
       'Calculadora conectada al ERP: cada cálculo se enlaza a un proyecto, la lista de materiales sale con precios vigentes del catálogo ("Poner precio" enlaza un insumo una vez para todos) y "Guardar en el proyecto y generar PDF" archiva el PDF con membrete en los documentos del proyecto. Publicado por OTA.',
       'Login con Google arreglado: faltaba aceptar el cliente Android en el backend y el SHA-1 del cliente OAuth en Google Cloud era el de la llave debug (cambiado al de Expo).',
@@ -84,6 +85,8 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: ['React', 'PWA', 'API propia', 'PostgreSQL'],
     status: 'En vivo y estable, uso diario. Es la única app deliberadamente pública (sin exigir VPN) porque tiene que abrir desde el celular en cualquier red.',
     recentWork: [
+      'feat(proyectos 2026-09-28): nueva pestaña Proyectos en la app — agrupa tareas por proyecto con emoji/color, barra de progreso, lista pendientes/completadas y vista detallada. También migración DB (tabla projects, FK project_id en tasks) y QuickAddModal con selector de proyecto. Backend: CRUD /projects en Express. Commit 935bd6d.',
+      'feat(calendar 2026-09-28): eventos de Google Calendar visibles en la vista mensual — dots azules en días con eventos y tarjetas de evento en el panel del día seleccionado. Aviso de reconexión si el token vence.',
       'Repo transferido de la cuenta personal de Pedro (PedroAngSs) a la cuenta de STP (stpdevsolutions-commits) — consolidación de todos los repos bajo una sola cuenta. El deploy key del servidor (usado por el checkout en ~/mi-dia) se conservó intacto en la transferencia; remotes de servidor y PC actualizados y verificados.',
       'Recordatorios con alarma real (DIA-1): Web Push con Service Worker (VAPID) — la notificación suena aunque la PWA esté cerrada, no solo en primer plano. Backend revisa cada 60s las tareas con isReminder vencidas (en hora de RD) y empuja la notificación a todos los dispositivos suscritos.',
       'feat(ui): paleta verde salvia en vez de azul/turquesa.',
