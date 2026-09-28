@@ -51,6 +51,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     status:
       'Nativa, con actualizaciones OTA (la APK del 24/9 en apk.stpsoluciones.com ya las trae). Calculadora de materiales (MOB-1) completa: 9 calculadoras, enlazada a proyectos, precios del catálogo del ERP y PDF. Pendiente: que Pedro revise los coeficientes y cargar al catálogo los materiales de albañilería para que salgan con precio.',
     recentWork: [
+      'fix(calc/ceramica 2026-09-28): claves ceramica_33.3x33.3 (pieza personalizada con decimales) fallaban la validación del servidor; aId/bId sanitizan el punto decimal → ceramica_33_3x33_3. Publicado por OTA (update 1c030290).',
       'fix(calc/sheetrock 2026-09-28): claves paral_3-5/8 y canal_3-5/8 fallaban la validación del servidor (regex [a-z0-9_]); ahora se sanitiza el perfil antes de usarlo en la clave (paral_3_5_8). Bloqueaba el guardado y el enlace de materiales en calculadoras Sheetrock con perfil 3-5/8 o 2-1/2. Publicado por OTA (update 23714946).',
       'MOB-112 (2026-09-28): en las calculadoras, los huecos ahora se agregan de distintos tamanos (ancho x alto x cantidad, un muro con varias puertas/ventanas) en vez de un solo numero. Publicado por OTA a produccion.',
       'Calculadora conectada al ERP: cada cálculo se enlaza a un proyecto, la lista de materiales sale con precios vigentes del catálogo ("Poner precio" enlaza un insumo una vez para todos) y "Guardar en el proyecto y generar PDF" archiva el PDF con membrete en los documentos del proyecto. Publicado por OTA.',
