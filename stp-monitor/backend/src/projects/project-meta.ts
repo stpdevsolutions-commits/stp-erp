@@ -51,6 +51,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     status:
       'Nativa, con actualizaciones OTA (la APK del 24/9 en apk.stpsoluciones.com ya las trae). Calculadora de materiales (MOB-1) completa: 9 calculadoras, enlazada a proyectos, precios del catálogo del ERP y PDF. Pendiente: que Pedro revise los coeficientes y cargar al catálogo los materiales de albañilería para que salgan con precio.',
     recentWork: [
+      'MOB-112 (2026-09-28): en las calculadoras, los huecos ahora se agregan de distintos tamanos (ancho x alto x cantidad, un muro con varias puertas/ventanas) en vez de un solo numero. Publicado por OTA a produccion.',
       'Calculadora conectada al ERP: cada cálculo se enlaza a un proyecto, la lista de materiales sale con precios vigentes del catálogo ("Poner precio" enlaza un insumo una vez para todos) y "Guardar en el proyecto y generar PDF" archiva el PDF con membrete en los documentos del proyecto. Publicado por OTA.',
       'Login con Google arreglado: faltaba aceptar el cliente Android en el backend y el SHA-1 del cliente OAuth en Google Cloud era el de la llave debug (cambiado al de Expo).',
       'Calculadora de materiales (MOB-1): pestaña nueva con 9 calculadoras — muro de block (mortero, relleno de celdas, varilla, pañete), mortero, hormigón f\'c 180-300, losa (encofrado, puntales, recubrimiento), sheetrock/Densglass, plafón 2x2/2x4, cerámica, pintura y eléctrico — todas con cuadrilla y días. Funciona sin conexión; coeficientes centralizados en lib/calc/constantes.ts.',
