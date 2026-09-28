@@ -178,4 +178,21 @@ export class PaymentsController {
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.paymentsService.remove(id, user.id);
   }
+
+  /**
+   * Emite el comprobante fiscal electronico (e-CF) de un pago via ecf-api.
+   * Body opcional: { transmitir?, itbisIncluido?, tasaItbis? }.
+   * `transmitir` por defecto false: crea y firma pero no envia a la DGII
+   * (mientras la RNC no este habilitada como emisor en TesteCF).
+   */
+  @Post(':id/emitir-ecf')
+  @RequireModule('pagos', 'manage')
+  emitirEcf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    body: { transmitir?: boolean; itbisIncluido?: boolean; tasaItbis?: number },
+  ) {
+    return this.paymentsService.emitirEcf(id, body ?? {});
+  }
+
 }

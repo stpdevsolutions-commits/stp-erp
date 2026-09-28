@@ -86,6 +86,47 @@ export class Payment {
   @Column({ type: 'uuid', nullable: true })
   createdById: string;
 
+  // ── Comprobante fiscal electrónico (e-CF) ──────────────────────────────────
+  // El comprobante vive en ecf-api (proyecto eCF-SaaS, base de datos aparte).
+  // Aquí guardamos solo el enlace (`ecfId`) y lo que hay que mostrar en el ERP.
+  // Todo nullable: no todos los pagos se facturan electrónicamente.
+
+  /** Id del comprobante en ecf-api. */
+  @Column({ type: 'uuid', nullable: true })
+  ecfId: string | null;
+
+  /** eNCF asignado (ej. E310000000001). */
+  @Column({ type: 'varchar', nullable: true })
+  ecfEncf: string | null;
+
+  /** Tipo de e-CF emitido (ej. e-CF_31_v_1_0). */
+  @Column({ type: 'varchar', nullable: true })
+  ecfTipo: string | null;
+
+  /** UUID que devuelve la DGII. */
+  @Column({ type: 'varchar', nullable: true })
+  ecfUuid: string | null;
+
+  /** Estado del comprobante en ecf-api (borrador, firmado, transmitido, aceptado...). */
+  @Column({ type: 'varchar', nullable: true })
+  ecfEstado: string | null;
+
+  /** Código de seguridad de la DGII (para el QR). */
+  @Column({ type: 'varchar', nullable: true })
+  ecfCodigoSeguridad: string | null;
+
+  /** URL del QR de consulta del comprobante. */
+  @Column({ type: 'text', nullable: true })
+  ecfQrUrl: string | null;
+
+  /** Último error al intentar emitir/transmitir, si lo hubo. */
+  @Column({ type: 'text', nullable: true })
+  ecfError: string | null;
+
+  /** Cuándo se emitió el e-CF. */
+  @Column({ type: 'timestamptz', nullable: true })
+  ecfEmitidoAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

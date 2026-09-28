@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { join, relative } from 'path';
@@ -30,13 +25,16 @@ import { money } from '../notifications/email-layout';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
 import { UserRole } from '../users/entities/user.entity';
+import { EcfClientService } from '../ecf/ecf-client.service';
 
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
 
   constructor(
-    @InjectRepository(Payment)
+    
+    private readonly ecfClient: EcfClientService,
+@InjectRepository(Payment)
     private readonly paymentsRepository: Repository<Payment>,
     @InjectRepository(Client)
     private readonly clientsRepository: Repository<Client>,
@@ -312,4 +310,85 @@ export class PaymentsService {
     });
     await this.fileRepo.save(record);
   }
+
+  /**
+   * Emite un comprobante fiscal electronico (e-CF) para un pago, llamando a
+   * ecf-api. El total del e-CF SIEMPRE cuadra con el monto del pago: si el
+   * ITBIS va incluido (por defecto), se calcula la base hacia atras y ecf-api
+   * le vuelve a sumar el ITBIS para llegar al mismo total.
+   *
+   * - Cliente con RNC -> e-CF 31 (credito fiscal); sin RNC -> e-CF 32 (consumo).
+   * - Una sola linea con la descripcion del pago (valido para servicios).
+   * - `transmitir` en false deja el comprobante firmado sin enviar a la DGII
+   *   (util mientras la RNC no este habilitada como emisor en TesteCF).
+   */
+  async emitirEcf(
+    id: string,
+    opts?: { transmitir?: boolean; itbisIncluido?: boolean; tasaItbis?: number },
+  ): Promise<Payment> {
+    const pago = await this.findOne(id);
+    if (pago.ecfEncf) {
+      throw new ConflictException(
+        `Este pago ya tiene un comprobante emitido (${pago.ecfEncf}).`,
+      );
+    }
+    const cliente = pago.client;
+    const rnc = (cliente?.rnc || '').replace(/\D/g, '');
+    const tieneRnc = rnc.length >= 9;
+    const tipoEcf = tieneRnc ? 'e-CF_31_v_1_0' : 'e-CF_32_v_1_0';
+
+    const tasa = opts?.tasaItbis ?? Number(pago.quote?.taxRate ?? 18);
+    const itbisIncluido = opts?.itbisIncluido ?? true;
+    const monto = Number(pago.amount);
+    if (!(monto > 0)) {
+      throw new BadRequestException('El pago no tiene un monto valido para facturar.');
+    }
+    const factor = tasa > 0 ? 1 + tasa / 100 : 1;
+    const base = itbisIncluido ? monto / factor : monto;
+    // 1 = ITBIS 18%, 4 = exento. Por ahora solo 18% o exento.
+    const indicadorFacturacion = tasa > 0 ? 1 : 4;
+    const descripcion =
+      pago.description?.trim() ||
+      pago.quote?.title?.trim() ||
+      'Servicios profesionales';
+
+    const dto = {
+      tipoEcf,
+      tipoPago: 1,
+      rncComprador: tieneRnc ? rnc : undefined,
+      nombreComprador: cliente?.name || 'Consumidor Final',
+      lineas: [
+        {
+          descripcion,
+          cantidad: 1,
+          precioUnitario: Number(base.toFixed(2)),
+          indicadorFacturacion,
+          indicadorBienoServicio: 2,
+        },
+      ],
+    };
+
+    try {
+      const r = await this.ecfClient.emitir(dto, {
+        transmitir: opts?.transmitir ?? false,
+      });
+      pago.ecfId = r.id;
+      pago.ecfEncf = r.encf ?? null;
+      pago.ecfTipo = tipoEcf;
+      pago.ecfUuid = r.uuid ?? null;
+      pago.ecfEstado = r.estado ?? null;
+      pago.ecfCodigoSeguridad = r.codigoSeguridadDgii ?? null;
+      pago.ecfQrUrl = r.qrUrl ?? null;
+      pago.ecfError = null;
+      pago.ecfEmitidoAt = new Date();
+      await this.paymentsRepository.save(pago);
+      this.logger.log(`e-CF emitido para pago ${id}: ${pago.ecfEncf} (${pago.ecfEstado})`);
+      return this.findOne(id);
+    } catch (e: any) {
+      pago.ecfError = String(e?.message ?? e).slice(0, 1000);
+      await this.paymentsRepository.save(pago);
+      throw e;
+    }
+  }
+
 }
