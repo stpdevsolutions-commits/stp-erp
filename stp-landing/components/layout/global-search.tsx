@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, X, Loader2, Users, FolderKanban, FileText, CheckSquare, FolderOpen, HardHat } from 'lucide-react'
 import type { SearchResponse } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 const CATEGORY_CONFIG = [
   { key: 'clients', label: 'Clientes', icon: Users },
@@ -19,6 +20,9 @@ export function GlobalSearch() {
   const [results, setResults] = useState<SearchResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
+  // En celular el campo no cabe en la barra superior: una lupa lo abre como
+  // barra a todo el ancho (antes el buscador simplemente no existía en móvil).
+  const [mobileOpen, setMobileOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -27,6 +31,7 @@ export function GlobalSearch() {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false)
+        setMobileOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -52,6 +57,7 @@ export function GlobalSearch() {
 
   function handleSelect(href: string) {
     setOpen(false)
+    setMobileOpen(false)
     setQuery('')
     setResults(null)
     router.push(href)
@@ -60,6 +66,7 @@ export function GlobalSearch() {
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Escape') {
       setOpen(false)
+      setMobileOpen(false)
       inputRef.current?.blur()
     }
   }
@@ -68,8 +75,29 @@ export function GlobalSearch() {
   const showDropdown = open && query.trim().length >= 2
 
   return (
-    <div ref={containerRef} className="relative hidden sm:block">
-      <div className="relative w-56">
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-label="Buscar en el ERP"
+        onClick={() => {
+          setMobileOpen(true)
+          setOpen(true)
+          setTimeout(() => inputRef.current?.focus(), 0)
+        }}
+        className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:hidden"
+      >
+        <Search className="size-4" />
+      </button>
+
+      <div
+        className={cn(
+          mobileOpen
+            ? 'fixed inset-x-0 top-0 z-50 flex items-center gap-2 border-b bg-background p-2'
+            : 'hidden',
+          'sm:static sm:z-auto sm:flex sm:border-0 sm:bg-transparent sm:p-0',
+        )}
+      >
+      <div className="relative w-full sm:w-56">
         <Search className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
         <input
           ref={inputRef}
@@ -78,7 +106,7 @@ export function GlobalSearch() {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Buscar en el ERP…"
-          className="w-full rounded-md border bg-muted/50 py-1.5 pl-8 pr-7 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full rounded-md border bg-muted/50 py-1.5 pl-8 pr-7 text-base sm:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         {query && (
           <button
@@ -94,9 +122,22 @@ export function GlobalSearch() {
           </button>
         )}
       </div>
+      {mobileOpen && (
+        <button
+          type="button"
+          onClick={() => {
+            setMobileOpen(false)
+            setOpen(false)
+          }}
+          className="shrink-0 px-1 text-sm font-medium text-muted-foreground sm:hidden"
+        >
+          Cancelar
+        </button>
+      )}
+      </div>
 
       {showDropdown && (
-        <div className="absolute right-0 top-full z-50 mt-1.5 max-h-[70vh] w-[28rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border bg-background shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1.5 max-h-[70vh] w-[28rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border bg-background shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-14 max-sm:mt-0 max-sm:w-auto max-sm:max-w-none">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
