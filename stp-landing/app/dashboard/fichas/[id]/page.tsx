@@ -279,16 +279,69 @@ function FichaElectricaDetalle({ data }: { data: Record<string, unknown> }) {
   )
 }
 
-/** "tipoFundacion" / "tipo_fundacion" → "Tipo fundacion". */
+/**
+ * La app guarda claves y opciones sin tildes ("remodelacion", "electrica").
+ * Al mostrarlas se reponen las tildes de los casos que se repiten; el texto
+ * libre que escribe el técnico no pasa por aquí.
+ */
+const TILDES: Record<string, string> = {
+  electrica: 'eléctrica',
+  electrico: 'eléctrico',
+  mecanica: 'mecánica',
+  mecanico: 'mecánico',
+  tecnica: 'técnica',
+  tecnico: 'técnico',
+  hidraulica: 'hidráulica',
+  hidraulico: 'hidráulico',
+  domotica: 'domótica',
+  area: 'área',
+  areas: 'áreas',
+  numero: 'número',
+  telefono: 'teléfono',
+  ubicacion: 'ubicación',
+  energia: 'energía',
+  bateria: 'batería',
+  camara: 'cámara',
+  camaras: 'cámaras',
+  medicion: 'medición',
+  observacion: 'observación',
+  si: 'sí',
+  proposito: 'propósito',
+  codigo: 'código',
+  categoria: 'categoría',
+  electricos: 'eléctricos',
+  electricas: 'eléctricas',
+  rd: '(RD$)',
+}
+
+function conTildes(text: string): string {
+  return text.replace(/[a-záéíóúñ]+/gi, (w) => {
+    const lower = w.toLowerCase()
+    // Toda palabra en -cion/-ciones del español lleva tilde: remodelación, instalación…
+    const fixed =
+      TILDES[lower] ??
+      (lower.endsWith('cion') ? `${lower.slice(0, -4)}ción` : lower)
+    return w[0] === w[0].toUpperCase() ? fixed.charAt(0).toUpperCase() + fixed.slice(1) : fixed
+  })
+}
+
+/** "tipoFundacion" / "tipo_fundacion" → "Tipo fundación". */
 function humanKey(key: string): string {
   const spaced = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' ')
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase()
+  return conTildes(spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase())
 }
 
 function displayValue(v: unknown): string {
   if (v === null || v === undefined || v === '') return '—'
   if (typeof v === 'boolean') return v ? 'Sí' : 'No'
-  return String(v)
+  const text = String(v)
+  // Una opción de la app ("remodelacion", "muy_bueno") se muestra legible;
+  // cualquier otra cosa (texto libre, números, fechas) va tal cual.
+  if (/^[a-z][a-z0-9_]*$/.test(text)) {
+    const spaced = text.replace(/_/g, ' ')
+    return conTildes(spaced.charAt(0).toUpperCase() + spaced.slice(1))
+  }
+  return text
 }
 
 /**
@@ -358,12 +411,13 @@ function FichaDataGeneric({ data }: { data: Record<string, unknown> }) {
       })}
 
       {lists.map(([key, items]) => {
+        // Las claves internas (materialId, id…) son UUID que no le dicen nada a nadie.
         const columns = Array.from(
           items.reduce((set, item) => {
             Object.keys(item).forEach((k) => set.add(k))
             return set
           }, new Set<string>()),
-        )
+        ).filter((k) => !/(^id$|Id$|_id$)/.test(k))
         return (
           <Card key={key}>
             <CardHeader className="pb-2">
