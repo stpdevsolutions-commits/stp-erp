@@ -35,7 +35,7 @@ import { ExportarReporte } from '@/components/reports/exportar-reporte'
 import { ReporteGeneral } from '@/components/reports/reporte-general'
 import { Button } from '@/components/ui/button'
 import { BarChart3, AlertCircle, FileText } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { addDaysYMD, formatDate, todayRD } from '@/lib/utils'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -873,9 +873,9 @@ export default async function ReportesPage({
   // Sin rango en la URL se usan los últimos 30 días (hora de RD). Antes el
   // backend caía al mes en curso, y los primeros días del mes todo salía en
   // cero, que parecía un error.
-  const rdNow = Date.now() - 4 * 3_600_000
-  const from = params.from ?? new Date(rdNow - 29 * 86_400_000).toISOString().slice(0, 10)
-  const to = params.to ?? new Date(rdNow).toISOString().slice(0, 10)
+  const hoy = todayRD()
+  const from = params.from ?? addDaysYMD(hoy, -29)
+  const to = params.to ?? hoy
   // Sin filtro ni pestaña elegidos, "General" es la vista por defecto — igual
   // que en el mockup de identidad, donde General siempre llega activa. Pero si
   // se pidió explícitamente la pestaña Proyecto/Cliente (tab=...) sin haber

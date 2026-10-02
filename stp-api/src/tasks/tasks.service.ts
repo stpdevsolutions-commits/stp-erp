@@ -12,6 +12,7 @@ import { Collaborator } from '../collaborators/entities/collaborator.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { QueryTasksDto } from './dto/query-tasks.dto';
+import { todayRD } from '../common/dates';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
 import { taskResourceScope } from './task-access';
@@ -61,6 +62,7 @@ export class TasksService {
       projectId,
       assignedToId,
       collaboratorId,
+      overdue,
       page = 1,
       limit = 20,
     } = query;
@@ -86,6 +88,13 @@ export class TasksService {
       qb.andWhere('task.assignedToId = :assignedToId', { assignedToId });
     if (collaboratorId)
       qb.andWhere('task.collaboratorId = :collaboratorId', { collaboratorId });
+    // Mismo criterio que la tarjeta "Tareas vencidas" del Resumen.
+    if (overdue) {
+      qb.andWhere('task.dueDate < :today AND task.status NOT IN (:...closed)', {
+        today: todayRD(),
+        closed: [TaskStatus.DONE, TaskStatus.CANCELLED],
+      });
+    }
 
     await this.applyTaskScope(qb, user);
 

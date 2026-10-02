@@ -75,7 +75,9 @@ export default async function DashboardPage() {
           </Card>
         </Link>
 
-        <Link href="/dashboard/tareas" className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link
+          href={tareasVencidas > 0 ? '/dashboard/tareas?vencidas=1' : '/dashboard/tareas'}
+          className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Card className="h-full transition-colors hover:bg-accent/40">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Tareas vencidas</CardTitle>

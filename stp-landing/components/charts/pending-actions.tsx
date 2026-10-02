@@ -61,7 +61,7 @@ export function PendingActions({
       title: 'Tareas vencidas',
       figure: String(overdueTasks),
       detail: 'Pasaron su fecha límite sin cerrarse',
-      href: '/dashboard/tareas',
+      href: '/dashboard/tareas?vencidas=1',
     })
   }
 

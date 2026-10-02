@@ -50,13 +50,46 @@ export default async function CronogramaPage({
       <ProyectoSelector projects={projects} selectedId={proyectoId ?? ''} />
 
       {!project ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            {projects.length === 0
-              ? 'No hay proyectos registrados todavía.'
-              : 'Selecciona un proyecto para ver su cronograma.'}
-          </CardContent>
-        </Card>
+        projects.some((p) => p.status === 'active') ? (
+          // Sin proyecto elegido: los que están en curso como accesos directos,
+          // que es casi siempre lo que se viene a mirar aquí.
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Elige un proyecto en el buscador, o abre uno de los que están en curso:
+            </p>
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {projects
+                .filter((p) => p.status === 'active')
+                .map((p) => (
+                  <Link
+                    key={p.id}
+                    href={`/dashboard/cronograma?proyecto=${p.id}`}
+                    className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Card className="h-full transition-colors hover:bg-accent/40">
+                      <CardContent className="py-3">
+                        <p className="font-mono text-xs text-muted-foreground">{p.code}</p>
+                        <p className="font-medium text-sm">{p.name}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {[p.client?.name, p.startDate ? `inicio ${formatDate(p.startDate)}` : null]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+            </div>
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              {projects.length === 0
+                ? 'No hay proyectos registrados todavía.'
+                : 'Selecciona un proyecto para ver su cronograma.'}
+            </CardContent>
+          </Card>
+        )
       ) : (
         <>
           <div className="flex flex-wrap items-start justify-between gap-3">

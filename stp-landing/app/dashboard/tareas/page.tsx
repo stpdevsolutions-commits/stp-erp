@@ -15,7 +15,7 @@ import { NuevaTareaDialog } from '@/components/tasks/nueva-tarea-dialog'
 import { TaskActions } from '@/components/tasks/task-actions'
 import { FiltrosTareas } from '@/components/tareas/filtros-tareas'
 import { Paginacion } from '@/components/ui/paginacion'
-import { formatDate } from '@/lib/utils'
+import { formatDate, todayRD } from '@/lib/utils'
 
 const STATUS_LABELS: Record<Task['status'], string> = {
   pending: 'Pendiente',
@@ -64,6 +64,9 @@ export default async function TareasPage({
   if (sp.priority) q.set('priority', sp.priority)
   if (sp.clientId) q.set('clientId', sp.clientId)
   if (sp.projectId) q.set('projectId', sp.projectId)
+  // ?vencidas=1 llega desde la tarjeta "Tareas vencidas" del Resumen.
+  const soloVencidas = sp.vencidas === '1'
+  if (soloVencidas) q.set('overdue', 'true')
 
   let tareasRes: PaginatedResponse<Task> = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
@@ -105,7 +108,7 @@ export default async function TareasPage({
   const urgentes = tareas.filter((t) => t.priority === 'urgent' && t.status !== 'done').length
   // Fecha local de RD (UTC-4) como YYYY-MM-DD, igual que el criterio del Resumen:
   // vencida = fecha límite anterior a hoy y la tarea no está cerrada.
-  const hoy = new Date(Date.now() - 4 * 3_600_000).toISOString().slice(0, 10)
+  const hoy = todayRD()
   const estaVencida = (t: (typeof tareas)[number]) =>
     !!t.dueDate && t.dueDate.slice(0, 10) < hoy && t.status !== 'done' && t.status !== 'cancelled'
   const vencidas = tareas.filter(estaVencida).length
@@ -158,6 +161,16 @@ export default async function TareasPage({
       </div>
 
       <FiltrosTareas clients={clients} projects={projects} />
+
+      {soloVencidas && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
+          <span className="font-medium text-destructive">Mostrando solo tareas vencidas</span>
+          <span className="text-muted-foreground">pasaron su fecha límite sin cerrarse</span>
+          <Link href="/dashboard/tareas" className="ml-auto text-sm font-medium hover:underline">
+            Ver todas
+          </Link>
+        </div>
+      )}
 
       {error ? (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">{error}</div>

@@ -32,3 +32,22 @@ export function formatDate(
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('es-DO', { timeZone: 'America/Santo_Domingo', ...options })
 }
+
+const ymdRD = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Santo_Domingo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/** Hoy en RD como YYYY-MM-DD (mismo criterio que `todayRD()` del backend). */
+export function todayRD(): string {
+  return ymdRD.format(new Date())
+}
+
+/** Suma (o resta) días a una fecha YYYY-MM-DD, sin depender de la zona horaria. */
+export function addDaysYMD(ymd: string, days: number): string {
+  const d = new Date(`${ymd}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
