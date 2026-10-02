@@ -145,12 +145,12 @@ export default async function CotizacionesPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Número</TableHead>
+                  <TableHead className="hidden md:table-cell">Número</TableHead>
                   <TableHead>Título</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Estado</TableHead>
+                  <TableHead className="hidden lg:table-cell">Cliente</TableHead>
+                  <TableHead className="hidden sm:table-cell">Estado</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Válida hasta</TableHead>
+                  <TableHead className="hidden lg:table-cell">Válida hasta</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -164,7 +164,7 @@ export default async function CotizacionesPage({
                 ) : (
                   cotizaciones.map((q) => (
                     <TableRow key={q.id}>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="hidden md:table-cell font-mono text-sm">
                         <div className="flex items-center gap-1.5">
                           <Link
                             href={`/dashboard/cotizaciones/${q.id}`}
@@ -179,8 +179,18 @@ export default async function CotizacionesPage({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium whitespace-normal min-w-[160px]">
+                        <Link
+                          href={`/dashboard/cotizaciones/${q.id}`}
+                          className="font-mono text-xs text-primary hover:underline md:hidden"
+                        >
+                          {q.baseNumber ?? q.number}
+                          {q.revision > 1 ? ` · Rev. ${q.revision}` : ''}
+                        </Link>
                         <div>{q.title}</div>
+                        <div className="text-xs font-normal text-muted-foreground lg:hidden">
+                          {[q.client?.name, STATUS_LABELS[q.status]].filter(Boolean).join(' · ')}
+                        </div>
                         {q.project && (
                           <div className="text-xs text-muted-foreground">
                             <Link href={`/dashboard/proyectos/${q.project.id}`} className="hover:underline">
@@ -189,20 +199,20 @@ export default async function CotizacionesPage({
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         {q.client ? (
                           <Link href={`/dashboard/clientes/${q.client.id}`} className="hover:underline">
                             {q.client.name}
                           </Link>
                         ) : '—'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge className={STATUS_BADGE[q.status]}>{STATUS_LABELS[q.status]}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
                         {DOP.format(q.total)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         {formatDate(q.validUntil)}
                       </TableCell>
                       <TableCell>

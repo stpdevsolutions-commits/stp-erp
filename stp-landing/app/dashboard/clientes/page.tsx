@@ -69,7 +69,7 @@ export default async function ClientesPage({
         {isManager && <NuevoClienteDialog />}
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total clientes</CardTitle>
@@ -110,10 +110,10 @@ export default async function ClientesPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>RNC / Cédula</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Ciudad</TableHead>
+                  <TableHead className="hidden md:table-cell">Tipo</TableHead>
+                  <TableHead className="hidden lg:table-cell">RNC / Cédula</TableHead>
+                  <TableHead className="hidden md:table-cell">Teléfono</TableHead>
+                  <TableHead className="hidden lg:table-cell">Ciudad</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -128,7 +128,7 @@ export default async function ClientesPage({
                 ) : (
                   clientes.map((cliente) => (
                     <TableRow key={cliente.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium whitespace-normal min-w-[160px]">
                         <Link
                           href={`/dashboard/clientes/${cliente.id}`}
                           className="hover:underline underline-offset-2"
@@ -136,17 +136,25 @@ export default async function ClientesPage({
                           {cliente.name}
                         </Link>
                         {cliente.email && (
-                          <div className="text-xs text-muted-foreground">{cliente.email}</div>
+                          <div className="text-xs text-muted-foreground break-all">{cliente.email}</div>
+                        )}
+                        {cliente.phone && (
+                          <a
+                            href={`tel:${cliente.phone.replace(/[^\d+]/g, '')}`}
+                            className="block text-xs font-normal text-muted-foreground hover:underline md:hidden"
+                          >
+                            {cliente.phone}
+                          </a>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge className={TYPE_BADGE[cliente.type]}>
                           {TYPE_LABELS[cliente.type] ?? cliente.type}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{cliente.rnc ?? '—'}</TableCell>
-                      <TableCell>{cliente.phone ?? '—'}</TableCell>
-                      <TableCell>{cliente.city ?? '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell font-mono text-sm">{cliente.rnc ?? '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell">{cliente.phone ?? '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{cliente.city ?? '—'}</TableCell>
                       <TableCell>
                         <Badge className={cliente.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
                           {cliente.isActive ? 'Activo' : 'Inactivo'}

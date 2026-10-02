@@ -61,7 +61,7 @@ export default async function ProveedoresPage({
         <NuevoProveedorDialog />
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Total</CardTitle>
@@ -99,10 +99,10 @@ export default async function ProveedoresPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead>RNC</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Ciudad</TableHead>
+                  <TableHead className="hidden md:table-cell">Categoría</TableHead>
+                  <TableHead className="hidden lg:table-cell">RNC</TableHead>
+                  <TableHead className="hidden md:table-cell">Teléfono</TableHead>
+                  <TableHead className="hidden lg:table-cell">Ciudad</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -117,14 +117,17 @@ export default async function ProveedoresPage({
                 ) : (
                   proveedores.map((p) => (
                     <TableRow key={p.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium whitespace-normal min-w-[160px]">
                         <div>{p.name}</div>
-                        {p.email && <div className="text-xs text-muted-foreground">{p.email}</div>}
+                        {p.email && <div className="text-xs text-muted-foreground break-all">{p.email}</div>}
+                        <div className="text-xs font-normal text-muted-foreground md:hidden">
+                          {[CATEGORY_LABELS[p.category], p.phone].filter(Boolean).join(' · ')}
+                        </div>
                       </TableCell>
-                      <TableCell>{CATEGORY_LABELS[p.category]}</TableCell>
-                      <TableCell className="font-mono text-sm">{p.rnc ?? '—'}</TableCell>
-                      <TableCell>{p.phone ?? '—'}</TableCell>
-                      <TableCell>{p.city ?? '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell">{CATEGORY_LABELS[p.category]}</TableCell>
+                      <TableCell className="hidden lg:table-cell font-mono text-sm">{p.rnc ?? '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell">{p.phone ?? '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{p.city ?? '—'}</TableCell>
                       <TableCell>
                         <Badge className={p.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
                           {p.isActive ? 'Activo' : 'Inactivo'}

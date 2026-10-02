@@ -76,14 +76,14 @@ export default async function ColaboradoresPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Código</TableHead>
+                  <TableHead className="hidden md:table-cell">Código</TableHead>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Cargo</TableHead>
-                  <TableHead>Cédula</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Correo</TableHead>
-                  <TableHead className="text-right">Tarifa/día</TableHead>
+                  <TableHead className="hidden xl:table-cell">Tipo</TableHead>
+                  <TableHead className="hidden md:table-cell">Cargo</TableHead>
+                  <TableHead className="hidden xl:table-cell">Cédula</TableHead>
+                  <TableHead className="hidden lg:table-cell">Teléfono</TableHead>
+                  <TableHead className="hidden xl:table-cell">Correo</TableHead>
+                  <TableHead className="hidden lg:table-cell text-right">Tarifa/día</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -91,14 +91,25 @@ export default async function ColaboradoresPage({
               <TableBody>
                 {res.data.map((col) => (
                   <TableRow key={col.id}>
-                    <TableCell className="text-muted-foreground text-sm font-mono">{col.code}</TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm font-mono">{col.code}</TableCell>
+                    <TableCell className="font-medium whitespace-normal min-w-[150px]">
                       {col.firstName} {col.lastName}
+                      <div className="text-xs font-normal text-muted-foreground md:hidden">
+                        {[col.code, col.position].filter(Boolean).join(' · ')}
+                      </div>
+                      {col.phone && (
+                        <a
+                          href={`tel:${col.phone.replace(/[^\d+]/g, '')}`}
+                          className="block text-xs font-normal text-muted-foreground hover:underline lg:hidden"
+                        >
+                          {col.phone}
+                        </a>
+                      )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{TYPE_LABELS[col.type]}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{col.position ?? '—'}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm font-mono">{col.cedula ?? '—'}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="hidden xl:table-cell text-muted-foreground text-sm">{TYPE_LABELS[col.type]}</TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{col.position ?? '—'}</TableCell>
+                    <TableCell className="hidden xl:table-cell text-muted-foreground text-sm font-mono">{col.cedula ?? '—'}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
                       {col.phone ? (
                         <a
                           href={`tel:${col.phone.replace(/[^\d+]/g, '')}`}
@@ -110,8 +121,8 @@ export default async function ColaboradoresPage({
                         '—'
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{col.email ?? '—'}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">
+                    <TableCell className="hidden xl:table-cell text-muted-foreground text-sm">{col.email ?? '—'}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-right font-mono text-sm">
                       {/* 0 = cobra por m², m³, ml o partida: no tiene tarifa diaria fija. */}
                       {col.dailyRate ? DOP.format(col.dailyRate) : '—'}
                     </TableCell>
