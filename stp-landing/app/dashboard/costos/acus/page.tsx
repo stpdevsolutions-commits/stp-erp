@@ -118,24 +118,24 @@ export default async function AcusPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Código</TableHead>
+                    <TableHead className="hidden md:table-cell">Código</TableHead>
                     <TableHead>Partida</TableHead>
-                    <TableHead>Capítulo</TableHead>
-                    <TableHead>Oficio</TableHead>
-                    <TableHead>Unidad</TableHead>
-                    <TableHead className="text-right">Insumos</TableHead>
+                    <TableHead className="hidden lg:table-cell">Capítulo</TableHead>
+                    <TableHead className="hidden lg:table-cell">Oficio</TableHead>
+                    <TableHead className="hidden md:table-cell">Unidad</TableHead>
+                    <TableHead className="hidden lg:table-cell text-right">Insumos</TableHead>
                     <TableHead className="text-right">Costo unitario</TableHead>
-                    <TableHead>Estado</TableHead>
+                    <TableHead className="hidden md:table-cell">Estado</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {res.data.map((a) => (
                     <TableRow key={a.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
+                      <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
                         {a.code}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-normal min-w-[150px]">
                         <Link
                           href={`/dashboard/costos/acus/${a.id}`}
                           className="font-medium hover:underline underline-offset-4"
@@ -148,22 +148,22 @@ export default async function AcusPage({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
                         {a.chapter ?? '—'}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
                         {TRADE_LABELS[a.trade]}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                         {a.unit?.code ?? '—'}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
+                      <TableCell className="hidden lg:table-cell text-right font-mono text-sm">
                         {a.cost?.lines.length ?? 0}
                       </TableCell>
                       <TableCell className="text-right">
                         <CostoUnitario cost={a.cost} unit={a.unit?.code} />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge className={a.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
                           {a.isActive ? 'Activa' : 'Inactiva'}
                         </Badge>

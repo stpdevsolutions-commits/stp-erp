@@ -62,10 +62,10 @@ export default async function UsuariosPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Usuario</TableHead>
-                <TableHead>Correo</TableHead>
+                <TableHead className="hidden md:table-cell">Correo</TableHead>
                 <TableHead>Rol</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Creado</TableHead>
+                <TableHead className="hidden sm:table-cell">Estado</TableHead>
+                <TableHead className="hidden lg:table-cell">Creado</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -79,7 +79,7 @@ export default async function UsuariosPage() {
               ) : (
                 usuarios.map((u) => (
                   <TableRow key={u.id}>
-                    <TableCell>
+                    <TableCell className="whitespace-normal min-w-[140px]">
                       <div className="flex items-center gap-2">
                         <Avatar className="size-8">
                           <AvatarFallback className="text-xs">{initials(u)}</AvatarFallback>
@@ -89,16 +89,16 @@ export default async function UsuariosPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
                       <Badge className={ROLE_BADGE[u.role]}>{ROLE_LABELS[u.role]}</Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <Badge className={STATUS_BADGE[u.isActive ? 'active' : 'inactive']}>
                         {u.isActive ? 'Activo' : 'Inactivo'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
                       {formatDate(u.createdAt)}
                     </TableCell>
                     <TableCell>

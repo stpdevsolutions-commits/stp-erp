@@ -92,9 +92,9 @@ export default async function ImportarPreciosPage({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Documento</TableHead>
-                    <TableHead>Proveedor</TableHead>
+                    <TableHead className="hidden md:table-cell">Proveedor</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Subido</TableHead>
+                    <TableHead className="hidden sm:table-cell text-right">Subido</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -113,13 +113,13 @@ export default async function ImportarPreciosPage({
                             <p className="text-destructive mt-0.5 text-xs">{imp.error}</p>
                           )}
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
+                        <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                           {imp.supplier?.name ?? '—'}
                         </TableCell>
                         <TableCell>
                           <Badge variant={estado.variant}>{estado.label}</Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-right text-sm">
+                        <TableCell className="hidden sm:table-cell text-muted-foreground text-right text-sm">
                           {formatDate(imp.createdAt)}
                         </TableCell>
                       </TableRow>

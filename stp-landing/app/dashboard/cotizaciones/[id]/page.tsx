@@ -383,13 +383,13 @@ export default async function CotizacionDetallePage({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-16">Nº</TableHead>
+                      <TableHead className="w-8 sm:w-16">Nº</TableHead>
                       <TableHead>Descripción</TableHead>
-                      <TableHead className="w-24">Unidad</TableHead>
-                      <TableHead className="text-right w-20">Cant.</TableHead>
-                      <TableHead className="text-right w-32">Precio unit.</TableHead>
-                      <TableHead className="text-right w-20">Desc.%</TableHead>
-                      <TableHead className="text-right w-32">Total</TableHead>
+                      <TableHead className="hidden md:table-cell w-24">Unidad</TableHead>
+                      <TableHead className="text-right w-14 sm:w-20">Cant.</TableHead>
+                      <TableHead className="hidden sm:table-cell text-right w-32">Precio unit.</TableHead>
+                      <TableHead className="hidden md:table-cell text-right w-20">Desc.%</TableHead>
+                      <TableHead className="text-right sm:w-32">Total</TableHead>
                       {quote.taxRate > 0 && (
                         <TableHead className="text-right w-32">ITBIS</TableHead>
                       )}
@@ -412,19 +412,33 @@ export default async function CotizacionDetallePage({
                             <TableCell className="text-xs tabular-nums text-muted-foreground">
                               {label}
                             </TableCell>
-                            <TableCell
-                              // Descripción..Desc.% = 5 columnas; la de ITBIS va aparte
-                              // (celda vacía abajo), así que no cambia este número.
-                              colSpan={5}
-                              className={
-                                depth === 0
-                                  ? 'text-sm font-semibold'
-                                  : 'text-sm font-medium text-muted-foreground'
-                              }
-                              style={{ paddingLeft: indent + 12 }}
-                            >
-                              {item.description}
-                            </TableCell>
+                            {/*
+                              El nombre de la partida ocupa de Descripción a Desc.%. Las
+                              columnas ocultas en pantallas chicas (display: none) dejan de
+                              contar como columnas, y colSpan no puede variar por CSS: una
+                              celda por tamaño, cada una con las columnas que se ven ahí.
+                              (La de ITBIS va aparte, celda vacía abajo.)
+                            */}
+                            {(
+                              [
+                                [2, 'sm:hidden'],
+                                [3, 'hidden sm:table-cell md:hidden'],
+                                [5, 'hidden md:table-cell'],
+                              ] as const
+                            ).map(([span, visibility]) => (
+                              <TableCell
+                                key={span}
+                                colSpan={span}
+                                className={`${visibility} whitespace-normal ${
+                                  depth === 0
+                                    ? 'text-sm font-semibold'
+                                    : 'text-sm font-medium text-muted-foreground'
+                                }`}
+                                style={{ paddingLeft: indent + 12 }}
+                              >
+                                {item.description}
+                              </TableCell>
+                            ))}
                             <TableCell className="text-right tabular-nums text-sm font-semibold">
                               {DOP.format(item.total)}
                             </TableCell>
@@ -438,7 +452,7 @@ export default async function CotizacionDetallePage({
                           <TableCell className="text-xs tabular-nums text-muted-foreground">
                             {label}
                           </TableCell>
-                          <TableCell className="text-sm" style={{ paddingLeft: indent + 12 }}>
+                          <TableCell className="text-sm whitespace-normal min-w-[110px]" style={{ paddingLeft: indent + 12 }}>
                             {item.description}
                             {/*
                               De dónde sale el unitario. Se enseña en el detalle porque un
@@ -465,16 +479,18 @@ export default async function CotizacionDetallePage({
                               </span>
                             )}
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
+                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                             {item.unit ?? '—'}
                           </TableCell>
                           <TableCell className="text-right tabular-nums text-sm">
                             {item.quantity}
+                            {/* En celular la unidad va junto a la cantidad (su columna se oculta). */}
+                            {item.unit && <span className="text-muted-foreground md:hidden"> {item.unit}</span>}
                           </TableCell>
-                          <TableCell className="text-right tabular-nums text-sm">
+                          <TableCell className="hidden sm:table-cell text-right tabular-nums text-sm">
                             {DOP.format(item.unitPrice)}
                           </TableCell>
-                          <TableCell className="text-right tabular-nums text-sm">
+                          <TableCell className="hidden md:table-cell text-right tabular-nums text-sm">
                             {item.discountPct ? `${item.discountPct}%` : '—'}
                           </TableCell>
                           <TableCell className="text-right tabular-nums text-sm font-medium">
