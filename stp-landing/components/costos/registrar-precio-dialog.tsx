@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import { addMaterialPrice } from '@/lib/actions/costs'
 import type { PriceCurrency, PriceRegion, PriceSource, Supplier } from '@/lib/types'
+import { todayRD } from '@/lib/utils'
 
 const REGIONS: { value: PriceRegion; label: string }[] = [
   { value: 'santo_domingo', label: 'Santo Domingo' },
@@ -113,7 +114,7 @@ export function RegistrarPrecioDialog({
       region: 'santo_domingo',
       source: 'manual',
       discountPct: '0',
-      date: new Date().toISOString().slice(0, 10),
+      date: todayRD(),
     },
   })
 

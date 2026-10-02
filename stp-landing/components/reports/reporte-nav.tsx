@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, todayRD } from '@/lib/utils'
 import type { Project, Client } from '@/lib/types'
 
 type TabKey = 'general' | 'proyecto' | 'cliente' | 'ingresos' | 'gastos' | 'fichas' | 'nomina'
@@ -34,12 +34,11 @@ const PROJECT_STATUS_LABELS: Record<Project['status'], string> = {
 }
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10)
+  return todayRD()
 }
 
 function firstOfMonthStr() {
-  const d = new Date()
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10)
+  return `${todayRD().slice(0, 8)}01`
 }
 
 /** YYYY-MM-DD en hora local (sin el salto de día que provoca toISOString). */

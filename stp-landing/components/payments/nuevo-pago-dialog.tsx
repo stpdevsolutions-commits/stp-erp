@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import type { Client, Project } from '@/lib/types'
 import { createPayment } from '@/lib/actions/payments'
+import { todayRD } from '@/lib/utils'
 
 const METHOD_LABELS = {
   cash: 'Efectivo',
@@ -66,7 +67,7 @@ export function NuevoPagoDialog({
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayRD()
 
   const {
     register,

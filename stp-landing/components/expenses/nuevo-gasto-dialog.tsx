@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import type { Material, Project, Supplier } from '@/lib/types'
 import { createExpense } from '@/lib/actions/expenses'
+import { todayRD } from '@/lib/utils'
 
 const CATEGORY_LABELS = {
   materials: 'Materiales',
@@ -80,7 +81,7 @@ export function NuevoGastoDialog({
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayRD()
 
   const {
     register,
