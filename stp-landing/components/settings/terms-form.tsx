@@ -33,7 +33,7 @@ export function TermsForm({ defaultTerms }: { defaultTerms: string }) {
         className="w-full resize-y text-sm rounded-md border border-input bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
       />
       <p className="text-xs text-muted-foreground">
-        Este texto se pre-llenará automáticamente en el campo de Términos al crear una nueva cotización.
+        Cada cotización puede cambiarlo; esto solo define el texto con el que empieza. Las ya creadas no se modifican.
       </p>
 
       {error && (

@@ -76,7 +76,7 @@ export function LogoUpload() {
         </div>
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            Sube el logo de tu empresa para que aparezca en los PDFs de cotizaciones.
+            Sube el logo de tu empresa para que aparezca en todos los PDFs (cotizaciones, recibos de pago y nómina, gastos).
           </p>
           <Button
             type="button"
