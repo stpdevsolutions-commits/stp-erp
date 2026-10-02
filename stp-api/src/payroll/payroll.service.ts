@@ -19,7 +19,7 @@ import { CollaboratorLoansService } from './collaborator-loans.service';
 import { CreatePayrollEntryDto } from './dto/create-payroll-entry.dto';
 import { UpdatePayrollEntryDto } from './dto/update-payroll-entry.dto';
 import { QueryPayrollDto } from './dto/query-payroll.dto';
-import { computePayrollAmounts } from './payroll-amounts';
+import { computePayrollAmounts, periodDays } from './payroll-amounts';
 import { loadForUpdate } from '../common/load-for-update';
 import { SettingsService } from '../settings/settings.service';
 import { generatePayrollReceiptPdf } from './pdf.generator';
@@ -393,15 +393,10 @@ export class PayrollService {
     end: string,
   ): void {
     if (paymentType !== PayrollPaymentType.DAY || !daysWorked || !start || !end) return;
-    const periodDays =
-      Math.round(
-        (Date.parse(`${end.slice(0, 10)}T00:00:00Z`) -
-          Date.parse(`${start.slice(0, 10)}T00:00:00Z`)) /
-          86_400_000,
-      ) + 1;
-    if (daysWorked > periodDays) {
+    const maxDays = periodDays(start, end);
+    if (daysWorked > maxDays) {
       throw new BadRequestException(
-        `Se indicaron ${daysWorked} días trabajados pero el período solo tiene ${periodDays}. ` +
+        `Se indicaron ${daysWorked} días trabajados pero el período solo tiene ${maxDays}. ` +
           'Si el pago es por m², m³, ml o partida alzada, cambia el tipo de pago.',
       );
     }

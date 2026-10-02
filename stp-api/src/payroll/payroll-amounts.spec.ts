@@ -1,4 +1,5 @@
 import { computePayrollAmounts } from './payroll-amounts';
+import { periodDays } from './payroll-amounts';
 
 describe('computePayrollAmounts', () => {
   it('calcula bruto = días × tarifa + extras + bonos y neto = bruto − descuentos', () => {
@@ -70,5 +71,15 @@ describe('computePayrollAmounts', () => {
     expect(computePayrollAmounts({ ...base, retentionPercent: 0 }).retentionAmount).toBe(0);
     expect(computePayrollAmounts({ ...base, retentionPercent: null }).retentionAmount).toBe(0);
     expect(computePayrollAmounts({ ...base, retentionPercent: NaN }).retentionAmount).toBe(0);
+  });
+});
+
+describe('periodDays', () => {
+  it('cuenta ambos extremos', () => {
+    expect(periodDays('2026-09-05', '2026-09-09')).toBe(5);
+    expect(periodDays('2026-09-20', '2026-09-20')).toBe(1);
+  });
+  it('cruza meses sin errores de zona horaria', () => {
+    expect(periodDays('2026-09-28', '2026-10-03')).toBe(6);
   });
 });

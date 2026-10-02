@@ -37,3 +37,13 @@ export function computePayrollAmounts(input: PayrollAmountsInput): PayrollAmount
   const net = round2(gross - num(input.deductions) - retention);
   return { grossAmount: gross, retentionAmount: retention, netAmount: net };
 }
+
+/** Días calendario de un período, contando ambos extremos (5 al 9 = 5 días). */
+export function periodDays(start: string, end: string): number {
+  return (
+    Math.round(
+      (Date.parse(`${end.slice(0, 10)}T00:00:00Z`) - Date.parse(`${start.slice(0, 10)}T00:00:00Z`)) /
+        86_400_000,
+    ) + 1
+  );
+}
