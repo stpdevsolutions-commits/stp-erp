@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
-import type { Client, Project, PaginatedResponse, User as AppUser } from '@/lib/types'
+import type { Client, Payment, Project, Quote, PaginatedResponse, User as AppUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -55,6 +55,22 @@ export default async function ClienteDetallePage({
   const projectsRes = await api
     .get<PaginatedResponse<Project>>(`/projects?clientId=${id}&limit=100`)
     .catch(() => ({ data: [], total: 0, page: 1, limit: 100 }) as PaginatedResponse<Project>)
+
+  // Cobros del cliente (pagos completados) y cotizaciones aprobadas. Un rol sin
+  // acceso a Pagos/Cotizaciones recibe 403: la consulta vuelve vacía y el
+  // resumen simplemente no se muestra.
+  const [pagosRes, cotizacionesRes] = await Promise.all([
+    api
+      .get<PaginatedResponse<Payment>>(`/payments?clientId=${id}&limit=100`)
+      .catch(() => ({ data: [], total: 0, page: 1, limit: 100 }) as PaginatedResponse<Payment>),
+    api
+      .get<PaginatedResponse<Quote>>(`/quotes?clientId=${id}&status=approved&limit=100`)
+      .catch(() => ({ data: [], total: 0, page: 1, limit: 100 }) as PaginatedResponse<Quote>),
+  ])
+  const pagosCompletados = pagosRes.data.filter((p) => p.status === 'completed')
+  const cobrado = pagosCompletados.reduce((s, p) => s + p.amount, 0)
+  const aprobado = cotizacionesRes.data.reduce((s, q) => s + q.total, 0)
+  const ultimoPago = pagosCompletados.map((p) => p.date).sort().at(-1)
 
   // Panel de accesos: solo para ADMIN (los endpoints /members también lo son)
   const me = await api.get<Pick<AppUser, 'role'>>('/users/me').catch(() => ({ role: 'user' as const }))
@@ -117,7 +133,9 @@ export default async function ClienteDetallePage({
                 <Mail className="size-3.5" />
                 <span className="text-xs">Correo</span>
               </div>
-              <p className="font-medium text-sm">{client.email}</p>
+              <a href={`mailto:${client.email}`} className="font-medium text-sm break-all hover:underline">
+                {client.email}
+              </a>
             </CardContent>
           </Card>
         )}
@@ -128,7 +146,9 @@ export default async function ClienteDetallePage({
                 <Phone className="size-3.5" />
                 <span className="text-xs">Teléfono</span>
               </div>
-              <p className="font-medium text-sm">{client.phone}</p>
+              <a href={`tel:${client.phone.replace(/[^\d+]/g, '')}`} className="font-medium text-sm hover:underline">
+                {client.phone}
+              </a>
             </CardContent>
           </Card>
         )}
@@ -163,7 +183,12 @@ export default async function ClienteDetallePage({
               </div>
               <p className="font-medium text-sm">{client.contactName}</p>
               {client.contactPhone && (
-                <p className="text-xs text-muted-foreground mt-0.5">{client.contactPhone}</p>
+                <a
+                  href={`tel:${client.contactPhone.replace(/[^\d+]/g, '')}`}
+                  className="block text-xs text-muted-foreground mt-0.5 hover:underline"
+                >
+                  {client.contactPhone}
+                </a>
               )}
             </CardContent>
           </Card>
@@ -178,6 +203,43 @@ export default async function ClienteDetallePage({
           </CardContent>
         </Card>
       </div>
+
+      {(cobrado > 0 || aprobado > 0) && (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground mb-1">Cobrado al cliente</p>
+              <p className="text-xl font-bold tabular-nums text-green-700 dark:text-green-400">
+                {DOP.format(cobrado)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {pagosCompletados.length} pago{pagosCompletados.length === 1 ? '' : 's'}
+                {ultimoPago ? ` · último el ${formatDate(ultimoPago)}` : ''}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground mb-1">Cotizaciones aprobadas</p>
+              <p className="text-xl font-bold tabular-nums">{DOP.format(aprobado)}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {cotizacionesRes.data.length} cotización{cotizacionesRes.data.length === 1 ? '' : 'es'}
+              </p>
+            </CardContent>
+          </Card>
+          <Link
+            href={`/dashboard/pagos?clientId=${id}`}
+            className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Card className="h-full transition-colors hover:bg-accent/40">
+              <CardContent className="pt-4 pb-3">
+                <p className="text-xs text-muted-foreground mb-1">Historial</p>
+                <p className="text-sm font-medium">Ver pagos de este cliente →</p>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      )}
 
       {client.notes && (
         <Card>
@@ -222,7 +284,11 @@ export default async function ClienteDetallePage({
                         {p.code}
                       </Button>
                     </TableCell>
-                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link href={`/dashboard/proyectos/${p.id}`} className="hover:underline">
+                        {p.name}
+                      </Link>
+                    </TableCell>
                     <TableCell>
                       <Badge className={PROJECT_STATUS_BADGE[p.status]}>
                         {PROJECT_STATUS_LABELS[p.status]}

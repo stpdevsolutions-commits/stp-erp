@@ -56,15 +56,14 @@ export default async function GastoDetallePage({
             <Badge variant="outline">{CATEGORY_LABELS[gasto.category]}</Badge>
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{gasto.description}</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {DOP.format(gasto.amount)}
-            {gasto.quantity != null && gasto.unitPrice != null && (
-              <span>
-                {' '}· {gasto.quantity} {gasto.unit?.code ?? ''} × {DOP.format(gasto.unitPrice)}
-                {gasto.itbisIncluded && ' (ITBIS incl.)'}
-              </span>
-            )}
-          </p>
+          {/* El monto es el dato principal de un gasto: va grande, no como subtítulo. */}
+          <p className="mt-2 text-2xl font-bold tabular-nums">{DOP.format(gasto.amount)}</p>
+          {gasto.quantity != null && gasto.unitPrice != null && (
+            <p className="text-muted-foreground text-sm">
+              {gasto.quantity} {gasto.unit?.code ?? ''} × {DOP.format(gasto.unitPrice)}
+              {gasto.itbisIncluded && ' (ITBIS incl.)'}
+            </p>
+          )}
         </div>
         <GastoActions gasto={gasto} projects={projects} suppliers={suppliers} materials={materials} userRole={me.role} />
       </div>

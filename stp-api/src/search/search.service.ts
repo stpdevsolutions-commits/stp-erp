@@ -34,6 +34,21 @@ export interface SearchResponse {
 const LIMIT = 6;
 
 /**
+ * Búsqueda sin distinguir tildes ni mayúsculas: "colegio" encuentra
+ * "Colegío", "nomina" encuentra "Nómina". Se normalizan los dos lados con
+ * translate() (sin depender de la extensión unaccent de Postgres).
+ */
+const ACCENTED = 'áéíóúüñàèìòùâêîôû';
+const PLAIN = 'aeiouunaeiouaeiou';
+const norm = (expr: string) => `translate(lower(${expr}), '${ACCENTED}', '${PLAIN}')`;
+
+function normalizeTerm(term: string): string {
+  const map: Record<string, string> = {};
+  [...ACCENTED].forEach((c, i) => (map[c] = PLAIN[i]));
+  return [...term.toLowerCase()].map((c) => map[c] ?? c).join('');
+}
+
+/**
  * Búsqueda global (ERP-106). Cada categoría se apaga por completo si el rol
  * no tiene al menos 'view' en su módulo (module-permissions.ts) — no basta
  * con acotar por pertenencia, porque un rol sin acceso al módulo (ej. `user`
@@ -55,7 +70,7 @@ export class SearchService {
   ) {}
 
   async search(term: string, user: AccessSubject): Promise<SearchResponse> {
-    const q = `%${escapeLike(term)}%`;
+    const q = `%${escapeLike(normalizeTerm(term))}%`;
 
     const [clients, projects, quotes, tasks, files, collaborators] = await Promise.all([
       hasModuleAccess(user.role, 'clientes', 'view') ? this.searchClients(q, user) : [],
@@ -73,7 +88,7 @@ export class SearchService {
     const scope = await this.access.getListScope(user);
     const qb = this.clientsRepo
       .createQueryBuilder('client')
-      .where('client.name ILIKE :q', { q })
+      .where(`${norm('client.name')} LIKE :q`, { q })
       .orderBy('client.name', 'ASC')
       .take(LIMIT);
     if (scope) {
@@ -89,7 +104,7 @@ export class SearchService {
     const qb = this.projectsRepo
       .createQueryBuilder('project')
       .leftJoinAndSelect('project.client', 'client')
-      .where('(project.name ILIKE :q OR project.code ILIKE :q)', { q })
+      .where(`(${norm('project.name')} LIKE :q OR ${norm('project.code')} LIKE :q)`, { q })
       .orderBy('project.createdAt', 'DESC')
       .take(LIMIT);
     await this.access.applyScope(qb, user, { projectExpr: 'project.id', clientExpr: 'project.clientId' });
@@ -106,7 +121,7 @@ export class SearchService {
     const qb = this.quotesRepo
       .createQueryBuilder('quote')
       .leftJoinAndSelect('quote.client', 'client')
-      .where('(quote.title ILIKE :q OR quote.number ILIKE :q)', { q })
+      .where(`(${norm('quote.title')} LIKE :q OR ${norm('quote.number')} LIKE :q)`, { q })
       // Las revisiones reemplazadas son historial, no lo que se busca a diario.
       .andWhere('quote.supersededById IS NULL')
       .orderBy('quote.createdAt', 'DESC')
@@ -125,7 +140,7 @@ export class SearchService {
     const qb = this.tasksRepo
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.project', 'project')
-      .where('task.title ILIKE :q', { q })
+      .where(`${norm('task.title')} LIKE :q`, { q })
       .orderBy('task.createdAt', 'DESC')
       .take(LIMIT);
     await this.access.applyScope(qb, user, { projectExpr: 'task.projectId', clientExpr: 'project.clientId' });
@@ -141,7 +156,7 @@ export class SearchService {
   private async searchFiles(q: string, user: AccessSubject): Promise<SearchResult[]> {
     const qb = this.filesRepo
       .createQueryBuilder('file')
-      .where('file.originalName ILIKE :q', { q })
+      .where(`${norm('file.originalName')} LIKE :q`, { q })
       .orderBy('file.createdAt', 'DESC')
       .take(LIMIT);
     await this.access.applyScope(qb, user, { projectExpr: 'file.projectId', clientExpr: 'file.clientId' });
@@ -166,7 +181,7 @@ export class SearchService {
     // empresa, no ligada a cliente/proyecto (igual que su propio listado).
     const rows = await this.collaboratorsRepo
       .createQueryBuilder('c')
-      .where('(c.firstName ILIKE :q OR c.lastName ILIKE :q OR c.code ILIKE :q)', { q })
+      .where(`(${norm('c.firstName')} LIKE :q OR ${norm('c.lastName')} LIKE :q OR ${norm('c.code')} LIKE :q)`, { q })
       .orderBy('c.lastName', 'ASC')
       .take(LIMIT)
       .getMany();

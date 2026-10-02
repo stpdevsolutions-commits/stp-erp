@@ -96,7 +96,7 @@ export function GlobalSearch() {
       </div>
 
       {showDropdown && (
-        <div className="absolute right-0 top-full z-50 mt-1.5 max-h-[70vh] w-80 overflow-y-auto rounded-lg border bg-background shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1.5 max-h-[70vh] w-[28rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border bg-background shadow-lg">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
@@ -123,7 +123,7 @@ export function GlobalSearch() {
                       >
                         <Icon className="size-3.5 shrink-0 text-muted-foreground" />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate">{item.label}</span>
+                          <span className="line-clamp-2">{item.label}</span>
                           {item.sublabel && (
                             <span className="block truncate text-xs text-muted-foreground">{item.sublabel}</span>
                           )}

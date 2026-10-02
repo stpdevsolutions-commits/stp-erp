@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChevronLeft, FolderKanban, Calendar, CalendarClock, UserCheck } from 'lucide-react'
 import { TaskActions } from '@/components/tasks/task-actions'
-import { formatDate } from '@/lib/utils'
+import { formatDate, todayRD } from '@/lib/utils'
 
 const STATUS_LABELS: Record<Task['status'], string> = {
   pending: 'Pendiente',
@@ -59,6 +59,13 @@ export default async function TareaDetallePage({
     api.get<PaginatedResponse<User>>('/users?limit=200').then((r) => r.data).catch(() => [] as User[]),
   ])
 
+  // Mismo criterio que el listado y el Resumen.
+  const vencida =
+    !!tarea.dueDate &&
+    tarea.dueDate.slice(0, 10) < todayRD() &&
+    tarea.status !== 'done' &&
+    tarea.status !== 'cancelled'
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -73,6 +80,7 @@ export default async function TareaDetallePage({
           <div className="flex items-center gap-2 mb-1">
             <Badge className={STATUS_BADGE[tarea.status]}>{STATUS_LABELS[tarea.status]}</Badge>
             <Badge variant={PRIORITY_VARIANTS[tarea.priority]}>{PRIORITY_LABELS[tarea.priority]}</Badge>
+            {vencida && <Badge variant="destructive">Vencida</Badge>}
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{tarea.title}</h1>
           {tarea.description && (
@@ -115,7 +123,7 @@ export default async function TareaDetallePage({
               <CalendarClock className="size-3.5" />
               <span className="text-xs">Vence</span>
             </div>
-            <p className="font-medium text-sm">
+            <p className={`font-medium text-sm ${vencida ? 'text-destructive' : ''}`}>
               {formatDate(tarea.dueDate)}
             </p>
           </CardContent>
