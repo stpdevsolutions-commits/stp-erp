@@ -77,7 +77,7 @@ export default async function AcuDetallePage({ params }: { params: Promise<{ id:
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">{acu.name}</h1>
-            <Badge variant={acu.isActive ? 'default' : 'secondary'}>
+            <Badge className={acu.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
               {acu.isActive ? 'Activa' : 'Inactiva'}
             </Badge>
           </div>

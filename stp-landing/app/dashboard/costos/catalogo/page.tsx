@@ -44,14 +44,14 @@ export default async function CatalogoPage() {
 
   return (
     <div className="space-y-6">
-      <CostosTabs />
-
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Unidades y categorías</h1>
         <p className="text-muted-foreground text-sm">
           La base del catálogo de materiales. Las unidades vienen cargadas con sus conversiones.
         </p>
       </div>
+
+      <CostosTabs />
 
       {error && <p className="text-destructive text-sm">{error}</p>}
 
@@ -93,7 +93,7 @@ export default async function CatalogoPage() {
                         {c.parentId ? (categoryById.get(c.parentId)?.name ?? '—') : '—'}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={c.isActive ? 'default' : 'secondary'}>
+                        <Badge className={c.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
                           {c.isActive ? 'Activa' : 'Inactiva'}
                         </Badge>
                       </TableCell>
@@ -151,7 +151,7 @@ export default async function CatalogoPage() {
                         : '—'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={u.isActive ? 'default' : 'secondary'}>
+                      <Badge className={u.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
                         {u.isActive ? 'Activa' : 'Inactiva'}
                       </Badge>
                     </TableCell>

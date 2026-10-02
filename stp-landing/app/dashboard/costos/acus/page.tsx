@@ -164,7 +164,7 @@ export default async function AcusPage({
                         <CostoUnitario cost={a.cost} unit={a.unit?.code} />
                       </TableCell>
                       <TableCell>
-                        <Badge variant={a.isActive ? 'default' : 'secondary'}>
+                        <Badge className={a.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
                           {a.isActive ? 'Activa' : 'Inactiva'}
                         </Badge>
                       </TableCell>
