@@ -23,6 +23,7 @@ import type { CompanyData } from '../common/company';
 import type { ExportCell, ExportColumn, ExportDoc, ExportImage, ExportTable } from './report-tables';
 import { Logger } from '@nestjs/common';
 import sharp from 'sharp';
+import { formatRD } from '../common/money';
 
 /**
  * Rinde un `ExportDoc` a Excel y a PDF. Ambos formatos parten de las mismas
@@ -137,10 +138,8 @@ async function prepararFotos(imagenes: ExportImage[]): Promise<Map<string, Buffe
   return preparadas;
 }
 
-function money(n: number): string {
-  const [int, dec] = (Math.round((n ?? 0) * 100) / 100).toFixed(2).split('.');
-  return 'RD$ ' + int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec;
-}
+// Formato único de montos (common/money.ts).
+const money = formatRD;
 
 /**
  * Las fuentes estándar de PDFKit (Helvetica) escriben en WinAnsi, que NO tiene

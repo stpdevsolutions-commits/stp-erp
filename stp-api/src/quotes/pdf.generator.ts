@@ -10,6 +10,7 @@ import {
 } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
 import { todayRD } from '../common/dates';
+import { formatRD } from '../common/money';
 
 // ── Additional palette ─────────────────────────────────────────────────────
 type QuoteItemLike = QuoteRowLike;
@@ -21,10 +22,8 @@ const INFO_BG      = '#f8fafc';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function money(n: number): string {
-  const [int, dec] = (Math.round(n * 100) / 100).toFixed(2).split('.');
-  return 'RD$ ' + int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec;
-}
+// Formato único de montos (common/money.ts).
+const money = formatRD;
 
 const MONTHS_ES = [
   'enero','febrero','marzo','abril','mayo','junio',

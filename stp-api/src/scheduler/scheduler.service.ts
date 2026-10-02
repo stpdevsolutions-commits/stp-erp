@@ -12,6 +12,7 @@ import { AppNotificationsService } from '../notifications/app-notifications.serv
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { UserRole } from '../users/entities/user.entity';
 import { RD_TIME_ZONE, todayRD } from '../common/dates';
+import { formatRD } from '../common/money';
 
 @Injectable()
 export class SchedulerService {
@@ -144,7 +145,7 @@ export class SchedulerService {
         await this.appNotifications.notifyRoles(
           [UserRole.ADMIN, UserRole.FINANZA],
           NotificationType.PAYMENT_OVERDUE,
-          `Cobro vencido: RD$ ${Number(p.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          `Cobro vencido: ${formatRD(Number(p.amount))}`,
           `${p.client?.name ?? 'Cliente'} — ${p.description} (vencía el ${p.dueDate})`,
           `/dashboard/pagos?clientId=${p.clientId}&pago=${p.id}`,
         );
