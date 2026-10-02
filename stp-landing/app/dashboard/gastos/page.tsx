@@ -141,11 +141,13 @@ export default async function GastosPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Descripción</TableHead>
-                  <TableHead>Proyecto</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead>Proveedor</TableHead>
+                  {/* En celular solo van descripción y monto; el resto se resume
+                      debajo de la descripción (ver la línea md:hidden). */}
+                  <TableHead className="hidden md:table-cell">Proyecto</TableHead>
+                  <TableHead className="hidden lg:table-cell">Categoría</TableHead>
+                  <TableHead className="hidden lg:table-cell">Proveedor</TableHead>
                   <TableHead className="text-right">Monto</TableHead>
-                  <TableHead>Fecha</TableHead>
+                  <TableHead className="hidden md:table-cell">Fecha</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -159,10 +161,15 @@ export default async function GastosPage({
                 ) : (
                   gastos.map((g) => (
                     <TableRow key={g.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium whitespace-normal min-w-[180px]">
                         <Link href={`/dashboard/gastos/${g.id}`} className="hover:underline">
                           {g.description}
                         </Link>
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
+                          {[g.project?.code, formatDate(g.date), CATEGORY_LABELS[g.category]]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
                         {g.quantity != null && g.unitPrice != null && (
                           <span className="text-muted-foreground block text-xs font-normal">
                             {g.quantity} {g.unit?.code ?? ''} × {DOP.format(g.unitPrice)}
@@ -181,7 +188,7 @@ export default async function GastosPage({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {g.project ? (
                           <div>
                             <div className="text-sm">{g.project.name}</div>
@@ -189,14 +196,14 @@ export default async function GastosPage({
                           </div>
                         ) : '—'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <Badge variant="outline">{CATEGORY_LABELS[g.category]}</Badge>
                       </TableCell>
-                      <TableCell className="text-sm">{g.supplier?.name ?? '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm">{g.supplier?.name ?? '—'}</TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
                         {DOP.format(g.amount)}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="hidden md:table-cell text-sm">
                         {formatDate(g.date)}
                       </TableCell>
                       <TableCell>

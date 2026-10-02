@@ -143,13 +143,13 @@ export default async function ProyectosPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Código</TableHead>
+                  <TableHead className="hidden md:table-cell">Código</TableHead>
                   <TableHead>Título</TableHead>
-                  <TableHead>Cliente</TableHead>
+                  <TableHead className="hidden md:table-cell">Cliente</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Presupuesto</TableHead>
-                  <TableHead>Supervisor</TableHead>
-                  <TableHead>Encargado</TableHead>
+                  <TableHead className="hidden lg:table-cell">Presupuesto</TableHead>
+                  <TableHead className="hidden xl:table-cell">Supervisor</TableHead>
+                  <TableHead className="hidden xl:table-cell">Encargado</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -163,13 +163,16 @@ export default async function ProyectosPage({
                 ) : (
                   proyectos.map((p) => (
                     <TableRow key={p.id}>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="hidden md:table-cell font-mono text-sm">
                         <Link href={`/dashboard/proyectos/${p.id}`} className="hover:underline">
                           {p.code}
                         </Link>
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium whitespace-normal min-w-[180px]">
                         <Link href={`/dashboard/proyectos/${p.id}`} className="hover:underline">
+                          <div className="font-mono text-xs text-muted-foreground md:hidden">
+                            {p.code}{p.client ? ` · ${p.client.name}` : ''}
+                          </div>
                           <div>{p.name}</div>
                           {p.startDate && (
                             <div className="text-xs text-muted-foreground">
@@ -178,7 +181,7 @@ export default async function ProyectosPage({
                           )}
                         </Link>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {p.client ? (
                           <Link href={`/dashboard/clientes/${p.client.id}`} className="hover:underline">
                             {p.client.name}
@@ -188,11 +191,11 @@ export default async function ProyectosPage({
                       <TableCell>
                         <Badge className={STATUS_BADGE[p.status]}>{STATUS_LABELS[p.status]}</Badge>
                       </TableCell>
-                      <TableCell>{p.budget != null ? DOP.format(p.budget) : '—'}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">{p.budget != null ? DOP.format(p.budget) : '—'}</TableCell>
+                      <TableCell className="hidden xl:table-cell">
                         {p.supervisor ? `${p.supervisor.firstName} ${p.supervisor.lastName}` : '—'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden xl:table-cell">
                         {p.assignedTo ? `${p.assignedTo.firstName} ${p.assignedTo.lastName}` : '—'}
                       </TableCell>
                       <TableCell>

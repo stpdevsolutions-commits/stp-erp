@@ -168,11 +168,11 @@ export default async function TareasPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Título</TableHead>
-                  <TableHead>Proyecto</TableHead>
-                  <TableHead>Prioridad</TableHead>
+                  <TableHead className="hidden md:table-cell">Proyecto</TableHead>
+                  <TableHead className="hidden lg:table-cell">Prioridad</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Vence</TableHead>
-                  <TableHead>Asignado a</TableHead>
+                  <TableHead className="hidden sm:table-cell">Vence</TableHead>
+                  <TableHead className="hidden lg:table-cell">Asignado a</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -186,15 +186,32 @@ export default async function TareasPage({
                 ) : (
                   tareas.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell className="font-medium max-w-[220px]">
+                      <TableCell className="font-medium max-w-[220px] whitespace-normal min-w-[130px]">
                         <Link href={`/dashboard/tareas/${t.id}`} className="hover:underline block truncate" title={t.title}>
                           {t.title}
                         </Link>
                         {t.description && (
                           <div className="text-xs text-muted-foreground line-clamp-1">{t.description}</div>
                         )}
+                        <div
+                          className={`mt-0.5 text-xs font-normal md:hidden ${
+                            estaVencida(t) ? 'text-destructive' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {[
+                            t.project?.code,
+                            t.dueDate ? `vence ${formatDate(t.dueDate.slice(0, 10))}` : null,
+                            t.collaborator
+                              ? `${t.collaborator.firstName} ${t.collaborator.lastName}`
+                              : t.assignedTo
+                                ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}`
+                                : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[160px]">
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground max-w-[160px]">
                         {t.project ? (
                           <div title={`${t.project.code} — ${t.project.name}`}>
                             <div className="truncate">{t.project.name}</div>
@@ -202,13 +219,13 @@ export default async function TareasPage({
                           </div>
                         ) : '—'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <Badge variant={PRIORITY_VARIANTS[t.priority]}>{PRIORITY_LABELS[t.priority]}</Badge>
                       </TableCell>
                       <TableCell>
                         <Badge className={STATUS_BADGE[t.status]}>{STATUS_LABELS[t.status]}</Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="hidden sm:table-cell whitespace-nowrap">
                         {t.dueDate ? (
                           estaVencida(t) ? (
                             <span className="font-medium text-destructive" title="Vencida: pasó su fecha límite sin cerrarse">
@@ -220,7 +237,7 @@ export default async function TareasPage({
                           )
                         ) : '—'}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="hidden lg:table-cell text-sm">
                         {t.collaborator
                           ? `${t.collaborator.firstName} ${t.collaborator.lastName}`
                           : t.assignedTo

@@ -147,12 +147,12 @@ export default async function PagosPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Descripción</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Proyecto</TableHead>
-                  <TableHead>Método</TableHead>
-                  <TableHead>Estado</TableHead>
+                  <TableHead className="hidden md:table-cell">Cliente</TableHead>
+                  <TableHead className="hidden lg:table-cell">Proyecto</TableHead>
+                  <TableHead className="hidden lg:table-cell">Método</TableHead>
+                  <TableHead className="hidden sm:table-cell">Estado</TableHead>
                   <TableHead className="text-right">Monto</TableHead>
-                  <TableHead>Fecha</TableHead>
+                  <TableHead className="hidden md:table-cell">Fecha</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -166,26 +166,31 @@ export default async function PagosPage({
                 ) : (
                   pagos.map((p) => (
                     <TableRow key={p.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium whitespace-normal min-w-[180px]">
                         <div>{p.description}</div>
                         {p.reference && (
                           <div className="text-xs text-muted-foreground font-mono">{p.reference}</div>
                         )}
+                        <div className="mt-0.5 text-xs font-normal text-muted-foreground md:hidden">
+                          {[p.client?.name, formatDate(p.date), STATUS_LABELS[p.status]]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </div>
                       </TableCell>
-                      <TableCell>{p.client?.name ?? '—'}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">{p.client?.name ?? '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         {p.project ? (
                           <div className="text-xs font-mono text-muted-foreground">{p.project.code}</div>
                         ) : '—'}
                       </TableCell>
-                      <TableCell>{METHOD_LABELS[p.method]}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">{METHOD_LABELS[p.method]}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge className={STATUS_BADGE[p.status]}>{STATUS_LABELS[p.status]}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
                         {DOP.format(p.amount)}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="hidden md:table-cell text-sm">
                         {formatDate(p.date)}
                       </TableCell>
                       <TableCell>

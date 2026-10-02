@@ -195,14 +195,14 @@ export default async function NominaPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nº</TableHead>
+                  <TableHead className="hidden lg:table-cell">Nº</TableHead>
                   <TableHead>Colaborador</TableHead>
-                  <TableHead>Período</TableHead>
-                  <TableHead>Proyecto</TableHead>
-                  <TableHead className="text-right">Cantidad × tarifa</TableHead>
+                  <TableHead className="hidden md:table-cell">Período</TableHead>
+                  <TableHead className="hidden lg:table-cell">Proyecto</TableHead>
+                  <TableHead className="hidden xl:table-cell text-right">Cantidad × tarifa</TableHead>
                   <TableHead className="text-right">Neto</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Pagado</TableHead>
+                  <TableHead className="hidden sm:table-cell">Estado</TableHead>
+                  <TableHead className="hidden md:table-cell">Pagado</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -216,10 +216,10 @@ export default async function NominaPage({
                 ) : (
                   pagos.map((p) => (
                     <TableRow key={p.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
+                      <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
                         {p.number}
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium whitespace-normal min-w-[160px]">
                         <div>
                           {p.collaborator
                             ? `${p.collaborator.firstName} ${p.collaborator.lastName}`
@@ -230,14 +230,17 @@ export default async function NominaPage({
                             {p.collaborator.position}
                           </div>
                         )}
+                        <div className="mt-0.5 text-xs font-normal text-muted-foreground md:hidden">
+                          {fecha(p.periodStart)} — {fecha(p.periodEnd)} · {STATUS_LABELS[p.status]}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-sm whitespace-nowrap">
+                      <TableCell className="hidden md:table-cell text-sm whitespace-nowrap">
                         {fecha(p.periodStart)} — {fecha(p.periodEnd)}
                       </TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">
+                      <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground">
                         {p.project?.code ?? '—'}
                       </TableCell>
-                      <TableCell className="text-right text-sm tabular-nums">
+                      <TableCell className="hidden xl:table-cell text-right text-sm tabular-nums">
                         {formatCantidadTarifa(p)}
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
@@ -253,10 +256,10 @@ export default async function NominaPage({
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge className={STATUS_BADGE[p.status]}>{STATUS_LABELS[p.status]}</Badge>
                       </TableCell>
-                      <TableCell className="text-sm whitespace-nowrap">
+                      <TableCell className="hidden md:table-cell text-sm whitespace-nowrap">
                         {p.status === 'paid' ? (
                           <>
                             <div>{fecha(p.paymentDate)}</div>
