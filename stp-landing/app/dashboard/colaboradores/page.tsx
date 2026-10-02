@@ -1,5 +1,5 @@
-﻿import { api, pageError } from '@/lib/api'
-import type { Collaborator, PaginatedResponse } from '@/lib/types'
+import { api, pageError } from '@/lib/api'
+import type { Collaborator, PaginatedResponse, PayrollEntry } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -24,6 +24,14 @@ const TYPE_LABELS: Record<Collaborator['type'], string> = {
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 const LIMIT = 20
 
+const UNIDAD: Record<PayrollEntry['paymentType'], string> = {
+  day: 'día',
+  m2: 'm²',
+  m3: 'm³',
+  ml: 'ml',
+  lump_sum: 'P.A.',
+}
+
 export default async function ColaboradoresPage({
   searchParams,
 }: {
@@ -45,6 +53,28 @@ export default async function ColaboradoresPage({
     res = await api.get<PaginatedResponse<Collaborator>>(`/collaborators?${query}`)
   } catch (e) {
     error = pageError(e, 'Error al cargar colaboradores')
+  }
+
+  // La tarifa diaria del colaborador solo existe para quien cobra por día; los
+  // demás (m², ml, partida) cobran según el trabajo. Se toma la tarifa de su
+  // último pago de nómina. Nómina es admin/finanza: para otros roles la
+  // consulta da 403 y se queda solo la tarifa diaria, como antes.
+  const ultimoPago = new Map<string, PayrollEntry>()
+  await api
+    .get<PaginatedResponse<PayrollEntry>>('/payroll?limit=100')
+    .then((r) => {
+      // Viene ordenado por fin de período, más reciente primero.
+      for (const e of r.data) if (!ultimoPago.has(e.collaboratorId)) ultimoPago.set(e.collaboratorId, e)
+    })
+    .catch(() => undefined)
+
+  const tarifa = (col: Collaborator): { valor: string; nota?: string } => {
+    const ultimo = ultimoPago.get(col.id)
+    if (col.dailyRate) return { valor: `${DOP.format(col.dailyRate)}/día` }
+    if (!ultimo?.dailyRate) return { valor: '—' }
+    if (ultimo.paymentType === 'lump_sum')
+      return { valor: 'Partida alzada', nota: `último ${DOP.format(ultimo.dailyRate)}` }
+    return { valor: `${DOP.format(ultimo.dailyRate)}/${UNIDAD[ultimo.paymentType]}`, nota: 'último pago' }
   }
 
   const totalPages = Math.max(1, Math.ceil(res.total / LIMIT))
@@ -83,7 +113,7 @@ export default async function ColaboradoresPage({
                   <TableHead className="hidden xl:table-cell">Cédula</TableHead>
                   <TableHead className="hidden lg:table-cell">Teléfono</TableHead>
                   <TableHead className="hidden xl:table-cell">Correo</TableHead>
-                  <TableHead className="hidden lg:table-cell text-right">Tarifa/día</TableHead>
+                  <TableHead className="hidden lg:table-cell text-right">Tarifa</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -123,8 +153,10 @@ export default async function ColaboradoresPage({
                     </TableCell>
                     <TableCell className="hidden xl:table-cell text-muted-foreground text-sm">{col.email ?? '—'}</TableCell>
                     <TableCell className="hidden lg:table-cell text-right font-mono text-sm">
-                      {/* 0 = cobra por m², m³, ml o partida: no tiene tarifa diaria fija. */}
-                      {col.dailyRate ? DOP.format(col.dailyRate) : '—'}
+                      <div>{tarifa(col).valor}</div>
+                      {tarifa(col).nota && (
+                        <div className="text-xs font-sans text-muted-foreground">{tarifa(col).nota}</div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge
