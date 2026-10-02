@@ -42,8 +42,11 @@ export default function LoginPage() {
 
   // El callback de Google redirige a /login?error=... cuando la cuenta no está
   // autorizada; mostramos ese mensaje al usuario.
+  // Se lee en un efecto (no con useSearchParams) para no tener que envolver la
+  // página en <Suspense>; es un solo render extra, solo cuando hay error.
   useEffect(() => {
     const error = new URLSearchParams(window.location.search).get('error')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (error) setServerError(error)
   }, [])
 
@@ -75,7 +78,7 @@ export default function LoginPage() {
         return
       }
 
-      window.location.href = '/dashboard'
+      window.location.assign('/dashboard')
     } catch {
       setServerError('Error de conexión. Intente de nuevo.')
     }

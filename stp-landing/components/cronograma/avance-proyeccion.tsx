@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartEmpty } from '@/components/charts/chart-frame'
 import type { Project, Task } from '@/lib/types'
+import { todayRD } from '@/lib/utils'
 
 /**
  * Avance vs. tiempo transcurrido — compara qué tanto del trabajo está hecho
@@ -24,11 +25,13 @@ export function AvanceProyeccion({ project, tasks }: { project: Project; tasks: 
     const start = new Date(`${project.startDate}T00:00:00`).getTime()
     const end = new Date(`${project.endDate}T00:00:00`).getTime()
     const totalMs = end - start
+    // "Hoy" según el calendario de RD, igual que el resto del ERP.
+    const nowMs = new Date(`${todayRD()}T12:00:00`).getTime()
     if (totalMs > 0) {
-      const elapsedMs = Math.min(Math.max(Date.now() - start, 0), totalMs)
+      const elapsedMs = Math.min(Math.max(nowMs - start, 0), totalMs)
       tiempoPct = Math.round((elapsedMs / totalMs) * 1000) / 10
     } else {
-      tiempoPct = Date.now() >= start ? 100 : 0
+      tiempoPct = nowMs >= start ? 100 : 0
     }
   }
 

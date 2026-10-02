@@ -168,7 +168,7 @@ export default async function CotizacionDetallePage({
             onClick={undefined}
             render={
               <a
-                href={`/api/files/quote/${quote.id}?v=${Date.now()}`}
+                href={`/api/files/quote/${quote.id}?v=${encodeURIComponent(quote.updatedAt ?? quote.createdAt)}`}
                 target="_blank"
                 rel="noreferrer"
               />

@@ -138,7 +138,7 @@ export default async function GastoDetallePage({
           <Button
             variant="outline"
             size="sm"
-            render={<a href={`/api/files/expense/${gasto.id}?v=${Date.now()}`} target="_blank" rel="noopener noreferrer" />}
+            render={<a href={`/api/files/expense/${gasto.id}?v=${encodeURIComponent(gasto.updatedAt ?? gasto.createdAt)}`} target="_blank" rel="noopener noreferrer" />}
           >
             Ver PDF
           </Button>

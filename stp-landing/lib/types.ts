@@ -198,6 +198,8 @@ export interface QuoteRevisionSummary {
 }
 
 export interface Quote {
+  /** Última modificación: sirve para invalidar la caché del PDF. */
+  updatedAt?: string
   id: string
   number: string
   baseNumber: string
@@ -249,6 +251,8 @@ export interface Supplier {
 export type ExpenseCategory = 'materials' | 'labor' | 'equipment' | 'subcontract' | 'travel' | 'other'
 
 export interface Expense {
+  /** Última modificación: sirve para invalidar la caché del PDF. */
+  updatedAt?: string
   id: string
   projectId: string
   project?: Pick<Project, 'id' | 'name' | 'code'>

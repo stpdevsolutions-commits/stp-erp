@@ -40,12 +40,9 @@ export function GlobalSearch() {
 
   useEffect(() => {
     const term = query.trim()
-    if (term.length < 2) {
-      setResults(null)
-      setLoading(false)
-      return
-    }
-    setLoading(true)
+    // Con menos de 2 letras no se busca; el menú tampoco se muestra
+    // (showDropdown), así que no hace falta limpiar estado aquí.
+    if (term.length < 2) return
     const timeout = setTimeout(() => {
       fetch(`/api/search?q=${encodeURIComponent(term)}`)
         .then((res) => (res.ok ? res.json() : null))
@@ -102,7 +99,11 @@ export function GlobalSearch() {
         <input
           ref={inputRef}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            // El "Buscando…" arranca al escribir, no dentro del efecto.
+            if (e.target.value.trim().length >= 2) setLoading(true)
+          }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Buscar en el ERP…"
