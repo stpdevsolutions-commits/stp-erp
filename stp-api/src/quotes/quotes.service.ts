@@ -1364,6 +1364,20 @@ export class QuotesService implements OnModuleInit {
     await this.quotesRepository.save(quote);
   }
 
+  /**
+   * Rehace el PDF guardado de una cotización con el diseño actual. Lo usa
+   * `scripts/regenerate-pdfs` tras cambios en el generador: los PDF solo se
+   * rehacían al editar la cotización.
+   */
+  async regeneratePdf(id: string): Promise<void> {
+    await this.savePdfForQuote(await this.findOne(id));
+  }
+
+  async allIds(): Promise<string[]> {
+    const rows = await this.quotesRepository.find({ select: { id: true } });
+    return rows.map((r) => r.id);
+  }
+
   private async savePdfForQuote(quote: Quote): Promise<void> {
     const hasProject = !!quote.projectId;
     const context = hasProject ? FileContext.PROJECT_QUOTES : FileContext.CLIENT_QUOTES;

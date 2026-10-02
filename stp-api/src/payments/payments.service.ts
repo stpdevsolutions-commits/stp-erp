@@ -286,6 +286,16 @@ export class PaymentsService {
     }
   }
 
+  /** Rehace el PDF guardado de un pago con el diseño actual (ver scripts/regenerate-pdfs). */
+  async regeneratePdf(id: string): Promise<void> {
+    await this.savePdfForPayment(await this.findOne(id));
+  }
+
+  async allIds(): Promise<string[]> {
+    const rows = await this.paymentsRepository.find({ select: { id: true } });
+    return rows.map((r) => r.id);
+  }
+
   private async savePdfForPayment(payment: Payment): Promise<void> {
     const hasProject = !!payment.projectId;
     const context = hasProject ? FileContext.PROJECT_PAYMENTS : FileContext.CLIENT_PAYMENTS;
