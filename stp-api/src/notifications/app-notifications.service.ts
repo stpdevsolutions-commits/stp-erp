@@ -80,4 +80,16 @@ export class AppNotificationsService {
   async markAllRead(userId: string): Promise<void> {
     await this.repo.update({ userId, read: false }, { read: true, readAt: new Date() });
   }
+
+  /**
+   * Borra las notificaciones cuyo enlace apunta a un registro que ya no existe
+   * (p. ej. un pago eliminado). Nunca lanza, igual que el resto del servicio.
+   */
+  async removeByLink(link: string): Promise<void> {
+    try {
+      await this.repo.delete({ link });
+    } catch {
+      // un aviso huérfano es cosmético; no debe tumbar el borrado del registro
+    }
+  }
 }

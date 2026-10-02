@@ -91,8 +91,16 @@ export class PaymentsService {
       NotificationType.PAYMENT_RECEIVED,
       `Pago recibido: ${money(payment.amount)}`,
       payment.client?.name ? `${payment.client.name} — ${payment.description}` : payment.description,
-      `/dashboard/pagos`,
+      this.notificationLink(payment),
     );
+  }
+
+  /**
+   * Enlace del aviso "Pago recibido": abre los pagos de ese cliente y lleva el
+   * id del pago para poder borrar el aviso si el pago se elimina.
+   */
+  private notificationLink(payment: Pick<Payment, 'id' | 'clientId'>): string {
+    return `/dashboard/pagos?clientId=${payment.clientId}&pago=${payment.id}`;
   }
 
   async findAll(query: QueryPaymentsDto, user?: AccessSubject) {
@@ -188,6 +196,8 @@ export class PaymentsService {
     const payment = await this.findOne(id);
     auditLog(requesterId, 'payment.deleted', { paymentId: id, amount: payment.amount });
     await this.paymentsRepository.remove(payment);
+    // Sin esto, el aviso "Pago recibido" de un pago borrado quedaba en la campanita.
+    await this.appNotifications.removeByLink(this.notificationLink({ id, clientId: payment.clientId }));
     // El PDF se limpia DESPUÉS y sin propagar, igual que en gastos: el dato es el
     // pago, y un fallo de disco no puede devolver un error por algo accesorio.
     await this.removePdfForPayment(id);
