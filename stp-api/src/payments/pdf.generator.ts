@@ -203,6 +203,31 @@ export function generatePaymentPdf(payment: Payment, outputPath: string, company
       .text(money(payment.amount), amountValueX, y, { width: amountValueW, align: 'right' });
     y += Math.max(24, doc.currentLineHeight());
 
+    // ── Comprobante fiscal (e-CF) ──────────────────────────────────────────
+    // Si el pago ya tiene e-CF emitido, el recibo lo identifica: número
+    // (eNCF), código de seguridad y el enlace de consulta de la DGII.
+    if (payment.ecfEncf) {
+      y += 14;
+      doc.rect(LEFT, y, WIDTH, payment.ecfQrUrl ? 52 : 40).fill(INFO_BG);
+      doc.rect(LEFT, y, 4, payment.ecfQrUrl ? 52 : 40).fill(TEAL);
+      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7);
+      textLine(doc, 'COMPROBANTE FISCAL ELECTRÓNICO (e-CF)', LEFT + 14, y + 8, WIDTH - 28);
+      doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9);
+      textLine(
+        doc,
+        `eNCF ${payment.ecfEncf}` +
+          (payment.ecfCodigoSeguridad ? `   ·   Código de seguridad ${payment.ecfCodigoSeguridad}` : ''),
+        LEFT + 14,
+        y + 19,
+        WIDTH - 28,
+      );
+      if (payment.ecfQrUrl) {
+        doc.fillColor(MID_GRAY).font('Helvetica').fontSize(6.5);
+        textLine(doc, `Consulta: ${payment.ecfQrUrl}`, LEFT + 14, y + 34, WIDTH - 28);
+      }
+      y += payment.ecfQrUrl ? 52 : 40;
+    }
+
     // ── Footer ─────────────────────────────────────────────────────────────
     y += 20;
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
