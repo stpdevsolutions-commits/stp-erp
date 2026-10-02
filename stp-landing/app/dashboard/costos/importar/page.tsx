@@ -18,16 +18,10 @@ import { AutoRefresh } from '@/components/costos/auto-refresh'
 import { IMPORT_STATUS } from '@/components/costos/import-labels'
 import { CostosTabs } from '@/components/costos/costos-tabs'
 import { ImportarPasos } from '@/components/costos/importar-pasos'
+// Mismo formato y zona horaria que el resto del ERP.
+import { formatDate } from '@/lib/utils'
 
 const LIMIT = 25
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('es-DO', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
 
 export default async function ImportarPreciosPage({
   searchParams,

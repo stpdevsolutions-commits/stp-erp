@@ -43,6 +43,7 @@ import {
   indirectToPayload,
   type IndirectRow,
 } from '@/components/quotes/indirect-costs'
+import { addDaysYMD, todayRD } from '@/lib/utils'
 
 
 // ── Header schema (sections/items managed separately with useState) ───────────
@@ -122,7 +123,9 @@ export function NuevaCotizacionDialog({
     formState: { errors, isSubmitting },
   } = useForm<HeaderValues>({
     resolver: zodResolver(headerSchema),
-    defaultValues: { status: 'draft', terms: defaultTerms },
+    // Vigencia por defecto de 30 días: sin fecha, la cotización nunca vence ni
+    // aparece en los recordatorios de seguimiento. Se puede cambiar o borrar.
+    defaultValues: { status: 'draft', terms: defaultTerms, validUntil: addDaysYMD(todayRD(), 30) },
   })
 
   const clientId = watch('clientId')
@@ -159,7 +162,7 @@ export function NuevaCotizacionDialog({
   function handleClose() {
     setOpen(false)
     setNodes([makeGroup('Partida 1')])
-    reset({ status: 'draft', terms: defaultTerms })
+    reset({ status: 'draft', terms: defaultTerms, validUntil: addDaysYMD(todayRD(), 30) })
     setServerError(null)
     setItemsError(null)
     setApplyITBIS(true)

@@ -288,7 +288,7 @@ function ItemRow({
         value={node.description}
         onChange={(e) => set({ description: e.target.value })}
         placeholder="Descripción"
-        className="col-span-12 sm:col-span-4 h-8 text-sm"
+        className="col-span-12 sm:col-span-3 h-8 text-sm"
       />
 
       <Input
@@ -319,7 +319,7 @@ function ItemRow({
         </Select>
       </div>
 
-      <div className="col-span-6 sm:col-span-2 flex items-center gap-1">
+      <div className="col-span-5 sm:col-span-2 flex items-center gap-1">
         <Input
           type="number"
           step="0.01"
@@ -358,11 +358,11 @@ function ItemRow({
         value={node.discountPct}
         onChange={(e) => set({ discountPct: e.target.value })}
         placeholder="Desc.%"
-        className="col-span-4 sm:col-span-1 h-8 text-sm"
+        className="col-span-3 sm:col-span-1 h-8 text-sm"
       />
 
-      <div className="col-span-2 sm:col-span-1 flex items-center justify-end gap-1">
-        <span className="text-xs tabular-nums text-muted-foreground truncate">
+      <div className="col-span-4 sm:col-span-2 flex items-center justify-end gap-1">
+        <span className="text-xs font-medium tabular-nums whitespace-nowrap">
           {DOP.format(nodeTotal(node))}
         </span>
         <Button
