@@ -9,6 +9,7 @@ import {
   textLine,
 } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
+import { todayRD } from '../common/dates';
 
 // ── Additional palette ─────────────────────────────────────────────────────
 type QuoteItemLike = QuoteRowLike;
@@ -32,7 +33,8 @@ const MONTHS_ES = [
 
 function dateLong(d: string | Date | null | undefined): string {
   if (!d) return '—';
-  const dt = new Date(d as string);
+  // Un Date es un instante (createdAt): su día en RD, no en UTC.
+  const dt = new Date(d instanceof Date ? todayRD(d) : (d as string));
   if (isNaN(dt.getTime())) return '—';
   return `${dt.getUTCDate()} de ${MONTHS_ES[dt.getUTCMonth()]}, ${dt.getUTCFullYear()}`;
 }
@@ -243,14 +245,50 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
      * PARTIDA con la cabecera de tabla; los niveles interiores, un título más
      * discreto. Al cerrar, su subtotal.
      */
+    /**
+     * Alto que ocupará un grupo completo, con las mismas medidas que usan
+     * drawGroup/drawItemRow/drawSubtotal. Sirve para no partir una partida
+     * pequeña entre dos páginas (quedaba "TOTAL PARTIDA N" huérfano arriba
+     * de la página siguiente).
+     */
+    const groupHeight = (node: QuoteTreeNode): number => {
+      const isTop = node.depth === 0;
+      let h = isTop ? 20 + 19 : 15;
+      for (const child of node.children) {
+        if (child.children.length > 0) {
+          h += groupHeight(child);
+        } else {
+          const indent = Math.min(child.depth, 4) * INDENT_STEP;
+          const descH = doc.font('Helvetica').fontSize(8.5)
+            .heightOfString(child.row.description, { width: C.desc.w - 6 - indent });
+          h += Math.max(descH + 8, 20) + 2;
+        }
+      }
+      return h + 16 + (isTop ? 10 : 4);
+    };
+
+    const PAGE_CAPACITY = 758 - CONTENT_Y;
+
     const drawGroup = (node: QuoteTreeNode, headerDrawn: boolean): void => {
       const { row, label, depth, children } = node;
       const isTop = depth === 0;
 
-      y = checkBreak(y, isTop ? 70 : 40);
+      // Si la partida entera cabe en una página pero no en lo que queda de
+      // ésta, empieza en la siguiente. Una partida más larga que una página se
+      // parte igual (no hay remedio), con el mínimo de siempre.
+      const fullH = isTop ? groupHeight(node) : 0;
+      if (isTop && fullH <= PAGE_CAPACITY && y + fullH > 758) {
+        y = newPage();
+      } else {
+        y = checkBreak(y, isTop ? 70 : 40);
+      }
 
       if (isTop) {
-        const sLabel = `PARTIDA ${label}: ${row.description.toUpperCase()}`;
+        // "Partida 1" como nombre repetía el rótulo: "PARTIDA 1: PARTIDA 1".
+        const desc = row.description.trim();
+        const sLabel = /^partida\s*[\d.]*$/i.test(desc)
+          ? `PARTIDA ${label}`
+          : `PARTIDA ${label}: ${desc.toUpperCase()}`;
         doc.rect(LEFT, y, WIDTH, 18).fill(SECTION_BG);
         doc.rect(LEFT, y, 4,     18).fill(TEAL);
         doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(8.5);
@@ -425,14 +463,17 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
     const SIG1  = LEFT + (halfW / 2) - (SIGW / 2);
     const SIG2  = LEFT + halfW + (halfW / 2) - (SIGW / 2);
 
-    const authorizedName = quote.createdBy
-      ? `${(quote.createdBy as any).firstName ?? ''} ${(quote.createdBy as any).lastName ?? ''}`.trim()
-      : 'Firma Autorizada';
+    // Debajo de la línea va QUIÉN firma; si la cotización no tiene autor, la
+    // empresa (antes repetía "Firma Autorizada", el mismo rótulo de arriba).
+    const authorizedName =
+      (quote.createdBy
+        ? `${(quote.createdBy as any).firstName ?? ''} ${(quote.createdBy as any).lastName ?? ''}`.trim()
+        : '') || company.name;
 
     // Labels
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5)
-      .text('Firma Autorizado', SIG1, y, { width: SIGW, align: 'center', lineBreak: false })
-      .text('Firma Cliente',    SIG2, y, { width: SIGW, align: 'center', lineBreak: false });
+      .text('Firma autorizada', SIG1, y, { width: SIGW, align: 'center', lineBreak: false })
+      .text('Firma del cliente', SIG2, y, { width: SIGW, align: 'center', lineBreak: false });
 
     // Signature lines
     y += 34;

@@ -38,3 +38,9 @@ export function yearStartRD(now: Date = new Date()): string {
 export function todayRDAsUTCDate(now: Date = new Date()): Date {
   return new Date(`${todayRD(now)}T00:00:00Z`);
 }
+
+/** Fecha en hora de RD como dd/mm/aaaa (pies de página de los PDF). */
+export function formatDateRD(now: Date = new Date()): string {
+  const [y, m, d] = todayRD(now).split('-');
+  return `${d}/${m}/${y}`;
+}

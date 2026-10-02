@@ -9,6 +9,7 @@ import {
   textLine, textHeight,
 } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
+import { formatDateRD, todayRD } from '../common/dates';
 
 const INFO_BG = '#f8fafc';
 
@@ -24,16 +25,12 @@ const MONTHS_ES = [
 
 function dateLong(d: string | Date | null | undefined): string {
   if (!d) return '—';
-  const dt = new Date(d as string);
+  // Un Date es un instante (createdAt): su día en RD, no en UTC.
+  const dt = new Date(d instanceof Date ? todayRD(d) : (d as string));
   if (isNaN(dt.getTime())) return '—';
   return `${dt.getUTCDate()} de ${MONTHS_ES[dt.getUTCMonth()]}, ${dt.getUTCFullYear()}`;
 }
 
-function dateFmt(d: Date): string {
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}/${d.getFullYear()}`;
-}
 
 const METHOD_LABELS: Record<PaymentMethod, string> = {
   [PaymentMethod.CASH]:     'Efectivo',
@@ -211,7 +208,7 @@ export function generatePaymentPdf(payment: Payment, outputPath: string, company
     doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text(
-        `Documento generado el ${dateFmt(new Date())}  ·  ${company.name}  ·  RNC: ${company.rnc}  ·  ${company.email}`,
+        `Documento generado el ${formatDateRD()}  ·  ${company.name}  ·  RNC: ${company.rnc}  ·  ${company.email}`,
         LEFT, y + 7, { width: WIDTH, align: 'center', lineBreak: false },
       );
 

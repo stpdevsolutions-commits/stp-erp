@@ -16,6 +16,7 @@ import {
   textLine,
 } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
+import { formatDateRD, todayRD } from '../common/dates';
 
 const INFO_BG = '#f8fafc';
 
@@ -31,21 +32,20 @@ const MONTHS_ES = [
 
 function dateLong(d: string | Date | null | undefined): string {
   if (!d) return '—';
-  const dt = new Date(d as string);
+  // Un Date es un instante (createdAt): su día en RD, no en UTC.
+  const dt = new Date(d instanceof Date ? todayRD(d) : (d as string));
   if (isNaN(dt.getTime())) return '—';
   return `${dt.getUTCDate()} de ${MONTHS_ES[dt.getUTCMonth()]}, ${dt.getUTCFullYear()}`;
 }
 
 function dateShort(d: string | Date | null | undefined): string {
   if (!d) return '—';
-  const dt = new Date(d as string);
+  // Un Date es un instante (createdAt): su día en RD, no en UTC.
+  const dt = new Date(d instanceof Date ? todayRD(d) : (d as string));
   if (isNaN(dt.getTime())) return '—';
   return `${String(dt.getUTCDate()).padStart(2, '0')}/${String(dt.getUTCMonth() + 1).padStart(2, '0')}/${dt.getUTCFullYear()}`;
 }
 
-function dateFmt(d: Date): string {
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-}
 
 const METHOD_LABELS: Record<PayrollMethod, string> = {
   [PayrollMethod.CASH]: 'Efectivo',
@@ -198,7 +198,7 @@ export function generatePayrollReceiptPdf(
     y += 8;
     linea('Total bruto', money(entry.grossAmount), true);
 
-    if (entry.deductions) linea('Deducciones', `− ${money(entry.deductions)}`);
+    if (entry.deductions) linea('Deducciones', `- ${money(entry.deductions)}`);
     if (entry.deductions && entry.discountReason) {
       doc.fillColor(MID_GRAY).font('Helvetica').fontSize(8);
       textLine(doc, `Motivo: ${entry.discountReason}`, LEFT, y, 320);
@@ -207,7 +207,7 @@ export function generatePayrollReceiptPdf(
     if (entry.retentionAmount)
       linea(
         `Retención (${entry.retentionPercent}%)`,
-        `− ${money(entry.retentionAmount)}`,
+        `- ${money(entry.retentionAmount)}`,
       );
 
     y += 4;
@@ -292,7 +292,7 @@ export function generatePayrollReceiptPdf(
     doc.moveTo(LEFT, footerY).lineTo(RIGHT, footerY).strokeColor(BORDER_GRAY).lineWidth(0.5).stroke();
     doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7)
       .text(
-        `Recibo ${entry.number}  ·  generado el ${dateFmt(new Date())}  ·  ${company.name}  ·  RNC: ${company.rnc}`,
+        `Recibo ${entry.number}  ·  generado el ${formatDateRD()}  ·  ${company.name}  ·  RNC: ${company.rnc}`,
         LEFT,
         footerY + 7,
         { width: WIDTH, align: 'center', lineBreak: false },

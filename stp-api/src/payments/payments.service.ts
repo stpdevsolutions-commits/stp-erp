@@ -297,8 +297,19 @@ export class PaymentsService {
       await this.fileRepo.remove(existing);
     }
 
+    // `filename` (PAGO-<uuid>) es la llave con que se busca el PDF y no cambia;
+    // el nombre que ve la gente al descargar o en Archivos lleva fecha y cliente.
+    const clientName = (payment.client?.name ?? '')
+      .replace(/[\\/:*?"<>|]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 60);
+    const originalName = `Recibo de pago ${String(payment.date).slice(0, 10)}${
+      clientName ? ` - ${clientName}` : ''
+    }.pdf`;
+
     const record = this.fileRepo.create({
-      originalName: filename,
+      originalName,
       filename,
       path: relativePath,
       mimetype: 'application/pdf',
