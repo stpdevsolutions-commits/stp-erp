@@ -17,6 +17,7 @@ import { QuoteActions } from '@/components/quotes/quote-actions'
 import { FiltrosCotizaciones } from '@/components/cotizaciones/filtros-cotizaciones'
 import { Paginacion } from '@/components/ui/paginacion'
 import { ExportExcelButton } from '@/components/ui/export-excel-button'
+import { formatDate } from '@/lib/utils'
 
 const STATUS_LABELS: Record<Quote['status'], string> = {
   draft: 'Borrador',
@@ -202,7 +203,7 @@ export default async function CotizacionesPage({
                         {DOP.format(q.total)}
                       </TableCell>
                       <TableCell>
-                        {q.validUntil ? new Date(q.validUntil).toLocaleDateString('es-DO') : '—'}
+                        {formatDate(q.validUntil)}
                       </TableCell>
                       <TableCell>
                         <QuoteActions cotizacion={q} projects={projects} clients={clients} userRole={userRole} />

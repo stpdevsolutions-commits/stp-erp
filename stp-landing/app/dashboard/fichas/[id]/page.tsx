@@ -10,6 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { ChevronLeft, MapPin, Camera, User, Calendar, Zap } from 'lucide-react'
+import { formatDate } from '@/lib/utils'
 
 const TYPE_LABEL: Record<FichaType, string> = {
   electrico: 'Eléctrico',
@@ -481,7 +482,7 @@ export default async function FichaDetallePage({
               <span className="text-xs">Creada</span>
             </div>
             <p className="font-medium text-sm">
-              {new Date(ficha.createdAt).toLocaleDateString('es-DO')}
+              {formatDate(ficha.createdAt)}
             </p>
           </CardContent>
         </Card>
@@ -494,7 +495,7 @@ export default async function FichaDetallePage({
             </div>
             <p className="font-medium text-sm">
               {ficha.submittedAt
-                ? new Date(ficha.submittedAt).toLocaleDateString('es-DO')
+                ? formatDate(ficha.submittedAt)
                 : '—'}
             </p>
           </CardContent>

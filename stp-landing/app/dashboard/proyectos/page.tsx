@@ -15,6 +15,7 @@ import { NuevoProyectoDialog } from '@/components/projects/nuevo-proyecto-dialog
 import { ProjectActions } from '@/components/projects/project-actions'
 import { FiltrosProyectos } from '@/components/proyectos/filtros-proyectos'
 import { Paginacion } from '@/components/ui/paginacion'
+import { formatDate } from '@/lib/utils'
 
 const STATUS_LABELS: Record<Project['status'], string> = {
   draft: 'Pendiente',
@@ -113,8 +114,8 @@ export default async function ProyectosPage({
       </div>
 
       <div className="space-y-1">
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-          {(['draft', 'active', 'completed', 'cancelled'] as const).map((s) => (
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+          {(['draft', 'active', 'on_hold', 'completed', 'cancelled'] as const).map((s) => (
             <Card key={s}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">{STATUS_LABELS[s]}</CardTitle>
@@ -172,7 +173,7 @@ export default async function ProyectosPage({
                           <div>{p.name}</div>
                           {p.startDate && (
                             <div className="text-xs text-muted-foreground">
-                              Inicio: {new Date(p.startDate).toLocaleDateString('es-DO')}
+                              Inicio: {formatDate(p.startDate)}
                             </div>
                           )}
                         </Link>

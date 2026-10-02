@@ -9,6 +9,7 @@ import { ChevronLeft, Calendar, DollarSign, FileText, User, HardHat, UserCheck, 
 import { ProjectDetailTabs } from '@/components/projects/project-detail-tabs'
 import { ProjectActions } from '@/components/projects/project-actions'
 import type { Member } from '@/lib/actions/memberships'
+import { formatDate } from '@/lib/utils'
 
 const STATUS_LABELS: Record<Project['status'], string> = {
   draft: 'Pendiente',
@@ -50,6 +51,17 @@ export default async function ProyectoDetallePage({
     api.get<Ficha[]>(`/fichas?projectId=${id}`).catch(() => [] as Ficha[]),
   ])
   const files = { data: rawFiles, total: rawFiles.length, page: 1, limit: rawFiles.length || 1 }
+
+  // /expenses devuelve la suma de TODO el proyecto (no solo los 100 cargados);
+  // los pagos de un proyecto son pocos, se suman los completados aquí.
+  const gastado =
+    (expenses as PaginatedResponse<Expense> & { totalAmount?: number }).totalAmount ??
+    expenses.data.reduce((s, e) => s + e.amount, 0)
+  const cobrado = payments.data
+    .filter((p) => p.status === 'completed')
+    .reduce((s, p) => s + p.amount, 0)
+  const balance = cobrado - gastado
+  const presupuesto = project.budget ?? 0
 
   // Clientes/colaboradores/usuarios: para los selects del diálogo de edición
   // (Editar requiere MANAGER, no solo ADMIN — igual que en el listado de
@@ -164,7 +176,7 @@ export default async function ProyectoDetallePage({
               <span className="text-xs">Inicio</span>
             </div>
             <p className="font-medium text-sm">
-              {project.startDate ? new Date(project.startDate).toLocaleDateString('es-DO') : '—'}
+              {formatDate(project.startDate)}
             </p>
           </CardContent>
         </Card>
@@ -176,7 +188,7 @@ export default async function ProyectoDetallePage({
               <span className="text-xs">Fin estimado</span>
             </div>
             <p className="font-medium text-sm">
-              {project.endDate ? new Date(project.endDate).toLocaleDateString('es-DO') : '—'}
+              {formatDate(project.endDate)}
             </p>
           </CardContent>
         </Card>
@@ -209,6 +221,51 @@ export default async function ProyectoDetallePage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Resumen económico: cuánto entró, cuánto salió y cómo va contra el
+          presupuesto. Se oculta si no hay nada que mostrar (o si el rol no
+          puede ver pagos ni gastos: esas consultas vuelven vacías). */}
+      {(cobrado > 0 || gastado > 0) && (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground mb-1">Cobrado al cliente</p>
+              <p className="text-xl font-bold tabular-nums text-green-700 dark:text-green-400">
+                {DOP.format(cobrado)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {presupuesto > 0
+                  ? `${Math.round((cobrado / presupuesto) * 100)}% del presupuesto`
+                  : 'sin presupuesto registrado'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground mb-1">Gastado</p>
+              <p className="text-xl font-bold tabular-nums">{DOP.format(gastado)}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {expenses.total} gasto{expenses.total === 1 ? '' : 's'} registrado{expenses.total === 1 ? '' : 's'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground mb-1">Balance (cobrado − gastado)</p>
+              <p
+                className={`text-xl font-bold tabular-nums ${
+                  balance < 0 ? 'text-destructive' : 'text-green-700 dark:text-green-400'
+                }`}
+              >
+                {DOP.format(balance)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {balance < 0 ? 'se ha gastado más de lo cobrado' : 'a favor del proyecto'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Tabs */}
       <ProjectDetailTabs

@@ -155,7 +155,7 @@ export default async function MaterialesPage({
                         {m.priceSummary?.count ?? 0}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={m.isActive ? 'default' : 'secondary'}>
+                        <Badge className={m.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
                           {m.isActive ? 'Activo' : 'Inactivo'}
                         </Badge>
                       </TableCell>

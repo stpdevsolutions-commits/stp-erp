@@ -15,6 +15,7 @@ import { NuevaTareaDialog } from '@/components/tasks/nueva-tarea-dialog'
 import { TaskActions } from '@/components/tasks/task-actions'
 import { FiltrosTareas } from '@/components/tareas/filtros-tareas'
 import { Paginacion } from '@/components/ui/paginacion'
+import { formatDate } from '@/lib/utils'
 
 const STATUS_LABELS: Record<Task['status'], string> = {
   pending: 'Pendiente',
@@ -102,6 +103,12 @@ export default async function TareasPage({
   const enCurso = tareas.filter((t) => t.status === 'in_progress' || t.status === 'review').length
   const completadas = tareas.filter((t) => t.status === 'done').length
   const urgentes = tareas.filter((t) => t.priority === 'urgent' && t.status !== 'done').length
+  // Fecha local de RD (UTC-4) como YYYY-MM-DD, igual que el criterio del Resumen:
+  // vencida = fecha límite anterior a hoy y la tarea no está cerrada.
+  const hoy = new Date(Date.now() - 4 * 3_600_000).toISOString().slice(0, 10)
+  const estaVencida = (t: (typeof tareas)[number]) =>
+    !!t.dueDate && t.dueDate.slice(0, 10) < hoy && t.status !== 'done' && t.status !== 'cancelled'
+  const vencidas = tareas.filter(estaVencida).length
 
   return (
     <div className="space-y-6">
@@ -113,7 +120,7 @@ export default async function TareasPage({
         <NuevaTareaDialog projects={projects} collaborators={collaborators} users={users} />
       </div>
 
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Pendientes</CardTitle>
@@ -134,10 +141,18 @@ export default async function TareasPage({
         </Card>
         <Card>
           <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Vencidas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${vencidas > 0 ? 'text-destructive' : ''}`}>{vencidas}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Urgentes activas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{urgentes}</div>
+            <div className={`text-2xl font-bold ${urgentes > 0 ? 'text-destructive' : ''}`}>{urgentes}</div>
           </CardContent>
         </Card>
       </div>
@@ -193,8 +208,17 @@ export default async function TareasPage({
                       <TableCell>
                         <Badge className={STATUS_BADGE[t.status]}>{STATUS_LABELS[t.status]}</Badge>
                       </TableCell>
-                      <TableCell>
-                        {t.dueDate ? new Date(t.dueDate).toLocaleDateString('es-DO') : '—'}
+                      <TableCell className="whitespace-nowrap">
+                        {t.dueDate ? (
+                          estaVencida(t) ? (
+                            <span className="font-medium text-destructive" title="Vencida: pasó su fecha límite sin cerrarse">
+                              {formatDate(t.dueDate.slice(0, 10))}
+                              <span className="ml-1 text-xs">· vencida</span>
+                            </span>
+                          ) : (
+                            formatDate(t.dueDate.slice(0, 10))
+                          )
+                        ) : '—'}
                       </TableCell>
                       <TableCell className="text-sm">
                         {t.collaborator

@@ -15,6 +15,7 @@ import { MapPin, ClipboardList } from 'lucide-react'
 import Link from 'next/link'
 import type { Task, Expense, Payment, FileUpload, PaginatedResponse, Ficha } from '@/lib/types'
 import { ArchivoViewer } from '@/components/files/archivo-viewer'
+import { formatDate } from '@/lib/utils'
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 
@@ -45,7 +46,7 @@ const EXPENSE_CAT: Record<string, string> = {
   labor: 'Mano de obra',
   equipment: 'Equipos',
   subcontract: 'Subcontrato',
-  travel: 'Viáticos',
+  travel: 'Transporte',
   other: 'Otros',
 }
 
@@ -156,18 +157,24 @@ export function ProjectDetailTabs({
               ) : (
                 tasks.data.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell className="font-medium">{t.title}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link href={`/dashboard/tareas/${t.id}`} className="hover:underline">{t.title}</Link>
+                    </TableCell>
                     <TableCell>
                       <Badge className={TASK_STATUS_BADGE[t.status]}>{TASK_STATUS[t.status]}</Badge>
                     </TableCell>
                     <TableCell>{TASK_PRIORITY[t.priority]}</TableCell>
                     <TableCell>
-                      {t.dueDate ? new Date(t.dueDate).toLocaleDateString('es-DO') : '—'}
+                      {formatDate(t.dueDate)}
                     </TableCell>
                     <TableCell>
-                      {t.assignedTo
-                        ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}`
-                        : '—'}
+                      {/* Mismo criterio que el listado de Tareas: en campo se asigna a un
+                          colaborador (sin cuenta); el usuario del sistema es la excepción. */}
+                      {t.collaborator
+                        ? `${t.collaborator.firstName} ${t.collaborator.lastName}`
+                        : t.assignedTo
+                          ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}`
+                          : '—'}
                     </TableCell>
                   </TableRow>
                 ))
@@ -235,7 +242,7 @@ export function ProjectDetailTabs({
                       )}
                     </TableCell>
                     <TableCell>
-                      {new Date(f.createdAt).toLocaleDateString('es-DO')}
+                      {formatDate(f.createdAt)}
                     </TableCell>
                   </TableRow>
                 ))
@@ -272,7 +279,7 @@ export function ProjectDetailTabs({
                       <TableCell className="font-medium">{e.description}</TableCell>
                       <TableCell>{EXPENSE_CAT[e.category] ?? e.category}</TableCell>
                       <TableCell>{e.supplier?.name ?? '—'}</TableCell>
-                      <TableCell>{new Date(e.date).toLocaleDateString('es-DO')}</TableCell>
+                      <TableCell>{formatDate(e.date)}</TableCell>
                       <TableCell className="text-right">{DOP.format(e.amount)}</TableCell>
                     </TableRow>
                   ))}
@@ -318,7 +325,7 @@ export function ProjectDetailTabs({
                           {PAYMENT_STATUS[p.status]}
                         </Badge>
                       </TableCell>
-                      <TableCell>{new Date(p.date).toLocaleDateString('es-DO')}</TableCell>
+                      <TableCell>{formatDate(p.date)}</TableCell>
                       <TableCell className="text-right">{DOP.format(p.amount)}</TableCell>
                     </TableRow>
                   ))}

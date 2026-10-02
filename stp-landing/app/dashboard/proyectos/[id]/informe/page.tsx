@@ -21,6 +21,7 @@ import type {
   InformeInterno,
   TipoInforme,
 } from '@/lib/actions/project-reports'
+import { formatDate } from '@/lib/utils'
 
 /**
  * Informes de proyecto — dos documentos distintos, ambos editables.
@@ -37,7 +38,7 @@ import type {
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 const money = (n: number | null | undefined) => (n == null ? '—' : DOP.format(n))
-const fecha = (v?: string) => (v ? new Date(v).toLocaleDateString('es-DO') : '—')
+const fecha = (v?: string) => (formatDate(v))
 const pct = (n: number | null | undefined) => (n == null ? '—' : `${n}%`)
 
 const CATEGORIA: Record<string, string> = {

@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/table'
 import { FiltrosFichas } from '@/components/fichas/filtros-fichas'
 import { MapPin } from 'lucide-react'
+import { formatDate } from '@/lib/utils'
 
 const TYPE_LABEL: Record<FichaType, string> = {
   electrico: 'Eléctrico',
@@ -118,10 +119,10 @@ export default async function FichasPage({
                     ) : <span className="text-muted-foreground text-xs">—</span>}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {f.submittedAt ? new Date(f.submittedAt).toLocaleDateString('es-DO') : '—'}
+                    {formatDate(f.submittedAt)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(f.createdAt).toLocaleDateString('es-DO')}
+                    {formatDate(f.createdAt)}
                   </TableCell>
                 </TableRow>
               ))

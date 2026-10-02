@@ -148,7 +148,7 @@ export default async function ClientesPage({
                       <TableCell>{cliente.phone ?? '—'}</TableCell>
                       <TableCell>{cliente.city ?? '—'}</TableCell>
                       <TableCell>
-                        <Badge variant={cliente.isActive ? 'default' : 'secondary'}>
+                        <Badge className={cliente.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
                           {cliente.isActive ? 'Activo' : 'Inactivo'}
                         </Badge>
                       </TableCell>

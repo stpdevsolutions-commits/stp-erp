@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChevronLeft, FolderKanban, Truck, Calendar, Tag, FileText } from 'lucide-react'
 import { GastoActions } from '@/components/expenses/gasto-actions'
+import { formatDate } from '@/lib/utils'
 
 const CATEGORY_LABELS: Record<Expense['category'], string> = {
   materials: 'Materiales',
@@ -101,7 +102,7 @@ export default async function GastoDetallePage({
               <Calendar className="size-3.5" />
               <span className="text-xs">Fecha</span>
             </div>
-            <p className="font-medium text-sm">{new Date(gasto.date).toLocaleDateString('es-DO')}</p>
+            <p className="font-medium text-sm">{formatDate(gasto.date)}</p>
           </CardContent>
         </Card>
 

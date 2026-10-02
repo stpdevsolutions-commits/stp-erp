@@ -9,6 +9,7 @@ import { VizTokens } from '@/components/charts/viz-tokens'
 import { ProyectoSelector } from '@/components/cronograma/proyecto-selector'
 import { AvanceProyeccion } from '@/components/cronograma/avance-proyeccion'
 import { GanttSemanal } from '@/components/cronograma/gantt-semanal'
+import { formatDate } from '@/lib/utils'
 
 export default async function CronogramaPage({
   searchParams,
@@ -126,7 +127,7 @@ export default async function CronogramaPage({
                   <span className="text-xs">Inicio</span>
                 </div>
                 <p className="font-medium text-sm">
-                  {project.startDate ? new Date(project.startDate).toLocaleDateString('es-DO') : '—'}
+                  {formatDate(project.startDate)}
                 </p>
               </CardContent>
             </Card>
@@ -137,7 +138,7 @@ export default async function CronogramaPage({
                   <span className="text-xs">Fin estimado</span>
                 </div>
                 <p className="font-medium text-sm">
-                  {project.endDate ? new Date(project.endDate).toLocaleDateString('es-DO') : '—'}
+                  {formatDate(project.endDate)}
                 </p>
               </CardContent>
             </Card>

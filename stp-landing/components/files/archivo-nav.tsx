@@ -38,8 +38,8 @@ export function ArchivoNav({
     : []
 
   return (
-    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-      <div className="space-y-1.5">
+    <div className="flex flex-wrap items-end gap-4">
+      <div className="w-full space-y-1.5 sm:w-auto">
         <p className="text-sm font-medium">Cliente</p>
         <Select
           value={activeCliente ?? ''}
@@ -48,7 +48,7 @@ export function ArchivoNav({
             else router.push('/dashboard/archivos')
           }}
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-full sm:w-72">
             <SelectValue placeholder="Seleccionar cliente...">
               {selectedClient?.name}
             </SelectValue>
@@ -62,7 +62,7 @@ export function ArchivoNav({
         </Select>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="w-full space-y-1.5 sm:w-auto">
         <p className="text-sm font-medium">Proyecto <span className="text-muted-foreground font-normal">(opcional)</span></p>
         <Select
           value={activeProyecto ?? ''}
@@ -72,7 +72,7 @@ export function ArchivoNav({
             else router.push(`/dashboard/archivos?cliente=${activeCliente}`)
           }}
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-full sm:w-72">
             <SelectValue placeholder={activeCliente ? 'Ver perfil del cliente...' : 'Primero elige un cliente'}>
               {selectedProject ? `${selectedProject.code} — ${selectedProject.name}` : undefined}
             </SelectValue>

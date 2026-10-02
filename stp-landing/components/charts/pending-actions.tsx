@@ -86,9 +86,9 @@ export function PendingActions({
       icon: Wallet,
       title: 'Cartera por cobrar',
       figure: DOP.format(receivables.pending),
-      detail: `Aprobado en ${receivables.approvedCount} cotización${
-        receivables.approvedCount === 1 ? '' : 'es'
-      }, aún sin cobrar`,
+      detail: `Contratado en ${receivables.approvedCount} proyecto${
+        receivables.approvedCount === 1 ? '' : 's'
+      } o cotización${receivables.approvedCount === 1 ? '' : 'es'}, aún sin cobrar`,
       href: '/dashboard/pagos',
     })
   }

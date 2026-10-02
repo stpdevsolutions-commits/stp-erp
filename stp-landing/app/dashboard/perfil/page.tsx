@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { UserCircle } from 'lucide-react'
 import { EditarPerfilDialog } from '@/components/profile/editar-perfil-dialog'
 import { CambiarPasswordDialog } from '@/components/profile/cambiar-password-dialog'
+import { formatDate } from '@/lib/utils'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
@@ -82,7 +83,7 @@ export default async function PerfilPage() {
             </div>
             <div>
               <p className="text-muted-foreground">Miembro desde</p>
-              <p className="font-medium">{new Date(user.createdAt).toLocaleDateString('es-DO')}</p>
+              <p className="font-medium">{formatDate(user.createdAt)}</p>
             </div>
           </div>
 

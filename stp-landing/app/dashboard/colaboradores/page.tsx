@@ -112,7 +112,8 @@ export default async function ColaboradoresPage({
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{col.email ?? '—'}</TableCell>
                     <TableCell className="text-right font-mono text-sm">
-                      {col.dailyRate != null ? DOP.format(col.dailyRate) : '—'}
+                      {/* 0 = cobra por m², m³, ml o partida: no tiene tarifa diaria fija. */}
+                      {col.dailyRate ? DOP.format(col.dailyRate) : '—'}
                     </TableCell>
                     <TableCell>
                       <Badge

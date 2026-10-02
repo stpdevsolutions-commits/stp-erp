@@ -94,6 +94,8 @@ export interface AnalyticsReport {
     approvedCount: number
     collected: number
     collectedCount: number
+    /** Cobrado que no cae sobre nada contratado (proyecto sin presupuesto, excedente, pago suelto). */
+    unallocated: number
     pending: number
     collectedPct: number | null
     unconfirmed: number

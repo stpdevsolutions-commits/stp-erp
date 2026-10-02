@@ -74,6 +74,7 @@ export class PayrollService {
     // hace, pero la API no puede depender de eso.
     const daysWorked =
       paymentType === PayrollPaymentType.LUMP_SUM ? 1 : dto.daysWorked;
+    this.assertDaysWithinPeriod(paymentType, daysWorked, dto.periodStart, dto.periodEnd);
 
     // ERP-91: si el colaborador tiene un préstamo activo, su cuota (topada al
     // saldo) se suma a los descuentos de este pago automáticamente. Se hace
@@ -193,6 +194,21 @@ export class PayrollService {
     if (entry.paymentType === PayrollPaymentType.LUMP_SUM) {
       entry.daysWorked = 1;
     }
+    // Solo si el pago cambia en algo que afecte la cuenta: editar el estado de un
+    // pago viejo con datos ya inconsistentes no debe quedar bloqueado por esto.
+    if (
+      dto.paymentType !== undefined ||
+      dto.daysWorked !== undefined ||
+      dto.periodStart !== undefined ||
+      dto.periodEnd !== undefined
+    ) {
+      this.assertDaysWithinPeriod(
+        entry.paymentType,
+        entry.daysWorked,
+        entry.periodStart,
+        entry.periodEnd,
+      );
+    }
 
     const amounts = computePayrollAmounts(entry);
     entry.grossAmount = amounts.grossAmount;
@@ -282,9 +298,18 @@ export class PayrollService {
         return;
       }
 
+      // create()/update() llaman con la entidad recién guardada, que no trae la
+      // relación `collaborator` cargada: sin esto el gasto salía como
+      // "Mano de obra — colaborador" en vez de con el nombre.
+      const collaborator =
+        entry.collaborator ??
+        (await this.collaboratorsRepository.findOne({
+          where: { id: entry.collaboratorId },
+        }));
+
       const payload = {
         projectId: entry.projectId,
-        description: this.expenseDescription(entry),
+        description: this.expenseDescription(entry, collaborator),
         category: ExpenseCategory.LABOR,
         amount: entry.grossAmount,
         date: entry.paymentDate ?? entry.periodEnd,
@@ -327,9 +352,12 @@ export class PayrollService {
     });
   }
 
-  private expenseDescription(entry: PayrollEntry): string {
-    const name = entry.collaborator
-      ? `${entry.collaborator.firstName} ${entry.collaborator.lastName}`
+  private expenseDescription(
+    entry: PayrollEntry,
+    collaborator: Collaborator | null,
+  ): string {
+    const name = collaborator
+      ? `${collaborator.firstName} ${collaborator.lastName}`.trim()
       : 'colaborador';
     return `Mano de obra — ${name} (${entry.periodStart} a ${entry.periodEnd})`;
   }
@@ -351,6 +379,32 @@ export class PayrollService {
     if (start && end && end < start) {
       throw new BadRequestException(
         'El fin del período no puede ser anterior a su inicio',
+      );
+    }
+  }
+
+  /**
+   * En un pago por día la cantidad son días trabajados: no puede pasar de los
+   * días que tiene el período. Atrapa el error típico de escribir metros o un
+   * monto en el campo de cantidad con el tipo de pago equivocado.
+   */
+  private assertDaysWithinPeriod(
+    paymentType: PayrollPaymentType,
+    daysWorked: number | null | undefined,
+    start: string,
+    end: string,
+  ): void {
+    if (paymentType !== PayrollPaymentType.DAY || !daysWorked || !start || !end) return;
+    const periodDays =
+      Math.round(
+        (Date.parse(`${end.slice(0, 10)}T00:00:00Z`) -
+          Date.parse(`${start.slice(0, 10)}T00:00:00Z`)) /
+          86_400_000,
+      ) + 1;
+    if (daysWorked > periodDays) {
+      throw new BadRequestException(
+        `Se indicaron ${daysWorked} días trabajados pero el período solo tiene ${periodDays}. ` +
+          'Si el pago es por m², m³, ml o partida alzada, cambia el tipo de pago.',
       );
     }
   }

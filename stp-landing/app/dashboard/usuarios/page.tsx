@@ -12,6 +12,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { NuevoUsuarioDialog } from '@/components/users/nuevo-usuario-dialog'
 import { UserActions } from '@/components/users/user-actions'
+import { formatDate } from '@/lib/utils'
 
 const ROLE_LABELS = { admin: 'Administrador', manager: 'Gerente', finanza: 'Finanza', user: 'Usuario' }
 
@@ -98,7 +99,7 @@ export default async function UsuariosPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {new Date(u.createdAt).toLocaleDateString('es-DO')}
+                      {formatDate(u.createdAt)}
                     </TableCell>
                     <TableCell>
                       <UserActions usuario={u} />

@@ -15,6 +15,7 @@ import { PagoActions } from '@/components/payments/pago-actions'
 import { FiltrosPagos } from '@/components/pagos/filtros-pagos'
 import { Paginacion } from '@/components/ui/paginacion'
 import { ExportExcelButton } from '@/components/ui/export-excel-button'
+import { formatDate } from '@/lib/utils'
 
 const METHOD_LABELS: Record<Payment['method'], string> = {
   cash: 'Efectivo',
@@ -185,7 +186,7 @@ export default async function PagosPage({
                         {DOP.format(p.amount)}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {new Date(p.date).toLocaleDateString('es-DO')}
+                        {formatDate(p.date)}
                       </TableCell>
                       <TableCell>
                         <PagoActions pago={p} clients={clients} projects={projects} userRole={userRole} />

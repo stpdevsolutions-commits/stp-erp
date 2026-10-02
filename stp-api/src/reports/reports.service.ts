@@ -363,20 +363,36 @@ export class ReportsService {
       .orderBy('SUM(e.amount)', 'DESC');
     await this.scopeExpenses(expensesByCategoryQb, user);
 
-    // Cartera: monto aprobado en cotizaciones
+    // Cartera: lo contratado sale de dos fuentes — el presupuesto del proyecto
+    // y las cotizaciones aprobadas. Se cruza contra lo cobrado POR PROYECTO
+    // (o por cotización, si no tiene proyecto): comparar sumas globales daba
+    // "100% cobrado" con cobros de proyectos que no tenían nada contratado.
     const approvedQuotesQb = this.quotesRepo
       .createQueryBuilder('q')
-      .select('COALESCE(SUM(q.total), 0)', 'total')
-      .addSelect('COUNT(*)', 'count')
+      .select('q.id', 'id')
+      .addSelect('q.projectId', 'projectId')
+      .addSelect('q.total', 'total')
       .where('q.status = :status', { status: QuoteStatus.APPROVED });
     await this.scopeProjectClient(approvedQuotesQb, user);
 
-    // Cartera: cobrado (pagos completados, histórico)
+    const budgetedProjectsQb = this.projectsRepo
+      .createQueryBuilder('pr')
+      .select('pr.id', 'id')
+      .addSelect('pr.budget', 'budget')
+      .where('pr.budget > 0')
+      .andWhere('pr.status != :cancelled', { cancelled: ProjectStatus.CANCELLED });
+    await this.scopeProjects(budgetedProjectsQb, user);
+
+    // Cobrado (pagos completados, histórico), agrupado por destino
     const collectedPaymentsQb = this.paymentsRepo
       .createQueryBuilder('p')
-      .select('COALESCE(SUM(p.amount), 0)', 'total')
+      .select('p.projectId', 'projectId')
+      .addSelect('p.quoteId', 'quoteId')
+      .addSelect('COALESCE(SUM(p.amount), 0)', 'total')
       .addSelect('COUNT(*)', 'count')
-      .where('p.status = :status', { status: PaymentStatus.COMPLETED });
+      .where('p.status = :status', { status: PaymentStatus.COMPLETED })
+      .groupBy('p.projectId')
+      .addGroupBy('p.quoteId');
     await this.scopeProjectClient(collectedPaymentsQb, user);
 
     // Cartera: pagos registrados pero pendientes de confirmar
@@ -396,6 +412,7 @@ export class ReportsService {
       projectRows,
       expensesByCategory,
       approvedQuotes,
+      budgetedProjects,
       collectedPayments,
       pendingPaymentsRow,
     ] = await Promise.all([
@@ -406,8 +423,14 @@ export class ReportsService {
       pendingQuotesQb.getRawMany(),
       projectRowsQb.getRawMany(),
       expensesByCategoryQb.getRawMany(),
-      approvedQuotesQb.getRawOne<{ total: string; count: string }>(),
-      collectedPaymentsQb.getRawOne<{ total: string; count: string }>(),
+      approvedQuotesQb.getRawMany<{ id: string; projectId: string | null; total: string }>(),
+      budgetedProjectsQb.getRawMany<{ id: string; budget: string }>(),
+      collectedPaymentsQb.getRawMany<{
+        projectId: string | null;
+        quoteId: string | null;
+        total: string;
+        count: string;
+      }>(),
       pendingPaymentsQb.getRawOne<{ total: string; count: string }>(),
     ]);
 
@@ -551,18 +574,56 @@ export class ReportsService {
     }));
 
     // ── Cartera por cobrar ────────────────────────────────────────────────
-    const approvedAmount = num(approvedQuotes?.total);
-    const collectedAmount = num(collectedPayments?.total);
+    // Contratado por destino: un proyecto vale lo mayor entre su presupuesto y
+    // la suma de sus cotizaciones aprobadas (suelen ser la misma cifra); una
+    // cotización aprobada sin proyecto cuenta sola.
+    const contracted = new Map<string, number>();
+    for (const r of budgetedProjects) {
+      contracted.set(`p:${r.id}`, num(r.budget));
+    }
+    const quotesByProject = new Map<string, number>();
+    for (const q of approvedQuotes) {
+      if (q.projectId) {
+        quotesByProject.set(q.projectId, (quotesByProject.get(q.projectId) ?? 0) + num(q.total));
+      } else {
+        contracted.set(`q:${q.id}`, num(q.total));
+      }
+    }
+    for (const [projectId, total] of quotesByProject) {
+      const key = `p:${projectId}`;
+      contracted.set(key, Math.max(contracted.get(key) ?? 0, total));
+    }
+
+    const collectedByKey = new Map<string, number>();
+    let collectedTotal = 0;
+    let collectedCount = 0;
+    for (const r of collectedPayments) {
+      const key = r.projectId ? `p:${r.projectId}` : r.quoteId ? `q:${r.quoteId}` : 'none';
+      const amount = num(r.total);
+      collectedByKey.set(key, (collectedByKey.get(key) ?? 0) + amount);
+      collectedTotal += amount;
+      collectedCount += int(r.count);
+    }
+
+    let approvedAmount = 0;
+    let collectedAmount = 0;
+    for (const [key, amount] of contracted) {
+      approvedAmount += amount;
+      collectedAmount += Math.min(collectedByKey.get(key) ?? 0, amount);
+    }
     const receivables = {
       approved: approvedAmount,
-      approvedCount: int(approvedQuotes?.count),
+      approvedCount: contracted.size,
       collected: collectedAmount,
-      collectedCount: int(collectedPayments?.count),
+      collectedCount,
+      // Cobros que no caen sobre nada contratado: proyectos sin presupuesto ni
+      // cotización aprobada, pagos sueltos, o lo cobrado por encima del contrato.
+      unallocated: Math.max(0, collectedTotal - collectedAmount),
       pending: Math.max(0, approvedAmount - collectedAmount),
-      collectedPct: pct(Math.min(collectedAmount, approvedAmount), approvedAmount),
+      collectedPct: pct(collectedAmount, approvedAmount),
       unconfirmed: num(pendingPaymentsRow?.total),
       unconfirmedCount: int(pendingPaymentsRow?.count),
-      hasData: approvedAmount > 0 || collectedAmount > 0,
+      hasData: approvedAmount > 0 || collectedTotal > 0,
     };
 
     return {

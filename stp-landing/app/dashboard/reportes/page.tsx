@@ -35,6 +35,7 @@ import { ExportarReporte } from '@/components/reports/exportar-reporte'
 import { ReporteGeneral } from '@/components/reports/reporte-general'
 import { Button } from '@/components/ui/button'
 import { BarChart3, AlertCircle, FileText } from 'lucide-react'
+import { formatDate } from '@/lib/utils'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -146,10 +147,10 @@ function ProjectSummary({ report }: { report: ProjectReport }) {
             </div>
             <div className="text-right text-sm text-muted-foreground space-y-0.5">
               {project.startDate && (
-                <p>Inicio: {new Date(project.startDate).toLocaleDateString('es-DO')}</p>
+                <p>Inicio: {formatDate(project.startDate)}</p>
               )}
               {project.endDate && (
-                <p>Cierre: {new Date(project.endDate).toLocaleDateString('es-DO')}</p>
+                <p>Cierre: {formatDate(project.endDate)}</p>
               )}
               {project.budget != null && (
                 <p className="font-medium text-foreground">
@@ -372,7 +373,7 @@ function ClientBalance({ report }: { report: ClientReport }) {
                       </Link>
                       {p.startDate && (
                         <div className="text-xs text-muted-foreground font-normal">
-                          Inicio: {new Date(p.startDate).toLocaleDateString('es-DO')}
+                          Inicio: {formatDate(p.startDate)}
                         </div>
                       )}
                     </TableCell>
@@ -511,7 +512,7 @@ function IncomeReportView({ report }: { report: IncomeReport }) {
                 {payments.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="py-2 text-sm tabular-nums whitespace-nowrap">
-                      {new Date(p.date + 'T00:00:00').toLocaleDateString('es-DO')}
+                      {formatDate(p.date + 'T00:00:00')}
                     </TableCell>
                     <TableCell className="py-2 text-sm">{p.client ?? '—'}</TableCell>
                     <TableCell className="py-2 text-sm text-muted-foreground">{p.project ?? '—'}</TableCell>
@@ -867,7 +868,14 @@ export default async function ReportesPage({
 }: {
   searchParams: Promise<{ proyecto?: string; cliente?: string; view?: string; from?: string; to?: string; tab?: string }>
 }) {
-  const { proyecto, cliente, view, from, to, tab } = await searchParams
+  const params = await searchParams
+  const { proyecto, cliente, view, tab } = params
+  // Sin rango en la URL se usan los últimos 30 días (hora de RD). Antes el
+  // backend caía al mes en curso, y los primeros días del mes todo salía en
+  // cero, que parecía un error.
+  const rdNow = Date.now() - 4 * 3_600_000
+  const from = params.from ?? new Date(rdNow - 29 * 86_400_000).toISOString().slice(0, 10)
+  const to = params.to ?? new Date(rdNow).toISOString().slice(0, 10)
   // Sin filtro ni pestaña elegidos, "General" es la vista por defecto — igual
   // que en el mockup de identidad, donde General siempre llega activa. Pero si
   // se pidió explícitamente la pestaña Proyecto/Cliente (tab=...) sin haber
@@ -928,8 +936,7 @@ export default async function ReportesPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <BarChart3 className="size-6" />
+          <h1 className="text-2xl font-bold tracking-tight">
             Reportes
           </h1>
           <p className="text-muted-foreground text-sm">

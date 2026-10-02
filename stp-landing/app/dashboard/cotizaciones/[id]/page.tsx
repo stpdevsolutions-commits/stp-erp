@@ -35,6 +35,7 @@ import { QuoteActions } from '@/components/quotes/quote-actions'
 import { ConvertToProjectButton } from '@/components/quotes/convert-to-project-button'
 import { ReviseQuoteButton } from '@/components/quotes/revise-quote-button'
 import { AcuDriftPanel } from '@/components/quotes/acu-drift-panel'
+import { formatDate } from '@/lib/utils'
 
 const REVISABLE_STATUSES: Quote['status'][] = ['sent', 'approved', 'rejected', 'expired']
 
@@ -298,7 +299,7 @@ export default async function CotizacionDetallePage({
               <span className="text-xs">Válida hasta</span>
             </div>
             <p className="font-medium text-sm">
-              {quote.validUntil ? new Date(quote.validUntil).toLocaleDateString('es-DO') : '—'}
+              {formatDate(quote.validUntil)}
             </p>
           </CardContent>
         </Card>
@@ -310,7 +311,7 @@ export default async function CotizacionDetallePage({
               <span className="text-xs">Creada</span>
             </div>
             <p className="font-medium text-sm">
-              {new Date(quote.createdAt).toLocaleDateString('es-DO')}
+              {formatDate(quote.createdAt)}
             </p>
           </CardContent>
         </Card>

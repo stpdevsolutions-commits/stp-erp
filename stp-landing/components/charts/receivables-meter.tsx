@@ -27,14 +27,14 @@ export function ReceivablesMeter({
       <CardHeader className="gap-1">
         <CardTitle className="text-base">Cartera por cobrar</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Cotizaciones aprobadas frente a lo realmente cobrado
+          Lo contratado (presupuesto del proyecto o cotización aprobada) frente a lo cobrado
         </p>
       </CardHeader>
       <CardContent>
         {!receivables.hasData ? (
           <ChartEmpty
             message="Aún no hay datos suficientes"
-            hint="No hay cotizaciones aprobadas ni cobros registrados todavía."
+            hint="No hay proyectos con presupuesto, cotizaciones aprobadas ni cobros registrados todavía."
             action={{ label: 'Ir a Cotizaciones', href: '/dashboard/cotizaciones' }}
           />
         ) : (
@@ -45,9 +45,9 @@ export function ReceivablesMeter({
                   {DOP.format(receivables.pending)}
                 </div>
                 <p className="mt-1.5 text-xs text-muted-foreground">
-                  pendiente de cobro sobre {DOP.format(receivables.approved)} aprobados
+                  pendiente de cobro sobre {DOP.format(receivables.approved)} contratados
                   {receivables.approvedCount > 0 &&
-                    ` en ${receivables.approvedCount} cotización${receivables.approvedCount === 1 ? '' : 'es'}`}
+                    ` en ${receivables.approvedCount} proyecto${receivables.approvedCount === 1 ? '' : 's'} o cotización${receivables.approvedCount === 1 ? '' : 'es'}`}
                 </p>
               </div>
               <div className="text-right">
@@ -62,7 +62,7 @@ export function ReceivablesMeter({
               className="mt-4 h-5 w-full overflow-hidden rounded-sm"
               style={{ background: 'color-mix(in srgb, var(--viz-s1) 20%, var(--card))' }}
               role="img"
-              aria-label={`Cobrado ${DOP.format(receivables.collected)} de ${DOP.format(receivables.approved)} aprobados, ${pct.toFixed(0)} por ciento`}
+              aria-label={`Cobrado ${DOP.format(receivables.collected)} de ${DOP.format(receivables.approved)} contratados, ${pct.toFixed(0)} por ciento`}
             >
               <div
                 className="viz-bar-h h-full"
@@ -98,6 +98,18 @@ export function ReceivablesMeter({
                 </dd>
               </div>
             </dl>
+
+            {receivables.unallocated > 0 && (
+              <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
+                Además hay{' '}
+                <span className="font-medium text-foreground tabular-nums">
+                  {DOP.format(receivables.unallocated)}
+                </span>{' '}
+                cobrados que no caen sobre nada contratado: proyectos sin presupuesto ni
+                cotización aprobada, o cobros por encima del presupuesto. Ponle presupuesto
+                a esos proyectos para que la cartera sea exacta.
+              </p>
+            )}
           </>
         )}
       </CardContent>

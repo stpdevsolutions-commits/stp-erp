@@ -56,7 +56,8 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalClientes}</div>
-              <p className="text-xs text-muted-foreground mt-1">en total</p>
+              {/* El backend cuenta solo clientes activos (ver ReportsService.getDashboard). */}
+              <p className="text-xs text-muted-foreground mt-1">activos</p>
             </CardContent>
           </Card>
         </Link>

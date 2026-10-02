@@ -16,6 +16,7 @@ import { GastoActions } from '@/components/expenses/gasto-actions'
 import { FiltrosGastos } from '@/components/gastos/filtros-gastos'
 import { Paginacion } from '@/components/ui/paginacion'
 import { ExportExcelButton } from '@/components/ui/export-excel-button'
+import { formatDate } from '@/lib/utils'
 
 const CATEGORY_LABELS: Record<Expense['category'], string> = {
   materials: 'Materiales',
@@ -44,7 +45,7 @@ export default async function GastosPage({
   if (sp.clientId) q.set('clientId', sp.clientId)
   if (sp.projectId) q.set('projectId', sp.projectId)
 
-  let gastosRes: PaginatedResponse<Expense> = { data: [], total: 0, page, limit: LIMIT }
+  let gastosRes: PaginatedResponse<Expense> & { totalAmount?: number } = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
   let clients: Client[] = []
   let suppliers: Supplier[] = []
@@ -58,7 +59,7 @@ export default async function GastosPage({
 
   try {
     const [gr, proyRes, clientesRes, provRes, me, esteMes] = await Promise.all([
-      api.get<PaginatedResponse<Expense>>(`/expenses?${q.toString()}`),
+      api.get<PaginatedResponse<Expense> & { totalAmount?: number }>(`/expenses?${q.toString()}`),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
       api.get<PaginatedResponse<Client>>('/clients?limit=200'),
       api.get<PaginatedResponse<Supplier>>('/suppliers?limit=200&isActive=true'),
@@ -84,7 +85,9 @@ export default async function GastosPage({
     .catch(() => [] as Material[])
 
   const gastos = gastosRes.data
-  const totalMonto = gastos.reduce((sum, g) => sum + g.amount, 0)
+  // El backend manda la suma de todo lo filtrado; la suma local es solo respaldo.
+  const totalMonto = gastosRes.totalAmount ?? gastos.reduce((sum, g) => sum + g.amount, 0)
+  const hayFiltros = Boolean(sp.category || sp.dateFrom || sp.dateTo || sp.clientId || sp.projectId)
 
   return (
     <div className="space-y-6">
@@ -111,7 +114,9 @@ export default async function GastosPage({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Monto (página actual)</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              {hayFiltros ? 'Monto filtrado' : 'Monto total'}
+            </CardTitle>
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{DOP.format(totalMonto)}</div></CardContent>
         </Card>
@@ -192,7 +197,7 @@ export default async function GastosPage({
                         {DOP.format(g.amount)}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {new Date(g.date).toLocaleDateString('es-DO')}
+                        {formatDate(g.date)}
                       </TableCell>
                       <TableCell>
                         <GastoActions gasto={g} projects={projects} suppliers={suppliers} materials={materials} userRole={userRole} />

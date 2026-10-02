@@ -112,7 +112,7 @@ export default async function MaterialDetallePage({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">{material.name}</h1>
-            <Badge variant={material.isActive ? 'default' : 'secondary'}>
+            <Badge className={material.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
               {material.isActive ? 'Activo' : 'Inactivo'}
             </Badge>
           </div>

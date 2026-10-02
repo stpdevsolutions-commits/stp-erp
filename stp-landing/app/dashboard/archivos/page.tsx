@@ -56,8 +56,7 @@ export default async function ArchivosPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <FolderOpen className="size-6" />
+        <h1 className="text-2xl font-bold tracking-tight">
           Archivos
         </h1>
         <p className="text-muted-foreground text-sm">

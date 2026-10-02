@@ -161,7 +161,7 @@ export default async function InventarioPage({
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={item.isActive ? 'default' : 'secondary'}>
+                        <Badge className={item.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
                           {item.isActive ? 'Activo' : 'Inactivo'}
                         </Badge>
                       </TableCell>

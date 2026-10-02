@@ -16,6 +16,7 @@ import {
 import { ChevronLeft, Building2, Phone, Mail, MapPin, User, Hash, FolderOpen } from 'lucide-react'
 import { ClientActions } from '@/components/clients/client-actions'
 import type { Member } from '@/lib/actions/memberships'
+import { formatDate } from '@/lib/utils'
 
 const TYPE_LABELS = { company: 'Empresa', individual: 'Persona física' }
 
@@ -82,7 +83,7 @@ export default async function ClienteDetallePage({
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Badge variant={client.isActive ? 'default' : 'secondary'}>
+            <Badge className={client.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
               {client.isActive ? 'Activo' : 'Inactivo'}
             </Badge>
             <span className="text-sm text-muted-foreground">
@@ -228,7 +229,7 @@ export default async function ClienteDetallePage({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {p.startDate ? new Date(p.startDate).toLocaleDateString('es-DO') : '—'}
+                      {formatDate(p.startDate)}
                     </TableCell>
                     <TableCell className="text-right">
                       {p.budget != null ? DOP.format(p.budget) : '—'}

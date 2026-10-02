@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import type { FileUpload, FileContext } from '@/lib/types'
 import { uploadFile, deleteFile } from '@/lib/actions/files'
+import { formatDate } from '@/lib/utils'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -325,7 +326,7 @@ function FileGrid({
                 <p className="text-sm font-medium truncate">{file.originalName}</p>
                 <p className="text-xs text-muted-foreground">
                   {formatBytes(file.size)} ·{' '}
-                  {new Date(file.createdAt).toLocaleDateString('es-DO')}
+                  {formatDate(file.createdAt)}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">

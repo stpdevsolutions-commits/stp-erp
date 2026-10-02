@@ -82,21 +82,33 @@ export class ExpensesService {
       .skip((page - 1) * limit)
       .take(limit);
 
-    if (clientId) qb.andWhere('project.clientId = :clientId', { clientId });
-    if (projectId) qb.andWhere('expense.projectId = :projectId', { projectId });
-    if (category) qb.andWhere('expense.category = :category', { category });
-    if (dateFrom) qb.andWhere('expense.date >= :dateFrom', { dateFrom });
-    if (dateTo) qb.andWhere('expense.date <= :dateTo', { dateTo });
+    // Suma de TODO lo que cumple los filtros (no solo la página): es la cifra
+    // que la cabecera del listado necesita para no mostrar un subtotal engañoso.
+    const sumQb = this.expensesRepository
+      .createQueryBuilder('expense')
+      .leftJoin('expense.project', 'project')
+      .select('COALESCE(SUM(expense.amount), 0)', 'sum');
 
-    await this.access.applyScope(
-      qb,
-      user,
-      { projectExpr: 'expense.projectId', clientExpr: 'project.clientId' },
-      this.scopeOverride(user),
-    );
+    for (const b of [qb, sumQb]) {
+      if (clientId) b.andWhere('project.clientId = :clientId', { clientId });
+      if (projectId) b.andWhere('expense.projectId = :projectId', { projectId });
+      if (category) b.andWhere('expense.category = :category', { category });
+      if (dateFrom) b.andWhere('expense.date >= :dateFrom', { dateFrom });
+      if (dateTo) b.andWhere('expense.date <= :dateTo', { dateTo });
 
-    const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit };
+      await this.access.applyScope(
+        b,
+        user,
+        { projectExpr: 'expense.projectId', clientExpr: 'project.clientId' },
+        this.scopeOverride(user),
+      );
+    }
+
+    const [[data, total], sumRow] = await Promise.all([
+      qb.getManyAndCount(),
+      sumQb.getRawOne<{ sum: string }>(),
+    ]);
+    return { data, total, page, limit, totalAmount: parseFloat(sumRow?.sum ?? '0') };
   }
 
   /**
