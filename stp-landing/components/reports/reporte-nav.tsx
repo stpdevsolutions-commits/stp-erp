@@ -132,13 +132,13 @@ export function ReporteNav({
   return (
     <div className="space-y-3">
       {/* Tab bar */}
-      <div className="flex gap-1 border-b pb-0">
+      <div className="-mx-1 flex gap-1 overflow-x-auto border-b px-1 pb-0 [scrollbar-width:none]">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => handleTabClick(tab.key)}
             className={cn(
-              'px-4 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors',
+              'shrink-0 whitespace-nowrap px-3 sm:px-4 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors',
               currentTab === tab.key
                 ? 'border-primary text-primary bg-primary/5'
                 : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',

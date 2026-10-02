@@ -142,9 +142,9 @@ export function ProjectDetailTabs({
               <TableRow>
                 <TableHead>Título</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Prioridad</TableHead>
-                <TableHead>Fecha límite</TableHead>
-                <TableHead>Asignado a</TableHead>
+                <TableHead className="hidden md:table-cell">Prioridad</TableHead>
+                <TableHead className="hidden sm:table-cell">Fecha límite</TableHead>
+                <TableHead className="hidden lg:table-cell">Asignado a</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -157,17 +157,29 @@ export function ProjectDetailTabs({
               ) : (
                 tasks.data.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium whitespace-normal min-w-[150px]">
                       <Link href={`/dashboard/tareas/${t.id}`} className="hover:underline">{t.title}</Link>
+                      <div className="text-xs font-normal text-muted-foreground lg:hidden">
+                        {[
+                          t.dueDate ? `vence ${formatDate(t.dueDate)}` : null,
+                          t.collaborator
+                            ? `${t.collaborator.firstName} ${t.collaborator.lastName}`
+                            : t.assignedTo
+                              ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}`
+                              : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge className={TASK_STATUS_BADGE[t.status]}>{TASK_STATUS[t.status]}</Badge>
                     </TableCell>
-                    <TableCell>{TASK_PRIORITY[t.priority]}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">{TASK_PRIORITY[t.priority]}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {formatDate(t.dueDate)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {/* Mismo criterio que el listado de Tareas: en campo se asigna a un
                           colaborador (sin cuenta); el usuario del sistema es la excepción. */}
                       {t.collaborator
@@ -191,11 +203,11 @@ export function ProjectDetailTabs({
             <TableHeader>
               <TableRow>
                 <TableHead>Código</TableHead>
-                <TableHead>Tipo</TableHead>
+                <TableHead className="hidden md:table-cell">Tipo</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Técnico</TableHead>
+                <TableHead className="hidden lg:table-cell">Técnico</TableHead>
                 <TableHead>GPS</TableHead>
-                <TableHead>Fecha</TableHead>
+                <TableHead className="hidden md:table-cell">Fecha</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -215,14 +227,17 @@ export function ProjectDetailTabs({
                       <Button variant="ghost" size="sm" className="font-mono px-0 h-auto" render={<Link href={`/dashboard/fichas/${f.id}`} />}>
                         {f.code}
                       </Button>
+                      <div className="text-xs text-muted-foreground md:hidden">
+                        {FICHA_TYPE_LABEL[f.type] ?? f.type} · {formatDate(f.createdAt)}
+                      </div>
                     </TableCell>
-                    <TableCell>{FICHA_TYPE_LABEL[f.type] ?? f.type}</TableCell>
+                    <TableCell className="hidden md:table-cell">{FICHA_TYPE_LABEL[f.type] ?? f.type}</TableCell>
                     <TableCell>
                       <Badge className={FICHA_STATUS_BADGE[f.status]}>
                         {FICHA_STATUS_LABEL[f.status]}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {f.technician
                         ? `${f.technician.firstName} ${f.technician.lastName}`
                         : '—'}
@@ -241,7 +256,7 @@ export function ProjectDetailTabs({
                         <span className="text-muted-foreground text-xs">—</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {formatDate(f.createdAt)}
                     </TableCell>
                   </TableRow>
@@ -259,9 +274,9 @@ export function ProjectDetailTabs({
             <TableHeader>
               <TableRow>
                 <TableHead>Descripción</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead>Proveedor</TableHead>
-                <TableHead>Fecha</TableHead>
+                <TableHead className="hidden md:table-cell">Categoría</TableHead>
+                <TableHead className="hidden lg:table-cell">Proveedor</TableHead>
+                <TableHead className="hidden md:table-cell">Fecha</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
               </TableRow>
             </TableHeader>
@@ -276,10 +291,15 @@ export function ProjectDetailTabs({
                 <>
                   {expenses.data.map((e) => (
                     <TableRow key={e.id}>
-                      <TableCell className="font-medium">{e.description}</TableCell>
-                      <TableCell>{EXPENSE_CAT[e.category] ?? e.category}</TableCell>
-                      <TableCell>{e.supplier?.name ?? '—'}</TableCell>
-                      <TableCell>{formatDate(e.date)}</TableCell>
+                      <TableCell className="font-medium whitespace-normal min-w-[150px]">
+                        {e.description}
+                        <div className="text-xs font-normal text-muted-foreground md:hidden">
+                          {formatDate(e.date)} · {EXPENSE_CAT[e.category] ?? e.category}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{EXPENSE_CAT[e.category] ?? e.category}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{e.supplier?.name ?? '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell">{formatDate(e.date)}</TableCell>
                       <TableCell className="text-right">{DOP.format(e.amount)}</TableCell>
                     </TableRow>
                   ))}
@@ -301,9 +321,9 @@ export function ProjectDetailTabs({
             <TableHeader>
               <TableRow>
                 <TableHead>Descripción</TableHead>
-                <TableHead>Método</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Fecha</TableHead>
+                <TableHead className="hidden md:table-cell">Método</TableHead>
+                <TableHead className="hidden sm:table-cell">Estado</TableHead>
+                <TableHead className="hidden md:table-cell">Fecha</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
               </TableRow>
             </TableHeader>
@@ -318,14 +338,19 @@ export function ProjectDetailTabs({
                 <>
                   {payments.data.map((p) => (
                     <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.description}</TableCell>
-                      <TableCell>{PAYMENT_METHOD[p.method] ?? p.method}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium whitespace-normal min-w-[150px]">
+                        {p.description}
+                        <div className="text-xs font-normal text-muted-foreground md:hidden">
+                          {formatDate(p.date)} · {PAYMENT_STATUS[p.status]}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{PAYMENT_METHOD[p.method] ?? p.method}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge className={PAYMENT_STATUS_BADGE[p.status]}>
                           {PAYMENT_STATUS[p.status]}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(p.date)}</TableCell>
+                      <TableCell className="hidden md:table-cell">{formatDate(p.date)}</TableCell>
                       <TableCell className="text-right">{DOP.format(p.amount)}</TableCell>
                     </TableRow>
                   ))}

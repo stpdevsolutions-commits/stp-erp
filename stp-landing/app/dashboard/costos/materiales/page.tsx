@@ -105,24 +105,24 @@ export default async function MaterialesPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Código</TableHead>
+                    <TableHead className="hidden md:table-cell">Código</TableHead>
                     <TableHead>Material</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>Unidad</TableHead>
+                    <TableHead className="hidden lg:table-cell">Categoría</TableHead>
+                    <TableHead className="hidden md:table-cell">Unidad</TableHead>
                     <TableHead className="text-right">Precio vigente</TableHead>
-                    <TableHead className="text-right">Rango</TableHead>
-                    <TableHead className="text-right">Precios</TableHead>
-                    <TableHead>Estado</TableHead>
+                    <TableHead className="hidden xl:table-cell text-right">Rango</TableHead>
+                    <TableHead className="hidden lg:table-cell text-right">Precios</TableHead>
+                    <TableHead className="hidden md:table-cell">Estado</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {res.data.map((m) => (
                     <TableRow key={m.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
+                      <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
                         {m.code}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-normal min-w-[150px]">
                         <Link
                           href={`/dashboard/costos/materiales/${m.id}`}
                           className="font-medium hover:underline underline-offset-4"
@@ -134,27 +134,30 @@ export default async function MaterialesPage({
                             {[m.brand, m.model].filter(Boolean).join(' · ')}
                           </span>
                         )}
+                        <span className="block text-xs text-muted-foreground md:hidden">
+                          {[m.code, m.category?.name].filter(Boolean).join(' · ')}
+                        </span>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
                         {m.category?.name ?? '—'}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                         {m.unit?.code ?? '—'}
                       </TableCell>
                       <TableCell className="text-right">
                         <PrecioVigente summary={m.priceSummary} unit={m.unit?.code} />
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                      <TableCell className="hidden xl:table-cell text-right font-mono text-xs text-muted-foreground">
                         {m.priceSummary?.min != null && m.priceSummary.max != null
                           ? m.priceSummary.min === m.priceSummary.max
                             ? '—'
                             : `${m.priceSummary.min.toFixed(2)} – ${m.priceSummary.max.toFixed(2)}`
                           : '—'}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
+                      <TableCell className="hidden lg:table-cell text-right font-mono text-sm">
                         {m.priceSummary?.count ?? 0}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge className={m.isActive ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}>
                           {m.isActive ? 'Activo' : 'Inactivo'}
                         </Badge>

@@ -76,7 +76,7 @@ function Cifra({
   return (
     <Card>
       <CardContent className="pt-4 pb-3">
-        <div className={`text-xl font-bold tabular-nums ${color}`}>{valor}</div>
+        <div className={`text-base sm:text-xl font-bold tabular-nums break-words ${color}`}>{valor}</div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <p className="text-xs text-muted-foreground">{titulo}</p>
           <Variacion valor={variacion ?? null} invertido={invertido} />
@@ -106,7 +106,7 @@ export function ReporteGeneral({ report }: { report: GeneralReport }) {
       </div>
 
       {/* ── Resultado del período ── */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <Cifra
           titulo="Ingresos cobrados"
           valor={DOP.format(finance.income)}

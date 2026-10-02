@@ -68,13 +68,13 @@ export default async function FichasPage({
           <TableHeader>
             <TableRow>
               <TableHead>Código</TableHead>
-              <TableHead>Tipo</TableHead>
+              <TableHead className="hidden md:table-cell">Tipo</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>Proyecto</TableHead>
-              <TableHead>Técnico</TableHead>
-              <TableHead>GPS</TableHead>
-              <TableHead>Enviada</TableHead>
-              <TableHead>Fecha</TableHead>
+              <TableHead className="hidden md:table-cell">Proyecto</TableHead>
+              <TableHead className="hidden lg:table-cell">Técnico</TableHead>
+              <TableHead className="hidden sm:table-cell">GPS</TableHead>
+              <TableHead className="hidden lg:table-cell">Enviada</TableHead>
+              <TableHead className="hidden md:table-cell">Fecha</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -91,22 +91,27 @@ export default async function FichasPage({
                     <Button variant="ghost" size="sm" className="font-mono px-0 h-auto" render={<Link href={`/dashboard/fichas/${f.id}`} />}>
                       {f.code}
                     </Button>
+                    <div className="text-xs text-muted-foreground md:hidden">
+                      {[TYPE_LABEL[f.type] ?? f.type, f.project?.code, formatDate(f.createdAt)]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-sm">{TYPE_LABEL[f.type] ?? f.type}</TableCell>
+                  <TableCell className="hidden md:table-cell text-sm">{TYPE_LABEL[f.type] ?? f.type}</TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[f.status]}>{STATUS_LABEL[f.status]}</Badge>
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="hidden md:table-cell text-sm">
                     {f.project ? (
                       <Link href={`/dashboard/proyectos/${f.project.id}`} className="hover:underline text-primary">
                         {f.project.code}
                       </Link>
                     ) : '—'}
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="hidden lg:table-cell text-sm">
                     {f.technician ? `${f.technician.firstName} ${f.technician.lastName}` : '—'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     {f.latitude && f.longitude ? (
                       <a
                         href={`https://maps.google.com/?q=${f.latitude},${f.longitude}`}
@@ -118,10 +123,10 @@ export default async function FichasPage({
                       </a>
                     ) : <span className="text-muted-foreground text-xs">—</span>}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
                     {formatDate(f.submittedAt)}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                     {formatDate(f.createdAt)}
                   </TableCell>
                 </TableRow>
