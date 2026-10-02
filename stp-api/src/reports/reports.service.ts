@@ -12,6 +12,7 @@ import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
 import { Ficha, FichaStatus } from '../fichas/entities/ficha.entity';
 import { Collaborator } from '../collaborators/entities/collaborator.entity';
 import { PayrollEntry, PayrollStatus } from '../payroll/entities/payroll-entry.entity';
+import { monthStartRD, todayRD, todayRDAsUTCDate } from '../common/dates';
 
 /** Etiquetas de mes en español, índice 0 = enero. */
 const MONTH_LABELS = [
@@ -172,11 +173,8 @@ export class ReportsService {
   }
 
   async getDashboard(user?: AccessSubject) {
-    const now = new Date();
-    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      .toISOString()
-      .split('T')[0];
-    const today = now.toISOString().split('T')[0];
+    const firstOfMonth = monthStartRD();
+    const today = todayRD();
 
     const clientsQb = this.clientsRepo
       .createQueryBuilder('client')
@@ -269,8 +267,9 @@ export class ReportsService {
    */
   async getAnalytics(months = 6, user?: AccessSubject) {
     const span = Math.min(Math.max(Math.trunc(months) || 6, 1), 24);
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    // Mes en curso según el calendario de RD (el servidor corre en UTC).
+    const now = todayRDAsUTCDate();
+    const today = todayRD();
 
     // Eje temporal completo: si no hay pagos/gastos en un mes, el mes sigue
     // existiendo con 0 (nunca un hueco que rompa la escala).

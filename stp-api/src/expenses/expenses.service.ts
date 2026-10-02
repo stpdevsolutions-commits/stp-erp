@@ -28,6 +28,7 @@ import { auditLog } from '../common/audit-log';
 import { Unit } from '../costs/entities/unit.entity';
 import { resolveExpenseAmount } from '../costs/expense-price';
 import { loadForUpdate } from '../common/load-for-update';
+import { monthStartRD } from '../common/dates';
 
 @Injectable()
 export class ExpensesService {
@@ -131,9 +132,7 @@ export class ExpensesService {
     query: Pick<QueryExpensesDto, 'projectId' | 'category'>,
     user?: AccessSubject,
   ): Promise<number> {
-    const monthStart = new Date();
-    monthStart.setUTCDate(1);
-    const monthStartStr = monthStart.toISOString().slice(0, 10);
+    const monthStartStr = monthStartRD();
 
     const qb = this.expensesRepository
       .createQueryBuilder('expense')

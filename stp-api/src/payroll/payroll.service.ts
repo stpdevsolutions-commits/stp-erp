@@ -23,6 +23,7 @@ import { computePayrollAmounts } from './payroll-amounts';
 import { loadForUpdate } from '../common/load-for-update';
 import { SettingsService } from '../settings/settings.service';
 import { generatePayrollReceiptPdf } from './pdf.generator';
+import { monthStartRD, todayRD, yearStartRD } from '../common/dates';
 
 @Injectable()
 export class PayrollService {
@@ -217,7 +218,7 @@ export class PayrollService {
 
     // Marcar como pagado sin fecha: se asume hoy, que es lo que el usuario espera.
     if (entry.status === PayrollStatus.PAID && !entry.paymentDate) {
-      entry.paymentDate = new Date().toISOString().split('T')[0];
+      entry.paymentDate = todayRD();
     }
 
     const saved = await this.payrollRepository.save(entry);
@@ -236,11 +237,8 @@ export class PayrollService {
 
   /** Cifras de cabecera del módulo (no dependen de la página que se esté viendo). */
   async summary() {
-    const now = new Date();
-    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-      .toISOString()
-      .split('T')[0];
-    const yearStart = `${now.getUTCFullYear()}-01-01`;
+    const monthStart = monthStartRD();
+    const yearStart = yearStartRD();
 
     const sum = async (
       status: PayrollStatus,

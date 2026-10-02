@@ -31,6 +31,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ModulePermissionGuard } from '../common/access/module-permission.guard';
 import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
+import { monthStartRD, todayRD } from '../common/dates';
 
 interface AuthUser {
   id: string;
@@ -39,10 +40,8 @@ interface AuthUser {
 }
 
 function parseDateRange(from?: string, to?: string): { from: string; to: string } {
-  const today = new Date().toISOString().split('T')[0];
-  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    .toISOString()
-    .split('T')[0];
+  const today = todayRD();
+  const firstOfMonth = monthStartRD();
   const f = from ?? firstOfMonth;
   const t = to ?? today;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !/^\d{4}-\d{2}-\d{2}$/.test(t))

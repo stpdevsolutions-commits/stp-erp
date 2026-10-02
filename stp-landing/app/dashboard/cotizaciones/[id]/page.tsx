@@ -413,7 +413,9 @@ export default async function CotizacionDetallePage({
                               {label}
                             </TableCell>
                             <TableCell
-                              colSpan={quote.taxRate > 0 ? 5 : 4}
+                              // Descripción..Desc.% = 5 columnas; la de ITBIS va aparte
+                              // (celda vacía abajo), así que no cambia este número.
+                              colSpan={5}
                               className={
                                 depth === 0
                                   ? 'text-sm font-semibold'

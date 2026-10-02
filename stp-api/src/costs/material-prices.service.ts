@@ -19,6 +19,7 @@ import {
   PriceSummary,
 } from './price-selection';
 import { yieldsPrice, derivedPriceChanged, DerivedPriceSnapshot } from './expense-price';
+import { todayRD } from '../common/dates';
 
 /** Datos de un gasto necesarios para derivar su precio, sin acoplar a la entidad Expense. */
 export interface ExpenseDerivedPriceInput {
@@ -78,7 +79,7 @@ export class MaterialPricesService {
     }
 
     const itbisRate = dto.itbisRate ?? 18;
-    const date = dto.date ? dto.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const date = dto.date ? dto.date.slice(0, 10) : todayRD();
 
     let netUnitPrice: number;
     try {

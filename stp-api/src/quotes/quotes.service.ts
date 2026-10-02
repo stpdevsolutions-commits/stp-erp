@@ -59,6 +59,7 @@ import {
   type AcuDriftLine,
   type AcuDriftReport,
 } from './acu-pricing';
+import { todayRD } from '../common/dates';
 
 /** Convierte las filas ya guardadas de una cotización en el árbol de entrada (para clonar). */
 function rowsToNodeInputs(rows: QuoteItem[]): QuoteNodeInput[] {
@@ -329,7 +330,7 @@ export class QuotesService implements OnModuleInit {
   }
 
   private async expireOverdueQuotes(): Promise<void> {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayRD();
 
     const toExpire = await this.quotesRepository
       .createQueryBuilder('q')
@@ -373,7 +374,7 @@ export class QuotesService implements OnModuleInit {
     const REMIND_AFTER_DAYS = 3;
     const MAX_REMINDERS = 2;
     const cutoff = new Date(Date.now() - REMIND_AFTER_DAYS * 24 * 60 * 60 * 1000);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayRD();
 
     const pending = await this.quotesRepository
       .createQueryBuilder('q')
