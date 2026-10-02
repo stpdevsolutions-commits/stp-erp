@@ -1,4 +1,5 @@
-﻿﻿import { api, pageError } from '@/lib/api'
+import Link from 'next/link'
+import { api, pageError } from '@/lib/api'
 import type { Payment, Client, Project, PaginatedResponse, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -15,7 +16,7 @@ import { PagoActions } from '@/components/payments/pago-actions'
 import { FiltrosPagos } from '@/components/pagos/filtros-pagos'
 import { Paginacion } from '@/components/ui/paginacion'
 import { ExportExcelButton } from '@/components/ui/export-excel-button'
-import { formatDate } from '@/lib/utils'
+import { formatDate, todayRD } from '@/lib/utils'
 
 const METHOD_LABELS: Record<Payment['method'], string> = {
   cash: 'Efectivo',
@@ -61,6 +62,12 @@ export default async function PagosPage({
   if (dateFrom) query.set('dateFrom', dateFrom)
   if (dateTo) query.set('dateTo', dateTo)
   if (sp.clientId) query.set('clientId', sp.clientId)
+  // ?vencidos=1 llega desde "Cobros vencidos" del Resumen.
+  const soloVencidos = sp.vencidos === '1'
+  if (soloVencidos) query.set('overdue', 'true')
+  const hoy = todayRD()
+  const estaVencido = (p: Payment) =>
+    p.status === 'pending' && !!p.dueDate && p.dueDate.slice(0, 10) < hoy
 
   let pagosRes: PaginatedResponse<Payment> = { data: [], total: 0, page: 1, limit: LIMIT }
   let clients: Client[] = []
@@ -138,6 +145,16 @@ export default async function PagosPage({
 
       <FiltrosPagos clients={clients} />
 
+      {soloVencidos && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
+          <span className="font-medium text-destructive">Mostrando solo cobros vencidos</span>
+          <span className="text-muted-foreground">pendientes cuya fecha de vencimiento ya pasó</span>
+          <Link href="/dashboard/pagos" className="ml-auto text-sm font-medium hover:underline">
+            Ver todos
+          </Link>
+        </div>
+      )}
+
       {error ? (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">{error}</div>
       ) : (
@@ -160,7 +177,7 @@ export default async function PagosPage({
                 {pagos.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      No hay pagos registrados
+                      {soloVencidos ? 'No hay cobros vencidos' : 'No hay pagos registrados'}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -192,6 +209,11 @@ export default async function PagosPage({
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-sm">
                         {formatDate(p.date)}
+                        {p.status === 'pending' && p.dueDate && (
+                          <div className={`text-xs ${estaVencido(p) ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>
+                            {estaVencido(p) ? 'venció' : 'vence'} {formatDate(p.dueDate.slice(0, 10))}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <PagoActions pago={p} clients={clients} projects={projects} userRole={userRole} />

@@ -8,6 +8,10 @@ import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
 import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { QuotesService } from '../quotes/quotes.service';
+import { AppNotificationsService } from '../notifications/app-notifications.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
+import { UserRole } from '../users/entities/user.entity';
+import { RD_TIME_ZONE, todayRD } from '../common/dates';
 
 @Injectable()
 export class SchedulerService {
@@ -24,12 +28,13 @@ export class SchedulerService {
     private readonly refreshTokensRepo: Repository<RefreshToken>,
     private readonly notifications: NotificationsService,
     private readonly quotesService: QuotesService,
+    private readonly appNotifications: AppNotificationsService,
   ) {}
 
   // Todos los días a las 3am — la tabla de refresh tokens nunca se depuraba: un
   // token revocado (rotado o usado) o expirado no vuelve a servir para nada
   // (`refresh()` solo acepta `revoked = false`), así que crecía sin límite.
-  @Cron('0 3 * * *')
+  @Cron('0 3 * * *', { timeZone: RD_TIME_ZONE })
   async cleanupRefreshTokens() {
     try {
       const result = await this.refreshTokensRepo
@@ -46,7 +51,7 @@ export class SchedulerService {
   }
 
   // Todos los días a las 9am — recordatorio al cliente de cotizaciones sin respuesta
-  @Cron('0 9 * * *')
+  @Cron('0 9 * * *', { timeZone: RD_TIME_ZONE })
   async remindPendingQuotes() {
     try {
       await this.quotesService.remindPendingQuotes();
@@ -56,11 +61,11 @@ export class SchedulerService {
   }
 
   // Todos los días a las 8am — cotizaciones por vencer en 3 días
-  @Cron('0 8 * * *')
+  @Cron('0 8 * * *', { timeZone: RD_TIME_ZONE })
   async checkExpiringQuotes() {
     try {
-      const in3Days = new Date();
-      in3Days.setDate(in3Days.getDate() + 3);
+      const in3Days = new Date(`${todayRD()}T12:00:00Z`);
+      in3Days.setUTCDate(in3Days.getUTCDate() + 3);
       const dateStr = in3Days.toISOString().slice(0, 10);
 
       const expiring = await this.quotesRepo
@@ -89,10 +94,10 @@ export class SchedulerService {
   }
 
   // Todos los días a las 8am — tareas vencidas
-  @Cron('0 8 * * *')
+  @Cron('0 8 * * *', { timeZone: RD_TIME_ZONE })
   async checkOverdueTasks() {
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayRD();
 
       const overdue = await this.tasksRepo
         .createQueryBuilder('t')
@@ -121,8 +126,41 @@ export class SchedulerService {
     }
   }
 
+  // Todos los días a las 8am — cobros vencidos: pagos PENDIENTES cuya fecha de
+  // vencimiento ya pasó. Aviso in-app a admin/finanza, una sola vez por pago
+  // (overdueNotifiedAt); si se cambia la fecha, PaymentsService lo rearma.
+  @Cron('0 8 * * *', { timeZone: RD_TIME_ZONE })
+  async checkOverduePayments() {
+    try {
+      const overdue = await this.paymentsRepo
+        .createQueryBuilder('p')
+        .leftJoinAndSelect('p.client', 'client')
+        .where('p.status = :status', { status: PaymentStatus.PENDING })
+        .andWhere('p.dueDate < :today', { today: todayRD() })
+        .andWhere('p.overdueNotifiedAt IS NULL')
+        .getMany();
+
+      for (const p of overdue) {
+        await this.appNotifications.notifyRoles(
+          [UserRole.ADMIN, UserRole.FINANZA],
+          NotificationType.PAYMENT_OVERDUE,
+          `Cobro vencido: RD$ ${Number(p.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          `${p.client?.name ?? 'Cliente'} — ${p.description} (vencía el ${p.dueDate})`,
+          `/dashboard/pagos?clientId=${p.clientId}&pago=${p.id}`,
+        );
+        await this.paymentsRepo.update(p.id, { overdueNotifiedAt: new Date() });
+      }
+
+      if (overdue.length) {
+        this.logger.log(`Overdue payments notified: ${overdue.length}`);
+      }
+    } catch (err) {
+      this.logger.error(`Overdue-payments check failed: ${(err as Error).message}`);
+    }
+  }
+
   // Todos los lunes a las 9am — resumen de pagos pendientes
-  @Cron('0 9 * * 1')
+  @Cron('0 9 * * 1', { timeZone: RD_TIME_ZONE })
   async checkPendingPayments() {
     try {
       const pending = await this.paymentsRepo

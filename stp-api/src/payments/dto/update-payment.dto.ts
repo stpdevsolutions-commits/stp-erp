@@ -36,6 +36,11 @@ export class UpdatePaymentDto {
   @IsDateString()
   date?: string;
 
+  /** Solo tiene sentido en un pago pendiente: hasta cuándo se espera cobrarlo. */
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string | null;
+
   @IsOptional()
   @IsString()
   reference?: string;

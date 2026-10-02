@@ -134,6 +134,10 @@ export default async function DashboardPage() {
             receivables={analytics.receivables}
             aging={analytics.quotesAging}
             overdueTasks={dashReport?.tasks.overdue ?? tareasVencidas}
+            overduePayments={{
+              count: dashReport?.payments.overdueCount ?? 0,
+              amount: dashReport?.payments.overdueAmount ?? 0,
+            }}
           />
 
           <ReceivablesMeter receivables={analytics.receivables} />

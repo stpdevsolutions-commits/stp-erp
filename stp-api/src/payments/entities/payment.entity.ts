@@ -73,6 +73,14 @@ export class Payment {
   @Column({ type: 'date' })
   date: string;
 
+  /** Fecha límite de cobro de un pago PENDIENTE; pasada sin cobrar = vencido. */
+  @Column({ type: 'date', nullable: true })
+  dueDate: string | null;
+
+  /** Cuándo se avisó que venció (una sola vez; se limpia si cambia `dueDate`). */
+  @Column({ type: 'timestamptz', nullable: true })
+  overdueNotifiedAt: Date | null;
+
   @Column({ type: 'varchar', nullable: true })
   reference: string;
 

@@ -1,4 +1,4 @@
-import { IsOptional, IsEnum, IsUUID, IsDateString, IsString } from 'class-validator';
+import { IsOptional, IsEnum, IsUUID, IsDateString, IsString, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { clampPage, clampLimit } from '../../common/pagination';
 import { PaymentMethod, PaymentStatus } from '../entities/payment.entity';
@@ -35,6 +35,12 @@ export class QueryPaymentsDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  /** Solo pendientes con fecha de vencimiento ya pasada (hora de RD). */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  overdue?: boolean;
 
   @IsOptional()
   @Transform(({ value }) => clampPage(value))

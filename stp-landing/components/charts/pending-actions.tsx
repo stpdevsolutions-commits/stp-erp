@@ -46,12 +46,28 @@ export function PendingActions({
   receivables,
   aging,
   overdueTasks,
+  overduePayments,
 }: {
   receivables: AnalyticsReport['receivables']
   aging: AnalyticsReport['quotesAging']
   overdueTasks: number
+  overduePayments?: { count: number; amount: number }
 }) {
   const items: ActionItem[] = []
+
+  if (overduePayments && overduePayments.count > 0) {
+    items.push({
+      key: 'overdue-payments',
+      tone: 'danger',
+      icon: Wallet,
+      title: 'Cobros vencidos',
+      figure: DOP.format(overduePayments.amount),
+      detail: `${overduePayments.count} pago${overduePayments.count === 1 ? '' : 's'} pendiente${
+        overduePayments.count === 1 ? '' : 's'
+      } pasaron su fecha de vencimiento`,
+      href: '/dashboard/pagos?vencidos=1',
+    })
+  }
 
   if (overdueTasks > 0) {
     items.push({

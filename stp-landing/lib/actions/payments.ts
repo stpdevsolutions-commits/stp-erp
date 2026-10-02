@@ -17,6 +17,7 @@ export interface CreatePaymentInput {
   method?: string
   status?: string
   date: string
+  dueDate?: string
   reference?: string
   notes?: string
 }
@@ -29,6 +30,7 @@ export interface UpdatePaymentInput {
   method?: string
   status?: string
   date?: string
+  dueDate?: string | null
   reference?: string | null
   notes?: string | null
 }

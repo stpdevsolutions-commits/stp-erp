@@ -26,6 +26,7 @@ import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
 import { UserRole } from '../users/entities/user.entity';
 import { EcfClientService } from '../ecf/ecf-client.service';
+import { todayRD } from '../common/dates';
 
 @Injectable()
 export class PaymentsService {
@@ -99,14 +100,14 @@ export class PaymentsService {
    * Enlace del aviso "Pago recibido": abre los pagos de ese cliente y lleva el
    * id del pago para poder borrar el aviso si el pago se elimina.
    */
-  private notificationLink(payment: Pick<Payment, 'id' | 'clientId'>): string {
+  notificationLink(payment: Pick<Payment, 'id' | 'clientId'>): string {
     return `/dashboard/pagos?clientId=${payment.clientId}&pago=${payment.id}`;
   }
 
   async findAll(query: QueryPaymentsDto, user?: AccessSubject) {
     const {
       clientId, projectId, quoteId, method, status,
-      dateFrom, dateTo, search, page = 1, limit = 20,
+      dateFrom, dateTo, search, overdue, page = 1, limit = 20,
     } = query;
 
     const qb = this.paymentsRepository
@@ -127,6 +128,12 @@ export class PaymentsService {
     if (status) qb.andWhere('payment.status = :status', { status });
     if (dateFrom) qb.andWhere('payment.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('payment.date <= :dateTo', { dateTo });
+    if (overdue) {
+      qb.andWhere('payment.status = :pendingStatus AND payment.dueDate < :today', {
+        pendingStatus: PaymentStatus.PENDING,
+        today: todayRD(),
+      });
+    }
     if (search) {
       qb.andWhere(
         '(payment.description ILIKE :q OR payment.reference ILIKE :q)',
@@ -178,6 +185,10 @@ export class PaymentsService {
     const defined = Object.fromEntries(
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
     );
+    // Si se mueve la fecha de vencimiento, el aviso de "vencido" vuelve a armarse.
+    if (dto.dueDate !== undefined && dto.dueDate !== payment.dueDate) {
+      payment.overdueNotifiedAt = null;
+    }
     Object.assign(payment, defined);
     await this.paymentsRepository.save(payment);
     const updated = await this.findOne(id);

@@ -51,6 +51,7 @@ const schema = z.object({
   method: z.enum(['cash', 'transfer', 'check', 'card', 'other']),
   status: z.enum(['pending', 'completed', 'failed', 'refunded']),
   date: z.string().min(1, 'Requerido'),
+  dueDate: z.string().optional(),
   reference: z.string().optional(),
   notes: z.string().optional(),
 })
@@ -101,6 +102,7 @@ export function NuevoPagoDialog({
       method: data.method,
       status: data.status,
       date: data.date,
+      dueDate: data.status === 'pending' && data.dueDate ? data.dueDate : undefined,
       reference: data.reference || undefined,
       notes: data.notes || undefined,
     })
@@ -225,6 +227,15 @@ export function NuevoPagoDialog({
               </Select>
             </div>
 
+            {watch('status') === 'pending' && (
+              <div className="col-span-full space-y-1.5">
+                <Label htmlFor="p-due">Vence (opcional)</Label>
+                <Input id="p-due" type="date" {...register('dueDate')} />
+                <p className="text-xs text-muted-foreground">
+                  Hasta cuándo se espera cobrarlo. Si pasa sin cobrarse, se avisa en la campanita y en el Resumen.
+                </p>
+              </div>
+            )}
             <div className="col-span-full space-y-1.5">
               <Label htmlFor="p-reference">Referencia / Nro. transferencia</Label>
               <Input id="p-reference" placeholder="TRF-0001..." {...register('reference')} />

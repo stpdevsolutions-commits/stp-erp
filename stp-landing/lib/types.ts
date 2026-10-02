@@ -286,6 +286,8 @@ export interface Payment {
   method: PaymentMethod
   status: PaymentStatus
   date: string
+  /** Fecha límite de cobro (solo pagos pendientes). */
+  dueDate?: string | null
   reference?: string
   notes?: string
   // Comprobante fiscal electronico (e-CF), si se emitio para este pago.
@@ -357,7 +359,7 @@ export interface DashboardReport {
   projects: Partial<Record<Project['status'], number>>
   quotes: Partial<Record<Quote['status'], { count: number; amount: number }>>
   expenses: { thisMonth: number }
-  payments: { thisMonth: number }
+  payments: { thisMonth: number; overdueCount?: number; overdueAmount?: number }
   tasks: { overdue: number }
 }
 

@@ -213,6 +213,17 @@ export class ReportsService {
       });
     await this.scopeProjectClient(paymentsQb, user);
 
+    // Cobros vencidos: pendientes con fecha de vencimiento ya pasada.
+    const overduePaymentsQb = this.paymentsRepo
+      .createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('p.status = :pending AND p.dueDate < :today', {
+        pending: PaymentStatus.PENDING,
+        today,
+      });
+    await this.scopeProjectClient(overduePaymentsQb, user);
+
     const overdueQb = this.tasksRepo
       .createQueryBuilder('t')
       .where('t.dueDate < :today AND t.status NOT IN (:...done)', {
@@ -228,6 +239,7 @@ export class ReportsService {
       expensesThisMonth,
       paymentsThisMonth,
       overdueTasksCount,
+      overduePayments,
     ] = await Promise.all([
       clientsQb.getCount(),
       projectsQb.getRawMany(),
@@ -235,6 +247,7 @@ export class ReportsService {
       expensesQb.getRawOne<{ total: string }>(),
       paymentsQb.getRawOne<{ total: string }>(),
       overdueQb.getCount(),
+      overduePaymentsQb.getRawOne<{ total: string; count: string }>(),
     ]);
 
     return {
@@ -251,7 +264,11 @@ export class ReportsService {
         {} as Record<string, { count: number; amount: number }>,
       ),
       expenses: { thisMonth: num(expensesThisMonth?.total) },
-      payments: { thisMonth: num(paymentsThisMonth?.total) },
+      payments: {
+        thisMonth: num(paymentsThisMonth?.total),
+        overdueCount: int(overduePayments?.count),
+        overdueAmount: num(overduePayments?.total),
+      },
       tasks: { overdue: overdueTasksCount },
     };
   }
