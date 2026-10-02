@@ -254,6 +254,9 @@ export function NuevoProyectoDialog({
               onBlur={handleBudgetBlur}
               onFocus={handleBudgetFocus}
             />
+            <p className="text-xs text-muted-foreground">
+              Monto contratado con el cliente. Se usa para la cartera por cobrar del Resumen.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
