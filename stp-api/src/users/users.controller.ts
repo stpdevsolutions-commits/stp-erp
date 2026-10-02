@@ -20,6 +20,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from './entities/user.entity';
+import { MODULE_PERMISSIONS } from '../common/access/module-permissions';
 
 interface AuthUser {
   id: string;
@@ -55,8 +56,12 @@ export class UsersController {
 
   // Rutas /me antes de /:id para evitar conflicto de parámetro
   @Get('me')
-  getMe(@CurrentUser() user: AuthUser) {
-    return this.usersService.findById(user.id);
+  async getMe(@CurrentUser() user: AuthUser) {
+    const me = await this.usersService.findById(user.id);
+    // El menú del frontend se arma con la MISMA matriz que protege la API
+    // (module-permissions.ts): antes usaba un rango lineal de roles que no
+    // conocía "finanza" y mostraba módulos que luego daban 403.
+    return { ...me, modules: MODULE_PERMISSIONS[me.role] ?? {} };
   }
 
   @Patch('me')

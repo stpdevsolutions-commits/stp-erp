@@ -48,7 +48,9 @@ type NavItem = {
   /** Prefijo por el que se marca activo, si no basta con `href`. */
   match?: string
   exact?: boolean
-  /** Rol mínimo. Sin él, lo ve cualquiera que haya entrado. */
+  /** Módulo de la matriz de permisos (module-permissions.ts de la API). */
+  module?: string
+  /** Rol mínimo, solo para lo que no es un módulo (Usuarios). */
   minRole?: 'MANAGER' | 'ADMIN'
   children?: { href: string; label: string }[]
 }
@@ -73,16 +75,16 @@ const NAV: NavGroup[] = [
   },
   {
     label: 'Comercial',
-    items: [{ href: '/dashboard/clientes', label: 'Clientes', icon: Users }],
+    items: [{ href: '/dashboard/clientes', module: 'clientes', label: 'Clientes', icon: Users }],
   },
   {
     label: 'Operación',
     items: [
-      { href: '/dashboard/proyectos', label: 'Proyectos', icon: FolderKanban },
-      { href: '/dashboard/cronograma', label: 'Cronograma', icon: GanttChartSquare },
-      { href: '/dashboard/tareas', label: 'Tareas', icon: CheckSquare },
-      { href: '/dashboard/fichas', label: 'Fichas de campo', icon: ClipboardList },
-      { href: '/dashboard/archivos', label: 'Archivos', icon: FolderOpen },
+      { href: '/dashboard/proyectos', module: 'proyectos', label: 'Proyectos', icon: FolderKanban },
+      { href: '/dashboard/cronograma', module: 'cronograma', label: 'Cronograma', icon: GanttChartSquare },
+      { href: '/dashboard/tareas', module: 'tareas', label: 'Tareas', icon: CheckSquare },
+      { href: '/dashboard/fichas', module: 'fichas', label: 'Fichas de campo', icon: ClipboardList },
+      { href: '/dashboard/archivos', module: 'archivos', label: 'Archivos', icon: FolderOpen },
     ],
   },
   {
@@ -93,6 +95,7 @@ const NAV: NavGroup[] = [
         // propio ocuparía cuatro filas siempre, incluso mientras se trabaja en otra cosa.
         // Orden: primero lo que se usa a diario, y al final los datos maestros.
         href: '/dashboard/costos/materiales',
+        module: 'costos',
         match: '/dashboard/costos',
         label: 'Costos',
         icon: Calculator,
@@ -103,30 +106,29 @@ const NAV: NavGroup[] = [
           { href: '/dashboard/costos/catalogo', label: 'Unidades y categorías' },
         ],
       },
-      { href: '/dashboard/proveedores', label: 'Proveedores', icon: Truck },
-      { href: '/dashboard/inventario', label: 'Inventario', icon: Package },
+      { href: '/dashboard/proveedores', module: 'proveedores', label: 'Proveedores', icon: Truck },
+      { href: '/dashboard/inventario', module: 'inventario', label: 'Inventario', icon: Package },
     ],
   },
   {
     label: 'Finanzas',
     items: [
-      { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: FileText },
-      { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
-      { href: '/dashboard/gastos', label: 'Gastos', icon: Receipt },
-      // Nómina expone sueldos: el módulo entero es MANAGER+ también en lectura.
-      { href: '/dashboard/nomina', label: 'Nómina', icon: Wallet, minRole: 'MANAGER' },
-      { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3, minRole: 'MANAGER' },
+      { href: '/dashboard/cotizaciones', module: 'cotizaciones', label: 'Cotizaciones', icon: FileText },
+      { href: '/dashboard/pagos', module: 'pagos', label: 'Pagos', icon: CreditCard },
+      { href: '/dashboard/gastos', module: 'gastos', label: 'Gastos', icon: Receipt },
+      { href: '/dashboard/nomina', module: 'nomina', label: 'Nómina', icon: Wallet },
+      { href: '/dashboard/reportes', module: 'reportes', label: 'Reportes', icon: BarChart3 },
     ],
   },
   {
     label: 'Equipo',
-    items: [{ href: '/dashboard/colaboradores', label: 'Colaboradores', icon: HardHat }],
+    items: [{ href: '/dashboard/colaboradores', module: 'colaboradores', label: 'Colaboradores', icon: HardHat }],
   },
   {
     label: 'Administración',
     items: [
       { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog, minRole: 'ADMIN' },
-      { href: '/dashboard/configuracion', label: 'Configuración', icon: Settings, minRole: 'ADMIN' },
+      { href: '/dashboard/configuracion', module: 'configuracion', label: 'Configuración', icon: Settings },
     ],
   },
   {
@@ -150,17 +152,26 @@ export function getPageTitle(pathname: string): string {
   return match?.label ?? 'STP ERP'
 }
 
-const ROLE_RANK: Record<string, number> = { user: 1, manager: 2, admin: 3 }
+const ROLE_RANK: Record<string, number> = { user: 1, finanza: 2, manager: 2, admin: 3 }
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
   manager: 'Gerente',
+  finanza: 'Finanzas',
   user: 'Usuario',
 }
 
 type SidebarUser = { firstName: string; lastName: string; role: string }
 
-export function AppSidebar({ role = 'user', user }: { role?: string; user?: SidebarUser }) {
+export function AppSidebar({
+  role = 'user',
+  user,
+  modules,
+}: {
+  role?: string
+  user?: SidebarUser
+  modules?: Record<string, string>
+}) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -170,9 +181,13 @@ export function AppSidebar({ role = 'user', user }: { role?: string; user?: Side
     : ''
   const grupos = NAV.map((grupo) => ({
     ...grupo,
-    items: grupo.items.filter(
-      (item) => !item.minRole || rank >= (ROLE_RANK[item.minRole.toLowerCase()] ?? 1),
-    ),
+    items: grupo.items.filter((item) => {
+      if (item.minRole && rank < (ROLE_RANK[item.minRole.toLowerCase()] ?? 1)) return false
+      // Sin módulos (API vieja o caída) se muestra como antes; con ellos, solo lo
+      // que el rol puede abrir sin recibir un 403.
+      if (item.module && modules) return (modules[item.module] ?? 'none') !== 'none'
+      return true
+    }),
   })).filter((grupo) => grupo.items.length > 0)
 
   function isActive(href: string, exact?: boolean) {
