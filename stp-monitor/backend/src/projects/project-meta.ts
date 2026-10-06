@@ -142,6 +142,16 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     ],
     links: [{ label: 'Sitio', url: 'https://fiscord.lat' }],
   },
+  'mi-om': {
+    purpose: 'App personal de Pedro para la Universidad O&M (iPhone): horario, materias, tareas, reuniones de Zoom y avance de carrera, leídos de su portal (lms2.oymas.edu.do).',
+    stack: ['Expo SDK 57', 'React Native', 'NativeWind', 'WebView'],
+    status: 'Fase 1 (diseño de AI Studio en nativo) y Fase 2 (sincronización real con el portal) terminadas y probadas en el iPhone vía Expo Go el 2026-10-06. Sigue: Fase 3 (notificaciones de clases, tareas y Zoom) y compilar con EAS para TestFlight (necesita cuenta Apple Developer).',
+    recentWork: [
+      'Sincronización real (2026-10-06, commit 23b8d32, rama expo de stpdevsolutions-commits/App-Universidad): lector que corre dentro del portal con la sesión de Pedro (perfil, asignaturas, horario, historial con créditos e índice, contenido y asignaciones por materia, Zoom), WebView invisible para sincronizar desde cualquier pantalla, Agregar desde el portal con formulario lleno.',
+      'Login del portal dentro de la app: la verificación de Cloudflare (Turnstile) necesitaba permitir marcos about:blank/about:srcdoc en el WebView (commit ab71da3).',
+      'App nativa con el diseño de Google AI Studio (2026-10-05/06, commits e6fe28e y f22aaf1): 7 pantallas, fechas calculadas contra RD, estado guardado en el teléfono, arreglo del cierre al arrancar en iPhone (aviso de NativeWind).',
+    ],
+  },
   'red-bendicion': {
     purpose: 'Plataforma para una red de iglesias en casa: directorio de hubs, mapa y panel administrativo interno.',
     stack: ['Next.js', 'Supabase'],
