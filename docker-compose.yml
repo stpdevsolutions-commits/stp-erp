@@ -318,6 +318,8 @@ services:
       MIDIA_JWT: ${MIDIA_JWT}
       GMAIL_ACCOUNTS: ${GMAIL_ACCOUNTS}
       WOL_RELAY_TOKEN: ${WOL_RELAY_TOKEN}
+      # La PC se detecta por Tailscale: en la LAN su firewall (perfil Público) no abre el 22.
+      PC_HOST: 100.64.0.12
     networks:
       - stp-network
     depends_on:
