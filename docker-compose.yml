@@ -317,6 +317,7 @@ services:
       MIDIA_API_URL: http://mi-dia-api:3000
       MIDIA_JWT: ${MIDIA_JWT}
       GMAIL_ACCOUNTS: ${GMAIL_ACCOUNTS}
+      WOL_RELAY_TOKEN: ${WOL_RELAY_TOKEN}
     networks:
       - stp-network
     depends_on:

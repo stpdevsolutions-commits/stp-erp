@@ -15,6 +15,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { z } from 'zod';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
+import net from 'node:net';
 
 const PORT = process.env.PORT || 3005;
 const MCP_AUTH_TOKEN = process.env.MCP_AUTH_TOKEN;
@@ -25,6 +26,24 @@ const ERP_API_URL = process.env.ERP_API_URL || 'http://stp-api:3001';
 const HERMES_ERP_JWT = process.env.HERMES_ERP_JWT;
 const MIDIA_API_URL = process.env.MIDIA_API_URL || 'http://mi-dia-api:3000';
 const MIDIA_JWT = process.env.MIDIA_JWT;
+// Encender la PC de Pedro: el broadcast de Wake-on-LAN no sale de la red
+// Docker, así que lo manda un relay en el host (servicio wol-relay, solo
+// escucha en la puerta de stp-network y solo despierta UNA MAC fija).
+const WOL_RELAY_URL = process.env.WOL_RELAY_URL || 'http://172.18.0.1:9180/wake';
+const WOL_RELAY_TOKEN = process.env.WOL_RELAY_TOKEN;
+const PC_HOST = process.env.PC_HOST || '192.168.4.33';
+const PC_PORT = Number(process.env.PC_PORT || 22);
+
+/** ¿La PC responde? Se prueba el puerto de SSH (OpenSSH de Windows). */
+function pcEncendida(timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    const sock = net.connect({ host: PC_HOST, port: PC_PORT });
+    const fin = (ok) => { sock.destroy(); resolve(ok); };
+    sock.setTimeout(timeoutMs, () => fin(false));
+    sock.once('connect', () => fin(true));
+    sock.once('error', () => fin(false));
+  });
+}
 
 if (!MCP_AUTH_TOKEN) {
   console.error('MCP_AUTH_TOKEN no configurado — abortando.');
@@ -464,6 +483,50 @@ function buildServer() {
         };
       });
       return { content: [{ type: 'text', text: JSON.stringify(data) }] };
+    },
+  );
+
+  server.registerTool(
+    'estado_pc',
+    {
+      description: 'Dice si la computadora de Pedro (PC de escritorio en su casa) está encendida.',
+      inputSchema: {},
+    },
+    async () => {
+      const on = await pcEncendida();
+      return { content: [{ type: 'text', text: on ? 'La PC está encendida.' : 'La PC está apagada o no responde.' }] };
+    },
+  );
+
+  server.registerTool(
+    'encender_pc',
+    {
+      description:
+        'Enciende la computadora de Pedro (PC de escritorio en su casa) con Wake-on-LAN. Úsala cuando Pedro pida prender/encender su PC o computadora. Espera hasta ~45 s a que responda.',
+      inputSchema: {},
+    },
+    async () => {
+      if (await pcEncendida()) {
+        return { content: [{ type: 'text', text: 'La PC ya estaba encendida.' }] };
+      }
+      if (!WOL_RELAY_TOKEN) throw new Error('WOL_RELAY_TOKEN no configurado');
+      const r = await fetch(WOL_RELAY_URL, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${WOL_RELAY_TOKEN}` },
+      });
+      if (!r.ok) throw new Error(`El relay de Wake-on-LAN respondió ${r.status}`);
+      for (let i = 0; i < 9; i++) {
+        await new Promise((res) => setTimeout(res, 5000));
+        if (await pcEncendida()) {
+          return { content: [{ type: 'text', text: 'Listo: la PC encendió y ya acepta conexiones (SSH).' }] };
+        }
+      }
+      return {
+        content: [{
+          type: 'text',
+          text: 'Mandé la señal de encendido, pero la PC todavía no responde. Puede tardar un poco más en arrancar; pregunta el estado en un minuto.',
+        }],
+      };
     },
   );
 
