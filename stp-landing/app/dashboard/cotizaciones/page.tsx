@@ -1,4 +1,7 @@
 ﻿import Link from 'next/link'
+import { SortHead } from '@/components/ui/sort-head'
+import { StatCard } from '@/components/ui/stat-card'
+import { TableEmpty } from '@/components/ui/empty-state'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
 import { api, pageError } from '@/lib/api'
 import type { Acu, Client, Project, Quote, PaginatedResponse, User } from '@/lib/types'
@@ -48,6 +51,8 @@ export default async function CotizacionesPage({
   const page = Math.max(1, Number(sp.page ?? 1))
 
   const q = new URLSearchParams({ limit: String(LIMIT), page: String(page) })
+  if (sp.sort) q.set('sort', sp.sort)
+  if (sp.dir) q.set('dir', sp.dir)
   if (sp.search) q.set('search', sp.search)
   if (sp.status) q.set('status', sp.status)
   if (sp.clientId) q.set('clientId', sp.clientId)
@@ -111,28 +116,9 @@ export default async function CotizacionesPage({
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Total cotizaciones</CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{cotizacionesRes.total}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Monto aprobado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{DOP.format(totalAprobado)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Monto pendiente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{DOP.format(totalPendiente)}</div>
-          </CardContent>
-        </Card>
+        <StatCard label="Total cotizaciones"><div className="text-2xl font-bold">{cotizacionesRes.total}</div></StatCard>
+        <StatCard label="Monto aprobado"><div className="text-2xl font-bold text-green-600">{DOP.format(totalAprobado)}</div></StatCard>
+        <StatCard label="Monto pendiente"><div className="text-2xl font-bold text-yellow-600">{DOP.format(totalPendiente)}</div></StatCard>
       </div>
 
       <FiltrosCotizaciones clients={clients} />
@@ -145,22 +131,18 @@ export default async function CotizacionesPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="hidden md:table-cell">Número</TableHead>
-                  <TableHead>Título</TableHead>
+                  <SortHead field="number" className="hidden md:table-cell">Número</SortHead>
+                  <SortHead field="title">Título</SortHead>
                   <TableHead className="hidden lg:table-cell">Cliente</TableHead>
-                  <TableHead className="hidden sm:table-cell">Estado</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="hidden lg:table-cell">Válida hasta</TableHead>
+                  <SortHead field="status" className="hidden sm:table-cell">Estado</SortHead>
+                  <SortHead field="total" className="text-right">Total</SortHead>
+                  <SortHead field="validUntil" className="hidden lg:table-cell">Válida hasta</SortHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {cotizaciones.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No hay cotizaciones que coincidan con los filtros
-                    </TableCell>
-                  </TableRow>
+                  <TableEmpty colSpan={7} filtered title="No hay cotizaciones que coincidan con los filtros" />
                 ) : (
                   cotizaciones.map((q) => (
                     <TableRow key={q.id}>

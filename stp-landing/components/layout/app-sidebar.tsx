@@ -3,31 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-  Users,
-  FolderKanban,
-  CheckSquare,
-  FileText,
-  UserCog,
-  LayoutDashboard,
-  LogOut,
-  Truck,
-  Receipt,
-  BarChart3,
-  FolderOpen,
-  CircleUser,
-  Package,
-  HardHat,
-  Settings,
-  ClipboardList,
-  Calculator,
-  Wallet,
-  GanttChartSquare,
-  FileCheck,
-  ReceiptText,
-  HandCoins,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -41,140 +17,12 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarHeader,
+  useSidebar,
 } from '@/components/ui/sidebar'
+import { ROLE_LABELS, getPageTitle, isNavActive, visibleGroups } from '@/lib/nav'
 
-type NavItem = {
-  href: string
-  label: string
-  icon: LucideIcon
-  /** Prefijo por el que se marca activo, si no basta con `href`. */
-  match?: string
-  /** Prefijo que NO cuenta como activo (p. ej. Facturas recibidas no se marca en /emitidas). */
-  exclude?: string
-  exact?: boolean
-  /** Módulo de la matriz de permisos (module-permissions.ts de la API). */
-  module?: string
-  /** Rol mínimo, solo para lo que no es un módulo (Usuarios). */
-  minRole?: 'MANAGER' | 'ADMIN'
-  children?: { href: string; label: string }[]
-}
-
-type NavGroup = {
-  /** Sin etiqueta el grupo se pinta sin encabezado (el Resumen no necesita título). */
-  label?: string
-  items: NavItem[]
-}
-
-/**
- * El menú, agrupado por el flujo del dinero y del trabajo en STP y no por el orden en
- * que se fueron construyendo los módulos: Ventas (lo que cotizamos, facturamos y nos
- * pagan), la Operación de obra, Compras y gastos (lo que pagamos) y Finanzas (el
- * resultado), con la gente y la configuración detrás.
- *
- * Un grupo desaparece entero si el rol no ve ninguna de sus entradas, así que un
- * USER no encuentra encabezados vacíos.
- */
-const NAV: NavGroup[] = [
-  {
-    items: [{ href: '/dashboard', label: 'Resumen', icon: LayoutDashboard, exact: true }],
-  },
-  {
-    label: 'Ventas',
-    items: [
-      { href: '/dashboard/clientes', module: 'clientes', label: 'Clientes', icon: Users },
-      { href: '/dashboard/cotizaciones', module: 'cotizaciones', label: 'Cotizaciones', icon: FileText },
-      { href: '/dashboard/facturas/emitidas', module: 'facturas', label: 'Facturas emitidas', icon: FileCheck },
-      { href: '/dashboard/pagos', module: 'pagos', label: 'Cobros', icon: HandCoins },
-    ],
-  },
-  {
-    label: 'Operación',
-    items: [
-      { href: '/dashboard/proyectos', module: 'proyectos', label: 'Proyectos', icon: FolderKanban },
-      { href: '/dashboard/cronograma', module: 'cronograma', label: 'Cronograma', icon: GanttChartSquare },
-      { href: '/dashboard/tareas', module: 'tareas', label: 'Tareas', icon: CheckSquare },
-      { href: '/dashboard/fichas', module: 'fichas', label: 'Fichas de campo', icon: ClipboardList },
-      { href: '/dashboard/archivos', module: 'archivos', label: 'Archivos', icon: FolderOpen },
-    ],
-  },
-  {
-    label: 'Compras y gastos',
-    items: [
-      { href: '/dashboard/proveedores', module: 'proveedores', label: 'Proveedores', icon: Truck },
-      {
-        href: '/dashboard/facturas',
-        module: 'facturas',
-        exclude: '/dashboard/facturas/emitidas',
-        label: 'Facturas recibidas',
-        icon: ReceiptText,
-      },
-      { href: '/dashboard/gastos', module: 'gastos', label: 'Gastos', icon: Receipt },
-      {
-        // Costos tiene cuatro vistas y sigue con subentradas desplegables: como grupo
-        // propio ocuparía cuatro filas siempre, incluso mientras se trabaja en otra cosa.
-        // Orden: primero lo que se usa a diario, y al final los datos maestros.
-        href: '/dashboard/costos/materiales',
-        module: 'costos',
-        match: '/dashboard/costos',
-        label: 'Costos',
-        icon: Calculator,
-        children: [
-          { href: '/dashboard/costos/materiales', label: 'Materiales y precios' },
-          { href: '/dashboard/costos/acus', label: 'Partidas (ACU)' },
-          { href: '/dashboard/costos/importar', label: 'Importar precios' },
-          { href: '/dashboard/costos/catalogo', label: 'Unidades y categorías' },
-        ],
-      },
-      { href: '/dashboard/inventario', module: 'inventario', label: 'Inventario', icon: Package },
-    ],
-  },
-  {
-    label: 'Finanzas',
-    items: [
-      { href: '/dashboard/nomina', module: 'nomina', label: 'Nómina', icon: Wallet },
-      { href: '/dashboard/reportes', module: 'reportes', label: 'Reportes', icon: BarChart3 },
-    ],
-  },
-  {
-    label: 'Equipo',
-    items: [{ href: '/dashboard/colaboradores', module: 'colaboradores', label: 'Colaboradores', icon: HardHat }],
-  },
-  {
-    label: 'Administración',
-    items: [
-      { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog, minRole: 'ADMIN' },
-      { href: '/dashboard/configuracion', module: 'configuracion', label: 'Configuración', icon: Settings },
-    ],
-  },
-  {
-    label: 'Cuenta',
-    items: [{ href: '/dashboard/perfil', label: 'Mi perfil', icon: CircleUser }],
-  },
-]
-
-const FLAT_TITLES: { href: string; label: string }[] = NAV.flatMap((grupo) =>
-  grupo.items.flatMap((item) => [
-    { href: item.href, label: item.label },
-    ...(item.children ?? []),
-  ]),
-)
-
-/** Título de la sección para el header, a partir de la misma lista de navegación. */
-export function getPageTitle(pathname: string): string {
-  const match = FLAT_TITLES.filter(
-    (t) => pathname === t.href || pathname.startsWith(`${t.href}/`),
-  ).sort((a, b) => b.href.length - a.href.length)[0]
-  return match?.label ?? 'STP ERP'
-}
-
-const ROLE_RANK: Record<string, number> = { user: 1, finanza: 2, manager: 2, admin: 3 }
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrador',
-  manager: 'Gerente',
-  finanza: 'Finanzas',
-  user: 'Usuario',
-}
+// Se reexporta para no romper a quien ya lo importaba desde aquí.
+export { getPageTitle }
 
 type SidebarUser = { firstName: string; lastName: string; role: string }
 
@@ -189,25 +37,16 @@ export function AppSidebar({
 }) {
   const pathname = usePathname()
   const router = useRouter()
+  const { isMobile, setOpenMobile } = useSidebar()
 
-  const rank = ROLE_RANK[role.toLowerCase()] ?? 1
   const initials = user
     ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
     : ''
-  const grupos = NAV.map((grupo) => ({
-    ...grupo,
-    items: grupo.items.filter((item) => {
-      if (item.minRole && rank < (ROLE_RANK[item.minRole.toLowerCase()] ?? 1)) return false
-      // Sin módulos (API vieja o caída) se muestra como antes; con ellos, solo lo
-      // que el rol puede abrir sin recibir un 403.
-      if (item.module && modules) return (modules[item.module] ?? 'none') !== 'none'
-      return true
-    }),
-  })).filter((grupo) => grupo.items.length > 0)
+  const grupos = visibleGroups(role, modules)
 
-  function isActive(href: string, exact?: boolean, exclude?: string) {
-    if (exclude && pathname.startsWith(exclude)) return false
-    return exact ? pathname === href : pathname.startsWith(href)
+  // En móvil el menú es un panel superpuesto: al elegir una sección debe cerrarse solo.
+  function closeOnMobile() {
+    if (isMobile) setOpenMobile(false)
   }
 
   async function handleLogout() {
@@ -219,7 +58,7 @@ export function AppSidebar({
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-3">
-        <Link href="/dashboard" className="flex items-center gap-2.5">
+        <Link href="/dashboard" onClick={closeOnMobile} className="flex items-center gap-2.5">
           <span className="flex shrink-0 items-center justify-center rounded-md bg-white p-1.5 shadow-sm ring-1 ring-black/5">
             <Image
               src="/logo-stp.png"
@@ -243,10 +82,13 @@ export function AppSidebar({
             {grupo.label && <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>}
             <SidebarMenu>
               {grupo.items.map((item) => {
-                const abierto = isActive(item.match ?? item.href, item.exact, item.exclude)
+                const abierto = isNavActive(pathname, item.match ?? item.href, item.exact, item.exclude)
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton render={<Link href={item.href} />} isActive={abierto}>
+                    <SidebarMenuButton
+                      render={<Link href={item.href} onClick={closeOnMobile} />}
+                      isActive={abierto}
+                    >
                       <item.icon className="size-4" />
                       <span>{item.label}</span>
                     </SidebarMenuButton>
@@ -257,8 +99,8 @@ export function AppSidebar({
                         {item.children.map((child) => (
                           <SidebarMenuSubItem key={child.href}>
                             <SidebarMenuSubButton
-                              render={<Link href={child.href} />}
-                              isActive={isActive(child.href)}
+                              render={<Link href={child.href} onClick={closeOnMobile} />}
+                              isActive={isNavActive(pathname, child.href)}
                             >
                               <span>{child.label}</span>
                             </SidebarMenuSubButton>

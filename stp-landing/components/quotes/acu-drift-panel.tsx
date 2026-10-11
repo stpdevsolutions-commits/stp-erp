@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -50,6 +51,7 @@ export function AcuDriftPanel({
       setError(res.error ?? 'No se pudo actualizar')
       return
     }
+    toast.success('Precios actualizados')
     setResult(res.result ?? null)
     router.refresh()
   }

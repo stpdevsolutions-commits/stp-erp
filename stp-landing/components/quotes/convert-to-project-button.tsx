@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FolderPlus } from 'lucide-react'
@@ -20,6 +21,7 @@ export function ConvertToProjectButton({ quoteId }: { quoteId: string }) {
       setError(result.error ?? 'Error al convertir')
       return
     }
+    toast.success('Proyecto creado desde la cotización')
     if (result.projectId) {
       router.push(`/dashboard/proyectos/${result.projectId}`)
     }

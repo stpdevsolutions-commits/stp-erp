@@ -1,4 +1,7 @@
 ﻿﻿import { api, pageError } from '@/lib/api'
+import { SortHead } from '@/components/ui/sort-head'
+import { StatCard } from '@/components/ui/stat-card'
+import { TableEmpty } from '@/components/ui/empty-state'
 import type { Supplier, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -36,6 +39,8 @@ export default async function ProveedoresPage({
   const category = sp.category ?? ''
 
   const query = new URLSearchParams({ limit: String(LIMIT), page: String(page) })
+  if (sp.sort) query.set('sort', sp.sort)
+  if (sp.dir) query.set('dir', sp.dir)
   if (search) query.set('search', search)
   if (category) query.set('category', category)
 
@@ -62,30 +67,9 @@ export default async function ProveedoresPage({
       </div>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{res.total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Activos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{activos}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Inactivos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-muted-foreground">{proveedores.length - activos}</div>
-          </CardContent>
-        </Card>
+        <StatCard label="Total"><div className="text-2xl font-bold">{res.total}</div></StatCard>
+        <StatCard label="Activos"><div className="text-2xl font-bold text-green-600 dark:text-green-400">{activos}</div></StatCard>
+        <StatCard label="Inactivos"><div className="text-2xl font-bold text-muted-foreground">{proveedores.length - activos}</div></StatCard>
       </div>
 
       <FiltrosProveedores />
@@ -98,22 +82,23 @@ export default async function ProveedoresPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead className="hidden md:table-cell">Categoría</TableHead>
+                  <SortHead field="name">Nombre</SortHead>
+                  <SortHead field="category" className="hidden md:table-cell">Categoría</SortHead>
                   <TableHead className="hidden lg:table-cell">RNC</TableHead>
                   <TableHead className="hidden md:table-cell">Teléfono</TableHead>
-                  <TableHead className="hidden lg:table-cell">Ciudad</TableHead>
+                  <SortHead field="city" className="hidden lg:table-cell">Ciudad</SortHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {proveedores.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No hay proveedores registrados
-                    </TableCell>
-                  </TableRow>
+                  <TableEmpty
+                    colSpan={7}
+                    title="Aún no hay proveedores registrados"
+                    hint="Agrega el primero para asociarlo a gastos y facturas."
+                    action={<NuevoProveedorDialog />}
+                  />
                 ) : (
                   proveedores.map((p) => (
                     <TableRow key={p.id}>

@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -149,6 +150,7 @@ function EmitirDialog({
     const r = await emitSalesInvoice(invoice.id, transmitir)
     setLoading(false)
     if (!r.ok) return setError(r.error ?? 'No se pudo emitir')
+    toast.success('Factura emitida')
     onOpenChange(false)
     router.refresh()
   }
@@ -218,6 +220,7 @@ function NotaCreditoDialog({
     })
     setLoading(false)
     if (!r.ok || !r.data) return setError(r.error ?? 'No se pudo crear')
+    toast.success('Nota de crédito creada')
     onOpenChange(false)
     router.push(`/dashboard/facturas/emitidas/${r.data.id}`)
     router.refresh()
@@ -306,6 +309,7 @@ function BorrarDialog({
     const r = await deleteSalesInvoice(invoice.id)
     setLoading(false)
     if (!r.ok) return setError(r.error ?? 'No se pudo borrar')
+    toast.success('Factura emitida eliminada')
     router.push('/dashboard/facturas/emitidas')
     router.refresh()
   }
@@ -367,6 +371,7 @@ function CobroDialog({
     })
     setLoading(false)
     if (!r.ok) return setError(r.error ?? 'No se pudo registrar')
+    toast.success('Cobro de la factura agregado')
     onOpenChange(false)
     router.refresh()
   }
@@ -477,7 +482,10 @@ export function CobrosAplicados({
     const r = await unlinkInvoicePayment(invoiceId, paymentId)
     setBusy(null)
     if (!r.ok) setError(r.error ?? 'No se pudo quitar')
-    else router.refresh()
+    else {
+      toast.success('Cobro desvinculado de la factura')
+      router.refresh()
+    }
   }
 
   if (payments.length === 0) {

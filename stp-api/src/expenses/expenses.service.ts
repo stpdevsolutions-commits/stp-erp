@@ -1,3 +1,4 @@
+import { parseSort } from '../common/sort';
 import {
   Injectable,
   NotFoundException,
@@ -29,6 +30,8 @@ import { Unit } from '../costs/entities/unit.entity';
 import { resolveExpenseAmount } from '../costs/expense-price';
 import { loadForUpdate } from '../common/load-for-update';
 import { monthStartRD } from '../common/dates';
+
+const EXPENSES_SORTABLE: Record<string, string> = { date: 'expense.date', description: 'expense.description', category: 'expense.category', amount: 'expense.amount' };
 
 @Injectable()
 export class ExpensesService {
@@ -71,6 +74,7 @@ export class ExpensesService {
   async findAll(query: QueryExpensesDto, user?: AccessSubject) {
     const { clientId, projectId, general, category, dateFrom, dateTo, page = 1, limit = 20 } = query;
 
+    const sortBy = parseSort(query.sort, query.dir, EXPENSES_SORTABLE) ?? { column: 'expense.date', order: 'DESC' as 'ASC' | 'DESC' };
     const qb = this.expensesRepository
       .createQueryBuilder('expense')
       .leftJoinAndSelect('expense.project', 'project')
@@ -78,7 +82,7 @@ export class ExpensesService {
       .leftJoinAndSelect('expense.createdBy', 'createdBy')
       .leftJoinAndSelect('expense.material', 'material')
       .leftJoinAndSelect('expense.unit', 'unit')
-      .orderBy('expense.date', 'DESC')
+      .orderBy(sortBy.column, sortBy.order, 'NULLS LAST')
       .addOrderBy('expense.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);

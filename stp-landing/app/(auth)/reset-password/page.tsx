@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import Image from 'next/image'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,7 +9,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AuthShell } from '@/components/auth/auth-shell'
 
 const schema = z.object({
   password: z.string().min(8, 'Mínimo 8 caracteres'),
@@ -84,14 +83,13 @@ function ResetForm() {
             id="password"
             type={showPassword ? 'text' : 'password'}
             autoComplete="new-password"
-            className="pr-10"
+            className="h-11 pr-11 text-base sm:h-9 sm:pr-10 sm:text-sm"
             {...register('password')}
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            tabIndex={-1}
+            className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
           >
             {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>
@@ -106,14 +104,13 @@ function ResetForm() {
             id="confirm"
             type={showConfirm ? 'text' : 'password'}
             autoComplete="new-password"
-            className="pr-10"
+            className="h-11 pr-11 text-base sm:h-9 sm:pr-10 sm:text-sm"
             {...register('confirm')}
           />
           <button
             type="button"
             onClick={() => setShowConfirm((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            tabIndex={-1}
+            className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
           >
             {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>
@@ -127,7 +124,7 @@ function ResetForm() {
         </p>
       )}
 
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      <Button type="submit" size="lg" className="h-11 w-full text-base sm:h-9 sm:text-sm" disabled={isSubmitting}>
         {isSubmitting ? 'Guardando...' : 'Restablecer contraseña'}
       </Button>
     </form>
@@ -136,30 +133,14 @@ function ResetForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <div className="mb-3 flex justify-center">
-            <span className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-black/5">
-              <Image
-                src="/logo-stp.png"
-                alt="STP — Soluciones Técnicas Profesionales"
-                width={242}
-                height={151}
-                className="h-14 w-auto"
-                priority
-              />
-            </span>
-          </div>
-          <CardTitle className="text-xl">Nueva contraseña</CardTitle>
-          <CardDescription>Ingresa tu nueva contraseña para restablecer el acceso.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando...</p>}>
-            <ResetForm />
-          </Suspense>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthShell>
+      <h1 className="text-2xl font-semibold tracking-tight">Nueva contraseña</h1>
+      <p className="mb-6 mt-1 text-sm text-muted-foreground">
+        Ingresa tu nueva contraseña para restablecer el acceso.
+      </p>
+      <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando...</p>}>
+        <ResetForm />
+      </Suspense>
+    </AuthShell>
   )
 }

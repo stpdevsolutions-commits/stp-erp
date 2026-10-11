@@ -1,3 +1,5 @@
+import { StatCard } from '@/components/ui/stat-card'
+import { TableEmpty } from '@/components/ui/empty-state'
 import { api, pageError } from '@/lib/api'
 import type {
   AuthUser,
@@ -135,52 +137,18 @@ export default async function NominaPage({
       </div>
 
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Pagado este mes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+        <StatCard label="Pagado este mes"><div className="text-2xl font-bold text-green-600">
               {DOP.format(summary?.paidThisMonth ?? 0)}
             </div>
             <p className="text-xs text-muted-foreground">
               {summary?.paidThisMonthCount ?? 0} pago(s)
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Pendiente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">
+            </p></StatCard>
+        <StatCard label="Pendiente"><div className="text-2xl font-bold text-amber-600">
               {DOP.format(summary?.pendingAmount ?? 0)}
             </div>
-            <p className="text-xs text-muted-foreground">{summary?.pendingCount ?? 0} pago(s)</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Pagado en el año
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{DOP.format(summary?.paidThisYear ?? 0)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Colaboradores activos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activos.length}</div>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-muted-foreground">{summary?.pendingCount ?? 0} pago(s)</p></StatCard>
+        <StatCard label="Pagado en el año"><div className="text-2xl font-bold">{DOP.format(summary?.paidThisYear ?? 0)}</div></StatCard>
+        <StatCard label="Colaboradores activos"><div className="text-2xl font-bold">{activos.length}</div></StatCard>
       </div>
 
       <FiltrosNomina collaborators={collaborators} />
@@ -208,11 +176,11 @@ export default async function NominaPage({
               </TableHeader>
               <TableBody>
                 {pagos.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                      No hay pagos de nómina registrados
-                    </TableCell>
-                  </TableRow>
+                  <TableEmpty
+                    colSpan={9}
+                    title="Aún no hay pagos de nómina registrados"
+                    action={<NuevoPagoNominaDialog collaborators={activos} projects={projects} />}
+                  />
                 ) : (
                   pagos.map((p) => (
                     <TableRow key={p.id}>

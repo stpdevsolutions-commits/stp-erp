@@ -1,5 +1,6 @@
 ﻿﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -103,6 +104,7 @@ function EditDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Proveedor actualizado')
     handleClose()
   }
 
@@ -218,6 +220,7 @@ function DeleteDialog({
     const result = await deleteSupplier(proveedor.id)
     setLoading(false)
     if (!result.ok) { setError(result.error ?? 'Error al eliminar'); return }
+    toast.success('Proveedor eliminado')
     onOpenChange(false)
   }
 

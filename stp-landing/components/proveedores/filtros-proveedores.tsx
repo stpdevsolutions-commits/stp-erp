@@ -42,7 +42,7 @@ export function FiltrosProveedores() {
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
       <form key={search} onSubmit={handleSearch} className="relative">
         <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground pointer-events-none" />
         <Input

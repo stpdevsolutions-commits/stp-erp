@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { updateDefaultTerms } from '@/lib/actions/settings'
@@ -20,6 +21,7 @@ export function TermsForm({ defaultTerms }: { defaultTerms: string }) {
       setError(result.error ?? 'Error al guardar')
       return
     }
+    toast.success('Términos guardados')
     setSuccess(true)
   }
 

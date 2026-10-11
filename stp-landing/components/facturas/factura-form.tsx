@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -383,6 +384,7 @@ export function FacturaForm({
         setServerError(result.error ?? 'Error desconocido')
         return
       }
+      toast.success('Factura actualizada')
       id = invoice.id
       if (canLink && linkId) {
         const link = await linkFiscalInvoiceToExpense(invoice.id, linkId, syncExpense)
@@ -390,6 +392,7 @@ export function FacturaForm({
           setServerError(`Los cambios se guardaron, pero no se pudo vincular al gasto (${link.error}).`)
           return
         }
+        toast.success('Factura vinculada al gasto')
       }
     } else if (createdId) {
       // Ya se guardó en un intento anterior (solo falló la foto): no se crea otra vez.
@@ -404,6 +407,7 @@ export function FacturaForm({
         setServerError(result.error ?? 'Error desconocido')
         return
       }
+      toast.success('Factura registrada')
       id = result.id
       setCreatedId(id)
     }
@@ -417,6 +421,7 @@ export function FacturaForm({
         setServerError(`La factura se guardó, pero la foto no se pudo subir (${up.error}). Reintenta la foto o cierra.`)
         return
       }
+      toast.success('Foto de la factura subida')
     }
     // Un QR ya trajo el estado en la DGII: se confirma desde el servidor para que quede guardado en
     // la factura (no se le cree al navegador). Si no se puede, la factura queda "sin validar".

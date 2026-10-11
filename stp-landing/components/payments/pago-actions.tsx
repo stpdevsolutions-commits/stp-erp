@@ -1,5 +1,6 @@
 ﻿﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -130,6 +131,7 @@ function EditDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Cobro actualizado')
     handleClose()
   }
 
@@ -288,6 +290,7 @@ function DeleteDialog({
     const result = await deletePayment(pago.id)
     setLoading(false)
     if (!result.ok) { setError(result.error ?? 'Error al eliminar'); return }
+    toast.success('Cobro eliminado')
     onOpenChange(false)
   }
 

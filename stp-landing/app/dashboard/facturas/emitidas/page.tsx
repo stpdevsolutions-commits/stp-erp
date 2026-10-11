@@ -1,3 +1,4 @@
+import { StatCard } from '@/components/ui/stat-card'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { api, pageError } from '@/lib/api'
@@ -65,26 +66,9 @@ export default async function FacturasEmitidasPage({
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              {hayFiltros ? 'Facturado (filtrado)' : 'Facturado'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{DOP.format(s?.invoiced ?? 0)}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Cobrado</CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold text-green-700 dark:text-green-400">{DOP.format(s?.collected ?? 0)}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Por cobrar</CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{DOP.format(s?.receivable ?? 0)}</div></CardContent>
-        </Card>
+        <StatCard label={<>{hayFiltros ? 'Facturado (filtrado)' : 'Facturado'}</>}><div className="text-2xl font-bold">{DOP.format(s?.invoiced ?? 0)}</div></StatCard>
+        <StatCard label="Cobrado"><div className="text-2xl font-bold text-green-700 dark:text-green-400">{DOP.format(s?.collected ?? 0)}</div></StatCard>
+        <StatCard label="Por cobrar"><div className="text-2xl font-bold">{DOP.format(s?.receivable ?? 0)}</div></StatCard>
       </div>
 
       <FiltrosEmitidas clients={clients} projects={projects} />

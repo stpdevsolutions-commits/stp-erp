@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Body,
   UseGuards,
   UseInterceptors,
@@ -74,6 +75,69 @@ export class SettingsController {
 
     const stream = createReadStream(fullPath);
     return new StreamableFile(stream);
+  }
+
+  /** Imagen destacada de la pantalla de Inicio (proyecto representativo). */
+  @Post('hero')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadHero(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('caption') caption?: string,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    if (!ALLOWED_IMAGE_MIMETYPES.includes(file.mimetype)) {
+      throw new BadRequestException('Only JPEG, PNG, and WEBP images are allowed');
+    }
+
+    const ext = extname(file.originalname).toLowerCase() || `.${file.mimetype.split('/')[1]}`;
+    const brandDir = join(getUploadRoot(), 'brand');
+    mkdirSync(brandDir, { recursive: true });
+
+    const destFilename = `hero${ext}`;
+    const { writeFileSync } = await import('fs');
+    writeFileSync(join(brandDir, destFilename), file.buffer);
+
+    await this.settingsService.set('hero_path', `brand/${destFilename}`);
+    await this.settingsService.set('hero_mimetype', file.mimetype);
+    await this.settingsService.set('hero_caption', (caption ?? '').trim().slice(0, 120));
+    // Cambia en cada subida para que el navegador no sirva la imagen anterior en caché
+    await this.settingsService.set('hero_version', String(Date.now()));
+    return { ok: true };
+  }
+
+  @Get('hero')
+  @UseGuards(JwtAuthGuard)
+  async getHero(@Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
+    const heroPath = await this.settingsService.get('hero_path');
+    if (!heroPath) throw new NotFoundException('Hero not found');
+    const fullPath = join(getUploadRoot(), heroPath);
+    if (!existsSync(fullPath)) throw new NotFoundException('Hero file not found');
+    res.set({ 'Content-Type': (await this.settingsService.get('hero_mimetype')) ?? 'image/jpeg' });
+    return new StreamableFile(createReadStream(fullPath));
+  }
+
+  /** Metadatos para la pantalla de Inicio: si hay foto, su versión y su pie. */
+  @Get('hero-info')
+  @UseGuards(JwtAuthGuard)
+  async getHeroInfo(): Promise<{ hasImage: boolean; version: string | null; caption: string }> {
+    const heroPath = await this.settingsService.get('hero_path');
+    const hasImage = !!heroPath && existsSync(join(getUploadRoot(), heroPath));
+    return {
+      hasImage,
+      version: hasImage ? await this.settingsService.get('hero_version') : null,
+      caption: (await this.settingsService.get('hero_caption')) ?? '',
+    };
+  }
+
+  @Delete('hero')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async resetHero() {
+    await this.settingsService.set('hero_path', '');
+    await this.settingsService.set('hero_caption', '');
+    return { ok: true };
   }
 
   @Get('company')

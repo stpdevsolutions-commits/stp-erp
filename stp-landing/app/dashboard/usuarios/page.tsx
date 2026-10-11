@@ -1,4 +1,5 @@
 ﻿﻿import { api, pageError } from '@/lib/api'
+import { TableEmpty } from '@/components/ui/empty-state'
 import type { User, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -71,11 +72,7 @@ export default async function UsuariosPage() {
             </TableHeader>
             <TableBody>
               {usuarios.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    No hay usuarios registrados
-                  </TableCell>
-                </TableRow>
+                <TableEmpty colSpan={6} title="No hay usuarios registrados" action={<NuevoUsuarioDialog />} />
               ) : (
                 usuarios.map((u) => (
                   <TableRow key={u.id}>

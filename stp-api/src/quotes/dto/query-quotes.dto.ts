@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsUUID, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsUUID, IsBoolean, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { clampPage, clampLimit } from '../../common/pagination';
 import { QuoteStatus } from '../entities/quote.entity';
@@ -25,6 +25,14 @@ export class QueryQuotesDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   includeSuperseded?: boolean;
+
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  dir?: 'asc' | 'desc';
 
   @IsOptional()
   @Transform(({ value }) => clampPage(value))

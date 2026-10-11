@@ -83,7 +83,7 @@ export function FiltrosEmitidas({ clients, projects }: { clients: Client[]; proj
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
         <Input
           key={resetKey}
           defaultValue={get('search')}

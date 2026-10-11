@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -104,6 +105,7 @@ export function MaterialActions({
       setServerError(result.error ?? 'Error')
       return
     }
+    toast.success('Material actualizado')
     setEditOpen(false)
   }
 
@@ -116,6 +118,7 @@ export function MaterialActions({
       setDeleteError(result.error ?? 'Error al eliminar')
       return
     }
+    toast.success('Material eliminado')
     setDeleteOpen(false)
   }
 

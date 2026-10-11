@@ -1,3 +1,4 @@
+import { parseSort } from '../common/sort';
 import {
   Injectable,
   NotFoundException,
@@ -156,6 +157,8 @@ export type QuoteDecisionResult =
   | { kind: 'already'; status: QuoteStatus.APPROVED | QuoteStatus.REJECTED; quoteNumber: string }
   | { kind: 'not-sent'; quoteNumber: string }
   | { kind: 'invalid' };
+
+const QUOTES_SORTABLE: Record<string, string> = { number: 'quote.number', title: 'quote.title', status: 'quote.status', total: 'quote.total', validUntil: 'quote.validUntil', createdAt: 'quote.createdAt' };
 
 @Injectable()
 export class QuotesService implements OnModuleInit {
@@ -469,12 +472,13 @@ export class QuotesService implements OnModuleInit {
   async findAll(query: QueryQuotesDto, user?: AccessSubject) {
     const { search, status, clientId, projectId, page = 1, limit = 20 } = query;
 
+    const sortBy = parseSort(query.sort, query.dir, QUOTES_SORTABLE) ?? { column: 'quote.createdAt', order: 'DESC' as 'ASC' | 'DESC' };
     const qb = this.quotesRepository
       .createQueryBuilder('quote')
       .leftJoinAndSelect('quote.client', 'client')
       .leftJoinAndSelect('quote.project', 'project')
       .leftJoinAndSelect('quote.items', 'items')
-      .orderBy('quote.createdAt', 'DESC')
+      .orderBy(sortBy.column, sortBy.order, 'NULLS LAST')
       .addOrderBy('items.sortOrder', 'ASC')
       .skip((page - 1) * limit)
       .take(limit);

@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -147,6 +148,7 @@ export function NuevoGastoDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Gasto creado')
     reset({ category: 'materials', date: today, supplierId: '', itbisIncluded: 'false' })
     setOpen(false)
   }

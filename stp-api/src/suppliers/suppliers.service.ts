@@ -1,3 +1,5 @@
+import type { FindOptionsOrder } from 'typeorm';
+import { parseSort } from '../common/sort';
 import {
   Injectable,
   NotFoundException,
@@ -9,6 +11,8 @@ import { Supplier } from './entities/supplier.entity';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { QuerySuppliersDto } from './dto/query-suppliers.dto';
+
+const SUPPLIERS_SORTABLE: Record<string, string> = { name: 'name', category: 'category', city: 'city', createdAt: 'createdAt' };
 
 @Injectable()
 export class SuppliersService {
@@ -46,9 +50,11 @@ export class SuppliersService {
       where = baseWhere;
     }
 
+    const sortBy = parseSort(query.sort, query.dir, SUPPLIERS_SORTABLE);
+    const order = (sortBy ? { [sortBy.column]: { direction: sortBy.order, nulls: 'LAST' } } : { name: 'ASC' }) as FindOptionsOrder<Supplier>;
     const [data, total] = await this.suppliersRepository.findAndCount({
       where,
-      order: { name: 'ASC' },
+      order,
       skip: (page - 1) * limit,
       take: limit,
     });

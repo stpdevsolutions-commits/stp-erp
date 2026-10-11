@@ -1,5 +1,6 @@
 ﻿﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -82,6 +83,7 @@ export function NuevoProveedorDialog() {
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Proveedor creado')
     reset()
     setOpen(false)
   }

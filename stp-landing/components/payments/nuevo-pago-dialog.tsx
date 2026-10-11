@@ -1,5 +1,6 @@
 ﻿﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -110,6 +111,7 @@ export function NuevoPagoDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Cobro creado')
     reset({ method: 'transfer', status: 'completed', date: today, projectId: '' })
     setOpen(false)
   }

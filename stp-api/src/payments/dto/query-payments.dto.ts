@@ -1,4 +1,4 @@
-import { IsOptional, IsEnum, IsUUID, IsDateString, IsString, IsBoolean } from 'class-validator';
+import { IsOptional, IsEnum, IsUUID, IsDateString, IsString, IsBoolean, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { clampPage, clampLimit } from '../../common/pagination';
 import { PaymentMethod, PaymentStatus } from '../entities/payment.entity';
@@ -41,6 +41,14 @@ export class QueryPaymentsDto {
   @Transform(({ value }) => value === true || value === 'true' || value === '1')
   @IsBoolean()
   overdue?: boolean;
+
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  dir?: 'asc' | 'desc';
 
   @IsOptional()
   @Transform(({ value }) => clampPage(value))

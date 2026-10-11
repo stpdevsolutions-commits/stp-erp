@@ -1,5 +1,6 @@
 ﻿﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -127,6 +128,7 @@ export function ItemActions({ item, projects }: { item: InventoryItem; projects:
       setServerError(result.error ?? 'Error')
       return
     }
+    toast.success('Ítem actualizado')
     setEditOpen(false)
   }
 

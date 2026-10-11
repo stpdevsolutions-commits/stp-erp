@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -62,6 +63,7 @@ export function NuevoUsuarioDialog() {
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Usuario creado')
     reset()
     setOpen(false)
   }

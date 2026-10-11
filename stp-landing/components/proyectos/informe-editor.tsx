@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState, useTransition } from 'react'
 import { Plus, Save, Trash2, Check, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -111,6 +112,7 @@ export function InformeEditor({
         setError(res.error ?? 'Error al guardar')
         return
       }
+      toast.success('Informe guardado')
       setEstado('ok')
     })
   }

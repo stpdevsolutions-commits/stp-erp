@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState, useTransition } from 'react'
 import { Archive, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -37,6 +38,7 @@ export function ArchivarInforme({
         setError(res.error ?? 'No se pudo guardar')
         return
       }
+      toast.success('Informe archivado')
       setNombre(res.nombre ?? 'Informe guardado')
     })
   }

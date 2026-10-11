@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -58,6 +59,7 @@ export function NuevoPrestamoDialog({ collaborators }: { collaborators: Collabor
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Préstamo creado')
     reset()
     setOpen(false)
   }

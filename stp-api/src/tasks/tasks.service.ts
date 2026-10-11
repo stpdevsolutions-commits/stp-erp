@@ -1,3 +1,4 @@
+import { parseSort } from '../common/sort';
 import {
   Injectable,
   NotFoundException,
@@ -20,6 +21,8 @@ import { loadForUpdate } from '../common/load-for-update';
 import { WhatsappService } from '../notifications/whatsapp.service';
 import { AppNotificationsService } from '../notifications/app-notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
+
+const TASKS_SORTABLE: Record<string, string> = { title: 'task.title', status: 'task.status', dueDate: 'task.dueDate', createdAt: 'task.createdAt' };
 
 @Injectable()
 export class TasksService {
@@ -67,12 +70,13 @@ export class TasksService {
       limit = 20,
     } = query;
 
+    const sortBy = parseSort(query.sort, query.dir, TASKS_SORTABLE) ?? { column: 'task.priority', order: 'DESC' as 'ASC' | 'DESC' };
     const qb = this.tasksRepository
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.project', 'project')
       .leftJoinAndSelect('task.assignedTo', 'assignedTo')
       .leftJoinAndSelect('task.collaborator', 'collaborator')
-      .orderBy('task.priority', 'DESC')
+      .orderBy(sortBy.column, sortBy.order, 'NULLS LAST')
       .addOrderBy('task.dueDate', 'ASC', 'NULLS LAST')
       .skip((page - 1) * limit)
       .take(limit);

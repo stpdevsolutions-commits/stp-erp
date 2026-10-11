@@ -1,16 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Eye, EyeOff } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AuthShell } from '@/components/auth/auth-shell'
 import {
   Dialog,
   DialogContent,
@@ -32,8 +30,16 @@ const forgotSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>
 type ForgotForm = z.infer<typeof forgotSchema>
 
+/** El backend a veces responde en inglés (class-validator); aquí se muestra en español. */
+function translateAuthError(message?: string | string[]): string {
+  const text = Array.isArray(message) ? message.join(' ') : (message ?? '')
+  if (/password must be longer/i.test(text)) return 'La contraseña debe tener al menos 6 caracteres.'
+  if (/email must be an email/i.test(text)) return 'Correo electrónico inválido.'
+  if (/unauthorized|invalid credentials/i.test(text)) return 'Correo o contraseña incorrectos.'
+  return text || 'Error al iniciar sesión'
+}
+
 export default function LoginPage() {
-  const router = useRouter()
   const [serverError, setServerError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
@@ -74,7 +80,7 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const err = await res.json()
-        setServerError(err.message ?? 'Error al iniciar sesión')
+        setServerError(translateAuthError(err.message))
         return
       }
 
@@ -117,37 +123,29 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <div className="mb-3 flex justify-center">
-            <span className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-black/5">
-              <Image
-                src="/logo-stp.png"
-                alt="STP — Soluciones Técnicas Profesionales"
-                width={242}
-                height={151}
-                className="h-14 w-auto"
-                priority
-              />
-            </span>
-          </div>
-          <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
-          <CardDescription>Ingresa tus credenciales para acceder al sistema</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <>
+      <AuthShell>
+          <h1 className="text-2xl font-semibold tracking-tight">Iniciar sesión</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ingresa tus credenciales para acceder al sistema.
+          </p>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
             <div className="space-y-2">
               <Label htmlFor="email">Correo electrónico</Label>
               <Input
                 id="email"
                 type="email"
+                inputMode="email"
                 placeholder="usuario@stp.com"
                 autoComplete="email"
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? 'email-error' : undefined}
+                className="h-11 text-base sm:h-9 sm:text-sm"
                 {...register('email')}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+                <p id="email-error" className="text-sm text-destructive">{errors.email.message}</p>
               )}
             </div>
 
@@ -157,7 +155,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setForgotOpen(true)}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
@@ -167,48 +165,55 @@ export default function LoginPage() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  className="pr-10"
+                  aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? 'password-error' : undefined}
+                  className="h-11 pr-11 text-base sm:h-9 sm:pr-10 sm:text-sm"
                   {...register('password')}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
+                  className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
               {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
+                <p id="password-error" className="text-sm text-destructive">{errors.password.message}</p>
               )}
             </div>
 
             {serverError && (
-              <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">
-                {serverError}
-              </p>
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
+              >
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <span>{serverError}</span>
+              </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Button type="submit" size="lg" className="h-11 w-full text-base sm:h-9 sm:text-sm" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
               {isSubmitting ? 'Iniciando sesión...' : 'Iniciar sesión'}
             </Button>
           </form>
 
-          <div className="relative my-4">
+          <div className="relative my-5">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">o</span>
+              <span className="bg-background px-2 text-muted-foreground">o</span>
             </div>
           </div>
 
           <Button
             type="button"
             variant="outline"
-            className="w-full"
+            size="lg"
+            className="h-11 w-full text-base sm:h-9 sm:text-sm"
             onClick={handleGoogleLogin}
           >
             <svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
@@ -231,8 +236,12 @@ export default function LoginPage() {
             </svg>
             Continuar con Google
           </Button>
-        </CardContent>
-      </Card>
+
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            © {new Date().getFullYear()} STP · Soluciones Técnicas Profesionales
+          </p>
+      </AuthShell>
+
 
       {/* Forgot password dialog */}
       <Dialog open={forgotOpen} onOpenChange={handleForgotClose}>
@@ -287,6 +296,6 @@ export default function LoginPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }

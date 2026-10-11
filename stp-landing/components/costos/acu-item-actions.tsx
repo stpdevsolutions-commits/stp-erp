@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -48,6 +49,7 @@ export function AcuItemActions({
       setDeleteError(result.error ?? 'Error al eliminar')
       return
     }
+    toast.success('Insumo de la partida eliminado')
     setDeleteOpen(false)
   }
 

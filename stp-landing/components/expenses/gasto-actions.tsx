@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -166,6 +167,7 @@ function EditDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Gasto actualizado')
     handleClose()
   }
 
@@ -376,6 +378,7 @@ function DeleteDialog({
     const result = await deleteExpense(gasto.id)
     setLoading(false)
     if (!result.ok) { setError(result.error ?? 'Error al eliminar'); return }
+    toast.success('Gasto eliminado')
     onOpenChange(false)
   }
 

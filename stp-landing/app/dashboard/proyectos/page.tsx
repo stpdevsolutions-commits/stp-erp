@@ -1,4 +1,7 @@
 ﻿﻿import Link from 'next/link'
+import { SortHead } from '@/components/ui/sort-head'
+import { StatCard } from '@/components/ui/stat-card'
+import { TableEmpty } from '@/components/ui/empty-state'
 import { api, pageError } from '@/lib/api'
 import type { Client, Collaborator, Project, User, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -46,6 +49,8 @@ export default async function ProyectosPage({
   const page = Math.max(1, Number(sp.page ?? 1))
 
   const q = new URLSearchParams({ limit: String(LIMIT), page: String(page) })
+  if (sp.sort) q.set('sort', sp.sort)
+  if (sp.dir) q.set('dir', sp.dir)
   if (sp.search) q.set('search', sp.search)
   if (sp.status) q.set('status', sp.status)
   // El filtro por cliente es el que usa el botón "Ver todos" de la ficha de
@@ -114,16 +119,9 @@ export default async function ProyectosPage({
       </div>
 
       <div className="space-y-1">
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-2 sm:gap-4 grid-cols-3 lg:grid-cols-5">
           {(['draft', 'active', 'on_hold', 'completed', 'cancelled'] as const).map((s) => (
-            <Card key={s}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground">{STATUS_LABELS[s]}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{byStatus[s] ?? 0}</div>
-              </CardContent>
-            </Card>
+            <StatCard key={s} label={<>{STATUS_LABELS[s]}</>}><div className="text-2xl font-bold">{byStatus[s] ?? 0}</div></StatCard>
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
@@ -143,11 +141,11 @@ export default async function ProyectosPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="hidden md:table-cell">Código</TableHead>
-                  <TableHead>Título</TableHead>
+                  <SortHead field="code" className="hidden md:table-cell">Código</SortHead>
+                  <SortHead field="name">Título</SortHead>
                   <TableHead className="hidden md:table-cell">Cliente</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="hidden lg:table-cell">Presupuesto</TableHead>
+                  <SortHead field="status">Estado</SortHead>
+                  <SortHead field="budget" className="hidden lg:table-cell">Presupuesto</SortHead>
                   <TableHead className="hidden xl:table-cell">Supervisor</TableHead>
                   <TableHead className="hidden xl:table-cell">Encargado</TableHead>
                   <TableHead className="w-10" />
@@ -155,11 +153,7 @@ export default async function ProyectosPage({
               </TableHeader>
               <TableBody>
                 {proyectos.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      No hay proyectos que coincidan con los filtros
-                    </TableCell>
-                  </TableRow>
+                  <TableEmpty colSpan={8} filtered title="No hay proyectos que coincidan con los filtros" />
                 ) : (
                   proyectos.map((p) => (
                     <TableRow key={p.id}>

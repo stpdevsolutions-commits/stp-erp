@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useState, useRef } from 'react'
 import { FileText, Eye, Printer, Trash2, Upload, FolderOpen, Images, BookText, Receipt, Quote, CreditCard, ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -114,6 +115,7 @@ function SubirDialog({
         setError(result.error ?? 'Error al subir')
         return
       }
+      toast.success('Archivo subido')
       handleClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al subir')

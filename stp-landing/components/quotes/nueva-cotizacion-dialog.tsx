@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState, useCallback, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -197,6 +198,7 @@ export function NuevaCotizacionDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Cotización creada')
     handleClose()
   }
 

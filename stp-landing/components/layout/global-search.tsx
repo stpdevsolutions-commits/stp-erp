@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { Search, X, Loader2, Users, FolderKanban, FileText, CheckSquare, FolderOpen, HardHat } from 'lucide-react'
 import type { SearchResponse } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { visibleGroups } from '@/lib/nav'
+
+const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 const CATEGORY_CONFIG = [
   { key: 'clients', label: 'Clientes', icon: Users },
@@ -15,7 +18,13 @@ const CATEGORY_CONFIG = [
   { key: 'collaborators', label: 'Colaboradores', icon: HardHat },
 ] as const satisfies { key: keyof SearchResponse; label: string; icon: typeof Search }[]
 
-export function GlobalSearch() {
+export function GlobalSearch({
+  role = 'user',
+  modules,
+}: {
+  role?: string
+  modules?: Record<string, string>
+}) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -36,6 +45,20 @@ export function GlobalSearch() {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Ctrl/⌘+K abre la búsqueda desde cualquier pantalla
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setMobileOpen(true)
+        setOpen(true)
+        inputRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
   }, [])
 
   useEffect(() => {
@@ -68,8 +91,17 @@ export function GlobalSearch() {
     }
   }
 
+  // Navegación por módulos: instantánea, sin API, solo lo que el rol puede abrir
+  const q = norm(query.trim())
+  const moduleMatches = q
+    ? visibleGroups(role, modules)
+        .flatMap((g) => g.items.map((i) => ({ ...i, group: g.label })))
+        .filter((i) => norm(`${i.label} ${i.description ?? ''} ${i.group ?? ''}`).includes(q))
+        .slice(0, 5)
+    : []
+
   const hasResults = results && Object.values(results).some((arr) => arr.length > 0)
-  const showDropdown = open && query.trim().length >= 2
+  const showDropdown = open && query.trim().length >= 1
 
   return (
     <div ref={containerRef} className="relative">
@@ -94,7 +126,7 @@ export function GlobalSearch() {
           'sm:static sm:z-auto sm:flex sm:border-0 sm:bg-transparent sm:p-0',
         )}
       >
-      <div className="relative w-full sm:w-56">
+      <div className="relative w-full sm:w-64">
         <Search className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
         <input
           ref={inputRef}
@@ -106,7 +138,7 @@ export function GlobalSearch() {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar en el ERP…"
+          placeholder="Buscar o ir a… (Ctrl+K)"
           className="w-full rounded-md border bg-muted/50 py-1.5 pl-8 pr-7 text-base sm:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         {query && (
@@ -139,15 +171,40 @@ export function GlobalSearch() {
 
       {showDropdown && (
         <div className="absolute right-0 top-full z-50 mt-1.5 max-h-[70vh] w-[28rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border bg-background shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-14 max-sm:mt-0 max-sm:w-auto max-sm:max-w-none">
-          {loading ? (
+          {moduleMatches.length > 0 && (
+            <div className="border-b px-1.5 py-1.5">
+              <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Ir a</p>
+              {moduleMatches.map((m) => (
+                <button
+                  key={m.href}
+                  type="button"
+                  onClick={() => handleSelect(m.href)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                >
+                  <m.icon className="size-3.5 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{m.label}</span>
+                    {m.group && <span className="block truncate text-xs text-muted-foreground">{m.group}</span>}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {query.trim().length < 2 ? (
+            moduleMatches.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">Sigue escribiendo para buscar registros…</p>
+            )
+          ) : loading ? (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
               Buscando…
             </div>
           ) : !hasResults ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Sin resultados para &quot;{query}&quot;
-            </p>
+            moduleMatches.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Sin resultados para &quot;{query}&quot;
+              </p>
+            )
           ) : (
             <div className="py-1.5">
               {CATEGORY_CONFIG.map(({ key, label, icon: Icon }) => {

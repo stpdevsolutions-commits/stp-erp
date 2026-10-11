@@ -23,6 +23,32 @@ export async function uploadLogo(formData: FormData): Promise<{ ok: boolean; err
   }
 }
 
+export async function uploadHero(formData: FormData): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await authFetch('/settings/hero', { method: 'POST', body: formData })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: apiError(data, 'Error al subir') }
+    revalidatePath('/dashboard')
+    return { ok: true }
+  } catch (err) {
+    if (isRedirectError(err)) throw err
+    return { ok: false, error: 'Error de conexión' }
+  }
+}
+
+export async function resetHero(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await authFetch('/settings/hero', { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: apiError(data, 'Error al restablecer') }
+    revalidatePath('/dashboard')
+    return { ok: true }
+  } catch (err) {
+    if (isRedirectError(err)) throw err
+    return { ok: false, error: 'Error de conexión' }
+  }
+}
+
 export type CompanyFormData = {
   name: string; shortName: string; rnc: string
   address1: string; address2: string; phones: string

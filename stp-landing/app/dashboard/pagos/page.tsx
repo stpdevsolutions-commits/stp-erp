@@ -1,3 +1,6 @@
+import { SortHead } from '@/components/ui/sort-head'
+import { StatCard } from '@/components/ui/stat-card'
+import { TableEmpty } from '@/components/ui/empty-state'
 import Link from 'next/link'
 import { api, pageError } from '@/lib/api'
 import type { Payment, Client, Project, PaginatedResponse, User } from '@/lib/types'
@@ -57,6 +60,8 @@ export default async function PagosPage({
   const dateTo = sp.dateTo ?? ''
 
   const query = new URLSearchParams({ limit: String(LIMIT), page: String(page) })
+  if (sp.sort) query.set('sort', sp.sort)
+  if (sp.dir) query.set('dir', sp.dir)
   if (status) query.set('status', status)
   if (method) query.set('method', method)
   if (dateFrom) query.set('dateFrom', dateFrom)
@@ -117,30 +122,9 @@ export default async function PagosPage({
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Monto recibido</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-700 dark:text-green-400">{DOP.format(totalRecibido)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Pendiente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{DOP.format(totalPendiente)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Fallidos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${totalFallidos > 0 ? 'text-destructive' : ''}`}>{totalFallidos}</div>
-          </CardContent>
-        </Card>
+        <StatCard label="Monto recibido"><div className="text-2xl font-bold text-green-700 dark:text-green-400">{DOP.format(totalRecibido)}</div></StatCard>
+        <StatCard label="Pendiente"><div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{DOP.format(totalPendiente)}</div></StatCard>
+        <StatCard label="Fallidos"><div className={`text-2xl font-bold ${totalFallidos > 0 ? 'text-destructive' : ''}`}>{totalFallidos}</div></StatCard>
       </div>
 
       <FiltrosPagos clients={clients} />
@@ -167,19 +151,20 @@ export default async function PagosPage({
                   <TableHead className="hidden md:table-cell">Cliente</TableHead>
                   <TableHead className="hidden lg:table-cell">Proyecto</TableHead>
                   <TableHead className="hidden lg:table-cell">Método</TableHead>
-                  <TableHead className="hidden sm:table-cell">Estado</TableHead>
-                  <TableHead className="text-right">Monto</TableHead>
-                  <TableHead className="hidden md:table-cell">Fecha</TableHead>
+                  <SortHead field="status" className="hidden sm:table-cell">Estado</SortHead>
+                  <SortHead field="amount" className="text-right">Monto</SortHead>
+                  <SortHead field="date" className="hidden md:table-cell">Fecha</SortHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pagos.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      {soloVencidos ? 'No hay cobros vencidos' : 'No hay cobros registrados'}
-                    </TableCell>
-                  </TableRow>
+                  <TableEmpty
+                    colSpan={8}
+                    title={soloVencidos ? 'No hay cobros vencidos' : 'Aún no hay cobros registrados'}
+                    hint={soloVencidos ? 'Todo está al día.' : 'Registra el primer cobro de un cliente.'}
+                    action={!soloVencidos && isManager ? <NuevoPagoDialog clients={clients} projects={projects} /> : undefined}
+                  />
                 ) : (
                   pagos.map((p) => (
                     <TableRow key={p.id}>

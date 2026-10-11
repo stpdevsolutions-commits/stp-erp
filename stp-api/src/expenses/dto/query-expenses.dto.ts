@@ -1,4 +1,4 @@
-import { IsOptional, IsEnum, IsUUID, IsDateString, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsUUID, IsDateString, IsBoolean, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { clampPage, clampLimit } from '../../common/pagination';
 import { ExpenseCategory } from '../entities/expense.entity';
@@ -29,6 +29,14 @@ export class QueryExpensesDto {
   @IsOptional()
   @IsDateString()
   dateTo?: string;
+
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  dir?: 'asc' | 'desc';
 
   @IsOptional()
   @Transform(({ value }) => clampPage(value))

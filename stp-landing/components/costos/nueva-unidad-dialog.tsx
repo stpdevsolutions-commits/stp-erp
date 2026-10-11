@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -91,6 +92,7 @@ export function NuevaUnidadDialog({ units }: { units: Unit[] }) {
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Unidad creada')
     reset()
     setOpen(false)
   }

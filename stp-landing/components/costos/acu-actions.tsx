@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -105,6 +106,7 @@ export function AcuActions({
       setServerError(result.error ?? 'Error')
       return
     }
+    toast.success('Partida actualizada')
     setEditOpen(false)
   }
 
@@ -117,6 +119,7 @@ export function AcuActions({
       setDeleteError(result.error ?? 'Error al eliminar')
       return
     }
+    toast.success('Partida eliminada')
     setDeleteOpen(false)
     if (redirectOnDelete) router.push('/dashboard/costos/acus')
   }

@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -82,6 +83,7 @@ export function NuevoAcuDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Partida creada')
     reset({ unitId: '', trade: 'electrical' })
     setOpen(false)
     // La partida nace vacía: lo siguiente siempre es cargarle la receta.

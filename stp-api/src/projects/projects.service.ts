@@ -1,3 +1,4 @@
+import { parseSort } from '../common/sort';
 import {
   Injectable,
   NotFoundException,
@@ -16,6 +17,8 @@ import { loadForUpdate } from '../common/load-for-update';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
 import { escapeLike } from '../common/like-escape';
+
+const PROJECTS_SORTABLE: Record<string, string> = { code: 'project.code', name: 'project.name', status: 'project.status', budget: 'project.budget', startDate: 'project.startDate', createdAt: 'project.createdAt' };
 
 @Injectable()
 export class ProjectsService {
@@ -45,12 +48,13 @@ export class ProjectsService {
   async findAll(query: QueryProjectsDto, user?: AccessSubject) {
     const { search, status, type, clientId, assignedToId, supervisorId, page = 1, limit = 20 } = query;
 
+    const sortBy = parseSort(query.sort, query.dir, PROJECTS_SORTABLE) ?? { column: 'project.createdAt', order: 'DESC' as 'ASC' | 'DESC' };
     const qb = this.projectsRepository
       .createQueryBuilder('project')
       .leftJoinAndSelect('project.client', 'client')
       .leftJoinAndSelect('project.assignedTo', 'assignedTo')
       .leftJoinAndSelect('project.supervisor', 'supervisor')
-      .orderBy('project.createdAt', 'DESC')
+      .orderBy(sortBy.column, sortBy.order, 'NULLS LAST')
       .skip((page - 1) * limit)
       .take(limit);
 

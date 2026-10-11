@@ -1,3 +1,4 @@
+import { TableEmpty } from '@/components/ui/empty-state'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
@@ -271,11 +272,7 @@ export default async function ClienteDetallePage({
             </TableHeader>
             <TableBody>
               {projectsRes.data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    No hay proyectos para este cliente
-                  </TableCell>
-                </TableRow>
+                <TableEmpty colSpan={5} title="No hay proyectos para este cliente" />
               ) : (
                 projectsRes.data.map((p) => (
                   <TableRow key={p.id}>

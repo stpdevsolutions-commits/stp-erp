@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useEffect, useState } from 'react'
 import { ImageIcon, Link2, Link2Off, MoreHorizontal, Pencil, ShieldCheck, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -137,6 +138,7 @@ function DeleteDialog({
       setError(result.error ?? 'Error al eliminar')
       return
     }
+    toast.success('Factura eliminada')
     onOpenChange(false)
   }
 
@@ -211,6 +213,7 @@ function VincularDialog({
       setError(res.error ?? 'No se pudo vincular')
       return
     }
+    toast.success('Factura vinculada al gasto')
     onOpenChange(false)
   }
 
@@ -276,6 +279,7 @@ function UnlinkDialog({
       setError(res.error ?? 'No se pudo desvincular')
       return
     }
+    toast.success('Factura desvinculada del gasto')
     onOpenChange(false)
   }
 

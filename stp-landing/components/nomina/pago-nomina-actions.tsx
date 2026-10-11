@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { MoreHorizontal, Pencil, Trash2, CheckCircle2, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -49,6 +50,7 @@ export function PagoNominaActions({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Pago de nómina actualizado')
     setEditOpen(false)
   }
 
@@ -67,6 +69,7 @@ export function PagoNominaActions({
       setServerError(result.error ?? 'Error al eliminar')
       return
     }
+    toast.success('Pago de nómina eliminado')
     setDeleteOpen(false)
   }
 

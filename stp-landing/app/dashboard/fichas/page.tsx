@@ -1,3 +1,4 @@
+import { TableEmpty } from '@/components/ui/empty-state'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import type { Ficha, FichaStatus, FichaType, Project, Client, PaginatedResponse } from '@/lib/types'
@@ -79,11 +80,7 @@ export default async function FichasPage({
           </TableHeader>
           <TableBody>
             {fichas.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
-                  No se encontraron fichas
-                </TableCell>
-              </TableRow>
+              <TableEmpty colSpan={8} filtered title="No se encontraron fichas" />
             ) : (
               fichas.map((f) => (
                 <TableRow key={f.id}>

@@ -1,3 +1,4 @@
+import { parseSort } from '../common/sort';
 import { Injectable, NotFoundException, BadRequestException, Logger, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -26,6 +27,8 @@ import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
 import { UserRole } from '../users/entities/user.entity';
 import { todayRD } from '../common/dates';
+
+const PAYMENTS_SORTABLE: Record<string, string> = { date: 'payment.date', amount: 'payment.amount', status: 'payment.status', dueDate: 'payment.dueDate' };
 
 @Injectable()
 export class PaymentsService {
@@ -107,13 +110,14 @@ export class PaymentsService {
       dateFrom, dateTo, search, overdue, page = 1, limit = 20,
     } = query;
 
+    const sortBy = parseSort(query.sort, query.dir, PAYMENTS_SORTABLE) ?? { column: 'payment.date', order: 'DESC' as 'ASC' | 'DESC' };
     const qb = this.paymentsRepository
       .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.client', 'client')
       .leftJoinAndSelect('payment.project', 'project')
       .leftJoinAndSelect('payment.quote', 'quote')
       .leftJoinAndSelect('payment.createdBy', 'createdBy')
-      .orderBy('payment.date', 'DESC')
+      .orderBy(sortBy.column, sortBy.order, 'NULLS LAST')
       .addOrderBy('payment.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);

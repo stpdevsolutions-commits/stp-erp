@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { GitBranch } from 'lucide-react'
@@ -35,6 +36,7 @@ export function ReviseQuoteButton({
       setError(result.error ?? 'Error al crear la revisión')
       return
     }
+    toast.success('Nueva revisión creada')
     setOpen(false)
     if (result.quoteId) {
       router.push(`/dashboard/cotizaciones/${result.quoteId}`)

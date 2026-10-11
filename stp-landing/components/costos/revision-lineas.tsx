@@ -1,5 +1,7 @@
 'use client'
 
+import { TableEmpty } from '@/components/ui/empty-state'
+import { toast } from '@/lib/toast'
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -111,6 +113,7 @@ export function RevisionLineas({
       setError(result.error ?? 'No se pudo guardar')
       return
     }
+    toast.success('Línea actualizada')
     // Recién asignado = listo para aprobar: se deja marcado para no obligar a un
     // segundo clic por renglón. Al quitar el material o descartar, se desmarca.
     setSelected((prev) => {
@@ -135,6 +138,7 @@ export function RevisionLineas({
       setError(result.error ?? 'No se pudo aprobar')
       return
     }
+    toast.success('Importación aprobada')
     const { created = 0, skipped = [] } = result.result ?? {}
     setResumen(
       skipped.length === 0
@@ -244,11 +248,7 @@ export function RevisionLineas({
             </TableHeader>
             <TableBody>
               {visibles.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-muted-foreground py-8 text-center text-sm">
-                    Nada en este filtro.
-                  </TableCell>
-                </TableRow>
+                <TableEmpty colSpan={6} filtered title="Nada en este filtro." />
               )}
               {visibles.map((line) => {
                 const estado = LINE_STATUS[line.status]

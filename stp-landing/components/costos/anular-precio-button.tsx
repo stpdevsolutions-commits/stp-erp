@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { Ban } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,7 @@ export function AnularPrecioButton({
       setError(result.error ?? 'Error al anular')
       return
     }
+    toast.success('Precio anulado')
     setReason('')
     setOpen(false)
   }

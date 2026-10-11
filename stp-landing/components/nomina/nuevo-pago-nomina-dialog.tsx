@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -34,6 +35,7 @@ export function NuevoPagoNominaDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Pago de nómina creado')
     setFormKey((k) => k + 1)
     setOpen(false)
   }

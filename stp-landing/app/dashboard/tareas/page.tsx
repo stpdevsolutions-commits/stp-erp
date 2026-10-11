@@ -1,4 +1,7 @@
 ﻿﻿import Link from 'next/link'
+import { SortHead } from '@/components/ui/sort-head'
+import { StatCard } from '@/components/ui/stat-card'
+import { TableEmpty } from '@/components/ui/empty-state'
 import { api, pageError } from '@/lib/api'
 import type { Client, Collaborator, Project, Task, User, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -59,6 +62,8 @@ export default async function TareasPage({
   const page = Math.max(1, Number(sp.page ?? 1))
 
   const q = new URLSearchParams({ limit: String(LIMIT), page: String(page) })
+  if (sp.sort) q.set('sort', sp.sort)
+  if (sp.dir) q.set('dir', sp.dir)
   if (sp.search) q.set('search', sp.search)
   if (sp.status) q.set('status', sp.status)
   if (sp.priority) q.set('priority', sp.priority)
@@ -123,41 +128,12 @@ export default async function TareasPage({
         <NuevaTareaDialog projects={projects} collaborators={collaborators} users={users} />
       </div>
 
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Pendientes</CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{pendientes}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">En curso</CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{enCurso}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Completadas</CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{completadas}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Vencidas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${vencidas > 0 ? 'text-destructive' : ''}`}>{vencidas}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Urgentes activas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${urgentes > 0 ? 'text-destructive' : ''}`}>{urgentes}</div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-2 sm:gap-4 grid-cols-3 lg:grid-cols-5">
+        <StatCard label="Pendientes"><div className="text-2xl font-bold">{pendientes}</div></StatCard>
+        <StatCard label="En curso"><div className="text-2xl font-bold">{enCurso}</div></StatCard>
+        <StatCard label="Completadas"><div className="text-2xl font-bold">{completadas}</div></StatCard>
+        <StatCard label="Vencidas"><div className={`text-2xl font-bold ${vencidas > 0 ? 'text-destructive' : ''}`}>{vencidas}</div></StatCard>
+        <StatCard label="Urgentes activas"><div className={`text-2xl font-bold ${urgentes > 0 ? 'text-destructive' : ''}`}>{urgentes}</div></StatCard>
       </div>
 
       <FiltrosTareas clients={clients} projects={projects} />
@@ -180,22 +156,18 @@ export default async function TareasPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Título</TableHead>
+                  <SortHead field="title">Título</SortHead>
                   <TableHead className="hidden md:table-cell">Proyecto</TableHead>
                   <TableHead className="hidden lg:table-cell">Prioridad</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="hidden sm:table-cell">Vence</TableHead>
+                  <SortHead field="status">Estado</SortHead>
+                  <SortHead field="dueDate" className="hidden sm:table-cell">Vence</SortHead>
                   <TableHead className="hidden lg:table-cell">Asignado a</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tareas.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No hay tareas que coincidan con los filtros
-                    </TableCell>
-                  </TableRow>
+                  <TableEmpty colSpan={7} filtered title="No hay tareas que coincidan con los filtros" />
                 ) : (
                   tareas.map((t) => (
                     <TableRow key={t.id}>

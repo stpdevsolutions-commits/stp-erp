@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsUUID, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsUUID, IsBoolean, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { clampPage, clampLimit } from '../../common/pagination';
 import { TaskStatus, TaskPriority } from '../entities/task.entity';
@@ -37,6 +37,14 @@ export class QueryTasksDto {
   @Transform(({ value }) => value === true || value === 'true' || value === '1')
   @IsBoolean()
   overdue?: boolean;
+
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  dir?: 'asc' | 'desc';
 
   @IsOptional()
   @Transform(({ value }) => clampPage(value))

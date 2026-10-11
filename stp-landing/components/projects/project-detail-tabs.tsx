@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { TableEmpty } from '@/components/ui/empty-state'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Table,
@@ -149,11 +150,7 @@ export function ProjectDetailTabs({
             </TableHeader>
             <TableBody>
               {tasks.data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    No hay tareas en este proyecto
-                  </TableCell>
-                </TableRow>
+                <TableEmpty colSpan={5} title="No hay tareas en este proyecto" />
               ) : (
                 tasks.data.map((t) => (
                   <TableRow key={t.id}>
@@ -282,11 +279,7 @@ export function ProjectDetailTabs({
             </TableHeader>
             <TableBody>
               {expenses.data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    No hay gastos registrados
-                  </TableCell>
-                </TableRow>
+                <TableEmpty colSpan={5} title="No hay gastos registrados" />
               ) : (
                 <>
                   {expenses.data.map((e) => (
@@ -329,11 +322,7 @@ export function ProjectDetailTabs({
             </TableHeader>
             <TableBody>
               {payments.data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    No hay pagos registrados
-                  </TableCell>
-                </TableRow>
+                <TableEmpty colSpan={5} title="No hay pagos registrados" />
               ) : (
                 <>
                   {payments.data.map((p) => (

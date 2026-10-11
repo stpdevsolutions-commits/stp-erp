@@ -1,15 +1,21 @@
 import { LogoUpload } from '@/components/settings/logo-upload'
 import { CompanyForm } from '@/components/settings/company-form'
+import { HeroUpload } from '@/components/settings/hero-upload'
 import { TermsForm } from '@/components/settings/terms-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { api } from '@/lib/api'
 import type { CompanyFormData } from '@/lib/actions/settings'
 
 export default async function ConfiguracionPage() {
-  const [company, termsData] = await Promise.allSettled([
+  const [company, termsData, heroData, meData] = await Promise.allSettled([
     api.get<CompanyFormData>('/settings/company'),
     api.get<{ terms: string | null }>('/settings/terms'),
+    api.get<{ hasImage: boolean; version: string | null; caption: string }>('/settings/hero-info'),
+    api.get<{ role: string }>('/users/me'),
   ])
+
+  const hero = heroData.status === 'fulfilled' ? heroData.value : { hasImage: false, version: null, caption: '' }
+  const isAdmin = meData.status === 'fulfilled' && meData.value.role.toLowerCase() === 'admin'
 
   const terms = termsData.status === 'fulfilled' ? (termsData.value.terms ?? '') : ''
 
@@ -54,6 +60,21 @@ export default async function ConfiguracionPage() {
           <LogoUpload />
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Imagen destacada de Inicio</CardTitle>
+            <CardDescription>
+              Foto del proyecto que se muestra en la pantalla de bienvenida. Cámbiala cuando cambie el proyecto destacado.
+              Formatos: JPG, PNG, WEBP. Máximo 10 MB. Mejor horizontal y de al menos 1600 px de ancho.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HeroUpload {...hero} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

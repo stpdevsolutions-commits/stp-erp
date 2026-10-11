@@ -1,3 +1,4 @@
+import { StatCard } from '@/components/ui/stat-card'
 import Link from 'next/link'
 import { Camera, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -82,22 +83,8 @@ export default async function FacturasPage({
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              {hayFiltros ? 'Facturas filtradas' : 'Total de facturas'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{res.total}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              {hayFiltros ? 'Monto filtrado' : 'Monto total'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{DOP.format(res.totalAmount ?? 0)}</div></CardContent>
-        </Card>
+        <StatCard label={<>{hayFiltros ? 'Facturas filtradas' : 'Total de facturas'}</>}><div className="text-2xl font-bold">{res.total}</div></StatCard>
+        <StatCard label={<>{hayFiltros ? 'Monto filtrado' : 'Monto total'}</>}><div className="text-2xl font-bold">{DOP.format(res.totalAmount ?? 0)}</div></StatCard>
       </div>
 
       <FiltrosFacturas projects={projects} />

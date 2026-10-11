@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -148,6 +149,7 @@ export function NuevaTareaDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Tarea creada')
     reset()
     setClienteId('')
     setOpen(false)

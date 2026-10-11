@@ -1,5 +1,6 @@
 ﻿﻿'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -78,6 +79,7 @@ export function NuevoClienteDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Cliente creado')
     if (result.client) onCreated?.(result.client)
     reset()
     setOpen(false)

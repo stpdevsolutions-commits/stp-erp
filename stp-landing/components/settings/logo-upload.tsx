@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState, useRef } from 'react'
 import { Upload, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -49,6 +50,7 @@ export function LogoUpload() {
       setError(result.error ?? 'Error al subir el logo')
       return
     }
+    toast.success('Logo actualizado')
     setSuccess(true)
   }
 

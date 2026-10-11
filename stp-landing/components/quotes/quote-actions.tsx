@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -205,6 +206,7 @@ function EditDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Cotización actualizada')
     handleClose()
   }
 
@@ -393,6 +395,7 @@ function DeleteDialog({
     const result = await deleteQuote(cotizacion.id)
     setLoading(false)
     if (!result.ok) { setError(result.error ?? 'Error al eliminar'); return }
+    toast.success('Cotización eliminada')
     onOpenChange(false)
   }
 
@@ -455,7 +458,12 @@ export function QuoteActions({
     const result = await sendQuoteEmail(cotizacion.id)
     setSendingEmail(false)
     setEmailResult({ ok: result.ok, msg: result.ok ? 'Email enviado correctamente' : (result.error ?? 'Error al enviar') })
-    if (result.ok) setTimeout(() => setEmailResult(null), 4000)
+    if (result.ok) {
+      toast.success('Cotización enviada por correo')
+      setTimeout(() => setEmailResult(null), 4000)
+    } else {
+      toast.error(result.error ?? 'No se pudo enviar el correo')
+    }
   }
 
   return (

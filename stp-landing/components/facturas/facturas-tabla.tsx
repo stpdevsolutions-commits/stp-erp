@@ -1,5 +1,7 @@
 'use client'
 
+import { TableEmpty } from '@/components/ui/empty-state'
+import { toast } from '@/lib/toast'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -110,6 +112,7 @@ export function FacturasTabla({
         setMessage({ ok: false, text: res.error ?? 'No se pudo asignar' })
         return
       }
+      toast.success('Facturas asignadas')
       const fallidas = res.failed?.length ?? 0
       setMessage({
         ok: fallidas === 0,
@@ -179,11 +182,11 @@ export function FacturasTabla({
           </TableHeader>
           <TableBody>
             {facturas.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                  {hayFiltros ? 'No hay facturas que coincidan con los filtros' : 'Todavía no hay facturas registradas'}
-                </TableCell>
-              </TableRow>
+              <TableEmpty
+                  colSpan={9}
+                  filtered={hayFiltros}
+                  title={hayFiltros ? 'No hay facturas que coincidan con los filtros' : 'Todavía no hay facturas registradas'}
+                />
             ) : (
               facturas.map((f) => (
                 <TableRow key={f.id} data-state={selected.has(f.id) ? 'selected' : undefined}>

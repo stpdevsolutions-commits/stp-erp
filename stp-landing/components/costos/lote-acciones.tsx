@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { RefreshCw, Search, Trash2 } from 'lucide-react'
@@ -91,7 +92,10 @@ export function LoteAcciones({
           setBusy('delete')
           const r = await deletePriceImport(importId)
           setBusy(null)
-          if (r.ok) router.push('/dashboard/costos/importar')
+          if (r.ok) {
+            toast.success('Importación eliminada')
+            router.push('/dashboard/costos/importar')
+          }
           else setMsg(r.error ?? 'No se pudo eliminar')
         }}
       >

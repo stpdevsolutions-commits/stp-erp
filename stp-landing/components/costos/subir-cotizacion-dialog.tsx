@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload } from 'lucide-react'
@@ -78,6 +79,7 @@ export function SubirCotizacionDialog({ suppliers }: { suppliers: Supplier[] }) 
         setError(result.error ?? 'Error al subir')
         return
       }
+      toast.success('Archivo subido para importar')
       close()
       // Va al detalle: es donde se verá aparecer el resultado de la extracción.
       if (result.id) router.push(`/dashboard/costos/importar/${result.id}`)

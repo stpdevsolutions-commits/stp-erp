@@ -1,166 +1,163 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
+import { ArrowRight, AlertTriangle } from 'lucide-react'
 import { api } from '@/lib/api'
+import { visibleGroups } from '@/lib/nav'
+import { Blueprint } from '@/components/brand/blueprint'
+import { FrequentLinks } from '@/components/home/frequent-links'
 import type { DashboardReport } from '@/lib/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, FolderKanban, CheckSquare, Scale } from 'lucide-react'
-
-import type { AnalyticsReport } from '@/components/charts/types'
-import { VizTokens } from '@/components/charts/viz-tokens'
-import { IncomeVsExpenses } from '@/components/charts/income-vs-expenses'
-import { QuotesFunnel } from '@/components/charts/quotes-funnel'
-import { QuotesAging } from '@/components/charts/quotes-aging'
-import { ReceivablesMeter } from '@/components/charts/receivables-meter'
-import { PendingActions } from '@/components/charts/pending-actions'
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
 
-const MONTHS_WINDOW = 6
+type Me = {
+  role: string
+  firstName: string
+  modules?: Record<string, string>
+}
 
-export default async function DashboardPage() {
-  const [drResult, anResult] = await Promise.allSettled([
+type HeroInfo = { hasImage: boolean; version: string | null; caption: string }
+
+function todayLabel() {
+  const text = new Intl.DateTimeFormat('es-DO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'America/Santo_Domingo',
+  }).format(new Date())
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+/**
+ * Centro de operaciones: la entrada al ERP. La prioridad es llegar rápido al módulo
+ * que se necesita; los números viven en Resumen y aquí solo se avisa de lo que pide
+ * atención. Los módulos salen de `lib/nav.ts` (los mismos del menú lateral), filtrados
+ * por la matriz de permisos del rol.
+ */
+export default async function InicioPage() {
+  const [meR, heroR, dashR] = await Promise.allSettled([
+    api.get<Me>('/users/me'),
+    api.get<HeroInfo>('/settings/hero-info'),
     api.get<DashboardReport>('/reports/dashboard'),
-    api.get<AnalyticsReport>(`/reports/analytics?months=${MONTHS_WINDOW}`),
   ])
+  const me = meR.status === 'fulfilled' ? meR.value : null
+  const hero = heroR.status === 'fulfilled' ? heroR.value : null
+  const dash = dashR.status === 'fulfilled' ? dashR.value : null
 
-  const dashReport = drResult.status === 'fulfilled' ? drResult.value : null
-  const analytics = anResult.status === 'fulfilled' ? anResult.value : null
+  const areas = visibleGroups(me?.role ?? 'user', me?.modules).filter(
+    (g) => g.label && g.label !== 'Cuenta',
+  )
 
-  const totalClientes = dashReport?.clients.total ?? '—'
-  const proyectosEnCurso = dashReport?.projects.active ?? 0
-  const tareasVencidas = dashReport?.tasks.overdue ?? 0
-  const gastosEsteMes = dashReport?.expenses.thisMonth ?? 0
-  const cobrosEsteMes = dashReport?.payments.thisMonth ?? 0
-  const balanceMes = cobrosEsteMes - gastosEsteMes
+  const overdueTasks = dash?.tasks.overdue ?? 0
+  const overduePayments = dash?.payments.overdueCount ?? 0
+  const overdueAmount = dash?.payments.overdueAmount ?? 0
+  const canSeeTasks = !me?.modules || (me.modules.tareas ?? 'none') !== 'none'
+  const canSeePayments = !me?.modules || (me.modules.pagos ?? 'none') !== 'none'
 
   return (
-    <div className="space-y-6">
-      <VizTokens />
+    <div className="mx-auto max-w-6xl space-y-6">
+      {/* Héroe: foto del proyecto destacado (Configuración) o, sin ella, el plano de marca */}
+      <section className="relative isolate flex min-h-[15rem] items-end overflow-hidden rounded-2xl text-white sm:min-h-[19rem]">
+        <Blueprint variant="wide" />
+        {hero?.hasImage && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`/api/settings/hero?v=${hero.version ?? ''}`}
+            alt={hero.caption || 'Proyecto destacado de STP'}
+            className="absolute inset-0 size-full object-cover object-[50%_18%]"
+            fetchPriority="high"
+          />
+        )}
+        <div
+          aria-hidden="true"
+          className={`absolute inset-0 bg-gradient-to-t ${hero?.hasImage ? 'from-brand-deep/95 via-brand-deep/60 to-brand-deep/10' : 'from-brand-deep/90 via-brand-deep/40 to-transparent'}`}
+        />
+        <div className="relative z-10 w-full p-5 sm:p-8">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand-green-soft">
+            {todayLabel()}
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+            {me ? `Hola, ${me.firstName}. ` : ''}Bienvenido a STP ERP
+          </h1>
+          <p className="mt-2 max-w-xl text-sm text-white/80 sm:text-base">
+            Gestiona tus operaciones, proyectos y recursos desde un solo lugar.
+          </p>
+          {hero?.hasImage && hero.caption && (
+            <p className="mt-4 text-xs text-white/60">{hero.caption}</p>
+          )}
+        </div>
+      </section>
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Resumen</h1>
-        <p className="text-muted-foreground text-sm">
-          Vista general del sistema ERP
-          {analytics && ` · datos al ${new Date(analytics.generatedAt + 'T00:00:00').toLocaleDateString('es-DO')}`}
-        </p>
-      </div>
-
-      {/* Fila de indicadores — cada tarjeta lleva a su registro */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <Link href="/dashboard/clientes" className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Card className="h-full transition-colors hover:bg-accent/40">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Clientes</CardTitle>
-              <Users className="size-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalClientes}</div>
-              {/* El backend cuenta solo clientes activos (ver ReportsService.getDashboard). */}
-              <p className="text-xs text-muted-foreground mt-1">activos</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/proyectos" className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Card className="h-full transition-colors hover:bg-accent/40">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Proyectos en curso</CardTitle>
-              <FolderKanban className="size-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{proyectosEnCurso}</div>
-              <p className="text-xs text-muted-foreground mt-1">activos ahora</p>
-            </CardContent>
-          </Card>
-        </Link>
-
+      {/* Atención: discreta, solo aparece lo que requiere algo del usuario */}
+      <section
+        aria-label="Atención"
+        className="flex flex-wrap items-center gap-2 text-sm"
+      >
+        {canSeeTasks && overdueTasks > 0 && (
+          <Link
+            href="/dashboard/tareas?vencidas=1"
+            className="inline-flex items-center gap-2 rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-destructive transition-colors hover:bg-destructive/15"
+          >
+            <AlertTriangle className="size-4" />
+            {overdueTasks} {overdueTasks === 1 ? 'tarea vencida' : 'tareas vencidas'}
+          </Link>
+        )}
+        {canSeePayments && overduePayments > 0 && (
+          <Link
+            href="/dashboard/pagos?vencidos=1"
+            className="inline-flex items-center gap-2 rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-destructive transition-colors hover:bg-destructive/15"
+          >
+            <AlertTriangle className="size-4" />
+            {overduePayments} {overduePayments === 1 ? 'cobro vencido' : 'cobros vencidos'} ·{' '}
+            {DOP.format(overdueAmount)}
+          </Link>
+        )}
+        {overdueTasks === 0 && overduePayments === 0 && dash && (
+          <span className="text-muted-foreground">Sin tareas ni cobros vencidos.</span>
+        )}
         <Link
-          href={tareasVencidas > 0 ? '/dashboard/tareas?vencidas=1' : '/dashboard/tareas'}
-          className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Card className="h-full transition-colors hover:bg-accent/40">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Tareas vencidas</CardTitle>
-              <CheckSquare className="size-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${tareasVencidas > 0 ? 'text-destructive' : ''}`}>
-                {tareasVencidas}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {tareasVencidas > 0 ? (
-                  <span className="text-destructive">requieren atención</span>
-                ) : (
-                  'sin vencidas'
-                )}
-              </p>
-            </CardContent>
-          </Card>
+          href="/dashboard/resumen"
+          className="ml-auto inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Ver resumen <ArrowRight className="size-4" />
         </Link>
+      </section>
 
-        <Link href="/dashboard/pagos" className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Card className="h-full transition-colors hover:bg-accent/40">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Balance del mes</CardTitle>
-              <Scale className="size-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`text-lg font-bold tabular-nums ${
-                  balanceMes > 0
-                    ? 'text-green-700 dark:text-green-400'
-                    : balanceMes < 0
-                      ? 'text-destructive'
-                      : ''
-                }`}
-              >
-                {DOP.format(balanceMes)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 leading-snug">
-                {DOP.format(cobrosEsteMes)} cobrados
-                <br className="sm:hidden" />
-                <span className="hidden sm:inline"> − </span>
-                <span className="sm:hidden">menos </span>
-                {DOP.format(gastosEsteMes)} gastados
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
+      <FrequentLinks allowed={areas.flatMap((a) => a.items.map((i) => ({ href: i.href, label: i.label })))} />
 
-      {analytics ? (
-        <>
-          <PendingActions
-            receivables={analytics.receivables}
-            aging={analytics.quotesAging}
-            overdueTasks={dashReport?.tasks.overdue ?? tareasVencidas}
-            overduePayments={{
-              count: dashReport?.payments.overdueCount ?? 0,
-              amount: dashReport?.payments.overdueAmount ?? 0,
-            }}
-          />
-
-          <ReceivablesMeter receivables={analytics.receivables} />
-
-          <IncomeVsExpenses
-            months={analytics.cashflow.months}
-            totals={analytics.cashflow.totals}
-            hasData={analytics.cashflow.hasData}
-          />
-
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-            <QuotesFunnel quotes={analytics.quotes} />
-            <QuotesAging aging={analytics.quotesAging} />
+      {/* Módulos por área de trabajo */}
+      <section aria-label="Módulos" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {areas.map((area) => (
+          <div key={area.label} className="rounded-xl border bg-card">
+            <h2 className="border-b px-4 py-2.5 font-mono text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              {area.label}
+            </h2>
+            <ul className="p-1.5">
+              {area.items.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className="group flex items-center gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                      <item.icon className="size-[18px]" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium leading-tight">{item.label}</span>
+                      {item.description && (
+                        <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
+                          {item.description}
+                        </span>
+                      )}
+                    </span>
+                    <ArrowRight className="size-4 shrink-0 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
-        </>
-      ) : (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No se pudieron cargar las gráficas del panel. Vuelve a intentarlo en unos
-            minutos.
-          </CardContent>
-        </Card>
-      )}
+        ))}
+      </section>
     </div>
   )
 }

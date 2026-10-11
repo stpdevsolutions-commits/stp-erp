@@ -1,4 +1,6 @@
 ﻿﻿import { api, pageError } from '@/lib/api'
+import { SortHead } from '@/components/ui/sort-head'
+import { TableEmpty } from '@/components/ui/empty-state'
 import type { Client, PaginatedResponse, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -38,6 +40,8 @@ export default async function ClientesPage({
   const type = sp.type ?? ''
 
   const query = new URLSearchParams({ limit: String(LIMIT), page: String(page) })
+  if (sp.sort) query.set('sort', sp.sort)
+  if (sp.dir) query.set('dir', sp.dir)
   if (search) query.set('search', search)
   if (type) query.set('type', type)
 
@@ -109,22 +113,23 @@ export default async function ClientesPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead className="hidden md:table-cell">Tipo</TableHead>
+                  <SortHead field="name">Nombre</SortHead>
+                  <SortHead field="type" className="hidden md:table-cell">Tipo</SortHead>
                   <TableHead className="hidden lg:table-cell">RNC / Cédula</TableHead>
                   <TableHead className="hidden md:table-cell">Teléfono</TableHead>
-                  <TableHead className="hidden lg:table-cell">Ciudad</TableHead>
+                  <SortHead field="city" className="hidden lg:table-cell">Ciudad</SortHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {clientes.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No hay clientes registrados
-                    </TableCell>
-                  </TableRow>
+                  <TableEmpty
+                    colSpan={7}
+                    title="Aún no hay clientes registrados"
+                    hint="Registra el primero para poder cotizar y abrir proyectos a su nombre."
+                    action={isManager ? <NuevoClienteDialog /> : undefined}
+                  />
                 ) : (
                   clientes.map((cliente) => (
                     <TableRow key={cliente.id}>

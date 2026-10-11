@@ -35,7 +35,7 @@ export function FiltrosNomina({ collaborators }: { collaborators: Collaborator[]
   const selected = collaborators.find((c) => c.id === collaboratorId)
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
       <Input
         placeholder="Buscar por número, nombre o cédula"
         defaultValue={search}

@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -38,6 +39,7 @@ export function CompanyForm({ defaults }: { defaults: CompanyFormData }) {
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Datos de la empresa guardados')
     setSuccess(true)
   }
 

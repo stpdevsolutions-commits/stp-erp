@@ -1,3 +1,5 @@
+import type { FindOptionsOrder } from 'typeorm';
+import { parseSort } from '../common/sort';
 import {
   Injectable,
   NotFoundException,
@@ -16,6 +18,8 @@ import { auditLog } from '../common/audit-log';
 
 /** UUID imposible: fuerza un resultado vacío cuando el usuario no tiene asignaciones. */
 const NO_MATCH_ID = '00000000-0000-0000-0000-000000000000';
+
+const CLIENTS_SORTABLE: Record<string, string> = { name: 'name', type: 'type', city: 'city', createdAt: 'createdAt' };
 
 @Injectable()
 export class ClientsService {
@@ -65,9 +69,11 @@ export class ClientsService {
       where = baseWhere;
     }
 
+    const sortBy = parseSort(query.sort, query.dir, CLIENTS_SORTABLE);
+    const order = (sortBy ? { [sortBy.column]: { direction: sortBy.order, nulls: 'LAST' } } : { name: 'ASC' }) as FindOptionsOrder<Client>;
     const [data, total] = await this.clientsRepository.findAndCount({
       where,
-      order: { name: 'ASC' },
+      order,
       skip: (page - 1) * limit,
       take: limit,
     });

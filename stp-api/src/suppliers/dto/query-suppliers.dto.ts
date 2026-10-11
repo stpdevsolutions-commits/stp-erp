@@ -1,4 +1,4 @@
-import { IsOptional, IsEnum, IsString, IsBoolean } from 'class-validator';
+import { IsOptional, IsEnum, IsString, IsBoolean, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { clampPage, clampLimit } from '../../common/pagination';
 import { SupplierCategory } from '../entities/supplier.entity';
@@ -16,6 +16,14 @@ export class QuerySuppliersDto {
   @Transform(({ value }) => value === 'true')
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  dir?: 'asc' | 'desc';
 
   @IsOptional()
   @Transform(({ value }) => clampPage(value))
