@@ -27,6 +27,9 @@ export const viewport: Viewport = {
   themeColor: "#0D3773",
   // Que la pantalla use todo el alto en iPhone con muesca.
   viewportFit: "cover",
+  // Con el teclado virtual abierto, el área de la página se encoge (Android/Chrome) en vez de
+  // quedar tapada: así los botones de los diálogos y formularios siguen alcanzables.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

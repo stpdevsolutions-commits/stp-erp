@@ -62,4 +62,6 @@ El Resumen exige el módulo Reportes (sus datos salen de `/reports`).
 
 ## 6. Verificación móvil
 
-Emulación en iPhone 14, iPhone SE (320 px) y Pixel 7 con la sesión real: sin desbordes horizontales, `viewport-fit=cover`, `theme-color`, manifest y `apple-touch-icon` presentes, encabezado con área segura superior y barra inferior con área segura inferior, controles del header y del menú ≥ 40 px, ningún campo bajo 16 px. No se probó en dispositivos físicos ni con el teclado virtual real.
+- **Emulación web** (iPhone 14, iPhone SE a 320 px, Pixel 7) con la sesión real: sin desbordes horizontales, `viewport-fit=cover`, `theme-color`, manifest y `apple-touch-icon` presentes, controles del header y del menú >= 40 px, ningún campo bajo 16 px.
+- **Android real (emulador de Android Studio, Pixel 7, Android 16, Chrome y teclado Gboard):** login con la marca y el formulario correctos; con el teclado abierto el formulario se desplaza y el botón "Iniciar sesión" queda visible. La prueba encontró un fallo: en el diálogo de recuperar contraseña los botones quedaban tapados por el teclado. Se corrigió con `interactiveWidget: "resizes-content"` y diálogos anclados arriba en móvil (`max-md:top-3`); se repitió la prueba y los botones quedan visibles.
+- **Pendiente:** iOS real (no hay simulador de iOS en Windows) y un teléfono físico.
