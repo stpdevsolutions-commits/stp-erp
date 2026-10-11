@@ -64,7 +64,7 @@ export default async function InicioPage() {
           <img
             src={`/api/settings/hero?v=${hero.version ?? ''}`}
             alt={hero.caption || 'Proyecto destacado de STP'}
-            className="absolute inset-0 size-full object-cover object-[50%_18%]"
+            className="absolute inset-0 size-full object-cover object-[50%_58%]"
             fetchPriority="high"
           />
         )}
