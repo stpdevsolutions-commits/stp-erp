@@ -44,7 +44,7 @@ const LOCATION_STATUSES: { value: InventoryLocationStatus; label: string }[] = [
   { value: 'assigned', label: 'Asignado a proyecto' },
 ]
 
-const UNITS = ['unid', 'm', 'm²', 'm³', 'kg', 'lb', 'hr', 'día', 'pie', 'pulg', 'gl', 'lt', 'rollo', 'caja', 'juego', 'servicio', 'otro']
+const UNITS = ['unid', 'm', 'm²', 'm³', 'kg', 'lb', 'hr', 'día', 'pie', 'pulg', 'gl', 'lt', 'rollo', 'caja', 'juego', 'servicio', 'Transporte', 'PA', 'otro']
 
 const schema = z
   .object({

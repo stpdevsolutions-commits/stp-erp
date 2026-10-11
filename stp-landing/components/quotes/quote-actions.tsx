@@ -86,6 +86,8 @@ const UNITS = [
   { value: 'caja',     label: 'caja' },
   { value: 'juego',    label: 'juego' },
   { value: 'servicio', label: 'servicio' },
+  { value: 'transporte', label: 'Transporte' },
+  { value: 'pa',       label: 'PA' },
   { value: 'otro',     label: 'otro' },
 ]
 
