@@ -12,8 +12,10 @@ import {
 import { ExpenseCategory } from '../entities/expense.entity';
 
 export class CreateExpenseDto {
+  /** Sin proyecto = gasto general (ERP-34); solo admin/finanza pueden crearlo. */
+  @IsOptional()
   @IsUUID()
-  projectId: string;
+  projectId?: string | null;
 
   @IsString()
   @MinLength(2)

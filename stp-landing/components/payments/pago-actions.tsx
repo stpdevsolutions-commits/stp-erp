@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { Payment, Client, Project } from '@/lib/types'
-import { updatePayment, deletePayment, emitirEcfPago } from '@/lib/actions/payments'
+import { updatePayment, deletePayment } from '@/lib/actions/payments'
 
 const METHOD_LABELS = {
   cash: 'Efectivo',
@@ -137,7 +137,7 @@ function EditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar pago</DialogTitle>
+          <DialogTitle>Editar cobro</DialogTitle>
           <DialogDescription>{pago.description}</DialogDescription>
         </DialogHeader>
 
@@ -295,7 +295,7 @@ function DeleteDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Eliminar pago</DialogTitle>
+          <DialogTitle>Eliminar cobro</DialogTitle>
           <DialogDescription>
             ¿Eliminar <span className="font-semibold text-foreground">{pago.description}</span>? Esta acción no se puede deshacer.
           </DialogDescription>
@@ -312,7 +312,8 @@ function DeleteDialog({
   )
 }
 
-function EmitirEcfDialog({
+/** Solo consulta: la emisión de e-CF se hace desde Facturas > Emitidas, no desde un cobro. */
+function VerEcfDialog({
   pago,
   open,
   onOpenChange,
@@ -321,40 +322,6 @@ function EmitirEcfDialog({
   open: boolean
   onOpenChange: (o: boolean) => void
 }) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [transmitir, setTransmitir] = useState(false)
-  const [resultado, setResultado] = useState<{
-    encf?: string | null
-    estado?: string | null
-    qrUrl?: string | null
-  } | null>(null)
-
-  const yaEmitido = Boolean(pago.ecfEncf)
-
-  async function handleEmitir() {
-    setLoading(true)
-    setError(null)
-    const r = await emitirEcfPago(pago.id, { transmitir })
-    setLoading(false)
-    if (!r.ok) {
-      setError(r.error ?? 'Error al emitir el comprobante')
-      return
-    }
-    setResultado({ encf: r.encf, estado: r.estado, qrUrl: r.qrUrl })
-  }
-
-  function handleClose() {
-    setError(null)
-    setResultado(null)
-    onOpenChange(false)
-  }
-
-  const encf = resultado?.encf ?? pago.ecfEncf
-  const estado = resultado?.estado ?? pago.ecfEstado
-  const qrUrl = resultado?.qrUrl ?? pago.ecfQrUrl
-  const hecho = Boolean(resultado) || yaEmitido
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -362,71 +329,31 @@ function EmitirEcfDialog({
           <DialogTitle>Comprobante fiscal electrónico</DialogTitle>
           <DialogDescription>{pago.description}</DialogDescription>
         </DialogHeader>
-
-        {hecho ? (
-          <div className="space-y-2 py-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">eNCF</span>
-              <span className="font-mono font-semibold">{encf ?? '—'}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Estado</span>
-              <span className="font-medium">{estado ?? '—'}</span>
-            </div>
-            {qrUrl && (
-              <a
-                href={qrUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary underline underline-offset-4"
-              >
-                Ver comprobante en la DGII
-              </a>
-            )}
-            {pago.ecfError && !resultado && (
-              <p className="text-xs text-destructive rounded-md bg-destructive/10 px-3 py-2">
-                Último error: {pago.ecfError}
-              </p>
-            )}
+        <div className="space-y-2 py-2 text-sm">
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">eNCF</span>
+            <span className="font-mono font-semibold">{pago.ecfEncf ?? '—'}</span>
           </div>
-        ) : (
-          <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">
-              Se generará el comprobante a partir de este pago (RD$ {Number(pago.amount).toLocaleString('es-DO', { minimumFractionDigits: 2 })}). El total del e-CF será igual al monto del pago.
-            </p>
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={transmitir}
-                onChange={(e) => setTransmitir(e.target.checked)}
-              />
-              <span>
-                Transmitir a la DGII ahora
-                <span className="block text-xs text-muted-foreground">
-                  Déjalo sin marcar mientras el RNC no esté habilitado como emisor electrónico. Sin marcar, el comprobante queda firmado pero no se envía.
-                </span>
-              </span>
-            </label>
-            {error && (
-              <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{error}</p>
-            )}
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Estado</span>
+            <span className="font-medium">{pago.ecfEstado ?? '—'}</span>
           </div>
-        )}
-
-        <DialogFooter>
-          {hecho ? (
-            <Button onClick={handleClose}>Cerrar</Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={handleClose} disabled={loading}>
-                Cancelar
-              </Button>
-              <Button onClick={handleEmitir} disabled={loading}>
-                {loading ? 'Emitiendo...' : 'Emitir comprobante'}
-              </Button>
-            </>
+          {pago.ecfQrUrl && (
+            <a
+              href={pago.ecfQrUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-4"
+            >
+              Ver comprobante en la DGII
+            </a>
           )}
+          <p className="text-xs text-muted-foreground pt-2">
+            Los comprobantes nuevos se emiten desde Facturas &gt; Emitidas, y los cobros se aplican a la factura.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Cerrar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -452,7 +379,6 @@ export function PagoActions({
   // PDF/Imprimir quedan para todos porque son de solo lectura.
   const isAdmin = userRole === 'ADMIN' || userRole === 'admin'
   const isManager = isAdmin || userRole === 'MANAGER' || userRole === 'manager'
-  const puedeFacturar = isAdmin || userRole === 'FINANZA' || userRole === 'finanza'
 
   return (
     <>
@@ -483,12 +409,12 @@ export function PagoActions({
             <Printer className="size-4" />
             Imprimir
           </DropdownMenuItem>
-          {puedeFacturar && (
+          {pago.ecfEncf && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setEmitirOpen(true)}>
                 <Receipt className="size-4" />
-                {pago.ecfEncf ? 'Ver comprobante (e-CF)' : 'Emitir e-CF'}
+                Ver comprobante (e-CF)
               </DropdownMenuItem>
             </>
           )}
@@ -505,7 +431,7 @@ export function PagoActions({
       </DropdownMenu>
       <EditDialog pago={pago} clients={clients} projects={projects} open={editOpen} onOpenChange={setEditOpen} />
       <DeleteDialog pago={pago} open={deleteOpen} onOpenChange={setDeleteOpen} />
-      <EmitirEcfDialog pago={pago} open={emitirOpen} onOpenChange={setEmitirOpen} />
+      <VerEcfDialog pago={pago} open={emitirOpen} onOpenChange={setEmitirOpen} />
     </>
   )
 }

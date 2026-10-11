@@ -1,4 +1,4 @@
-﻿﻿'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -27,6 +27,7 @@ import {
 import type { Material, Project, Supplier } from '@/lib/types'
 import { createExpense } from '@/lib/actions/expenses'
 import { todayRD } from '@/lib/utils'
+import { GENERAL_EXPENSE, canUseGeneralExpenses } from '@/lib/general-expense'
 
 const CATEGORY_LABELS = {
   materials: 'Materiales',
@@ -73,11 +74,14 @@ export function NuevoGastoDialog({
   projects,
   suppliers,
   materials = [],
+  userRole,
 }: {
   projects: Project[]
   suppliers: Supplier[]
   materials?: Material[]
+  userRole?: string
 }) {
+  const allowGeneral = canUseGeneralExpenses(userRole)
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -96,7 +100,10 @@ export function NuevoGastoDialog({
   })
 
   const projectId = watch('projectId')
-  const selectedProjectName = projects.find((p) => p.id === projectId)?.name
+  const selectedProjectName =
+    projectId === GENERAL_EXPENSE
+      ? 'Sin proyecto (gasto general)'
+      : projects.find((p) => p.id === projectId)?.name
 
   const supplierId = watch('supplierId')
   const selectedSupplierName = suppliers.find((s) => s.id === supplierId)?.name
@@ -123,7 +130,7 @@ export function NuevoGastoDialog({
     const breakdown = !isNaN(q) && !isNaN(up)
 
     const result = await createExpense({
-      projectId: data.projectId,
+      projectId: data.projectId === GENERAL_EXPENSE ? null : data.projectId,
       description: data.description,
       category: data.category,
       // Si hay desglose no se manda amount: manda cantidad × unitario del servidor.
@@ -160,7 +167,11 @@ export function NuevoGastoDialog({
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo gasto</DialogTitle>
-          <DialogDescription>Registra un gasto asociado a un proyecto.</DialogDescription>
+          <DialogDescription>
+            {allowGeneral
+              ? 'Registra un gasto de un proyecto, o un gasto general de la empresa.'
+              : 'Registra un gasto asociado a un proyecto.'}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
@@ -177,6 +188,9 @@ export function NuevoGastoDialog({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
+                  {allowGeneral && (
+                    <SelectItem value={GENERAL_EXPENSE}>Sin proyecto (gasto general)</SelectItem>
+                  )}
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
                   ))}

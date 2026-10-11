@@ -124,13 +124,13 @@ export function NuevoPagoDialog({
     >
       <DialogTrigger render={<Button size="sm" />}>
         <Plus className="size-4 mr-1" />
-        Nuevo pago
+        Nuevo cobro
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nuevo pago</DialogTitle>
-          <DialogDescription>Registra un pago recibido de un cliente.</DialogDescription>
+          <DialogTitle>Nuevo cobro</DialogTitle>
+          <DialogDescription>Registra un cobro recibido de un cliente.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">

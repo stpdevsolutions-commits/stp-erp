@@ -94,6 +94,13 @@ export class Payment {
   @Column({ type: 'uuid', nullable: true })
   createdById: string;
 
+  /**
+   * Factura emitida a la que se aplica este cobro (abono). Un cliente puede pagar
+   * varias veces la misma factura; la factura lleva el e-CF y el pago solo el cobro.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  salesInvoiceId: string | null;
+
   // ── Comprobante fiscal electrónico (e-CF) ──────────────────────────────────
   // El comprobante vive en ecf-api (proyecto eCF-SaaS, base de datos aparte).
   // Aquí guardamos solo el enlace (`ecfId`) y lo que hay que mostrar en el ERP.

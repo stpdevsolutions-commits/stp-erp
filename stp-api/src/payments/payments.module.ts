@@ -8,13 +8,11 @@ import { FileUpload } from '../files/entities/file-upload.entity';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
 import { SettingsModule } from '../settings/settings.module';
-import { EcfModule } from '../ecf/ecf.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Payment, Client, Project, Quote, FileUpload]),
     SettingsModule,
-    EcfModule,
   ],
   providers: [PaymentsService],
   controllers: [PaymentsController],

@@ -30,6 +30,7 @@ import {
   FolderKanban,
   History,
   Calculator,
+  Receipt,
 } from 'lucide-react'
 import { QuoteActions } from '@/components/quotes/quote-actions'
 import { ConvertToProjectButton } from '@/components/quotes/convert-to-project-button'
@@ -158,6 +159,16 @@ export default async function CotizacionDetallePage({
         <div className="flex gap-2 items-center flex-wrap">
           {canRevise && (
             <ReviseQuoteButton quoteId={quote.id} quoteNumber={quote.number} />
+          )}
+          {!isSuperseded && quote.status === 'approved' && ['admin', 'finanza'].includes(userRole.toLowerCase()) && (
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href={`/dashboard/facturas/emitidas/nueva?quoteId=${quote.id}`} />}
+            >
+              <Receipt className="size-4 mr-1.5" />
+              Facturar
+            </Button>
           )}
           {!isSuperseded && quote.status === 'approved' && !quote.projectId && (
             <ConvertToProjectButton quoteId={quote.id} />

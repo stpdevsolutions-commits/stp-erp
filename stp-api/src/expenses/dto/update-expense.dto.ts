@@ -12,9 +12,10 @@ import {
 import { ExpenseCategory } from '../entities/expense.entity';
 
 export class UpdateExpenseDto {
+  /** `null` lo pasa a gasto general (ERP-34); el controlador se lo impide al manager. */
   @IsOptional()
   @IsUUID()
-  projectId?: string;
+  projectId?: string | null;
 
   @IsOptional()
   @IsString()

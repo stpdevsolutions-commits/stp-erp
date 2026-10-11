@@ -54,10 +54,18 @@ export interface ResourceScope {
   strictClient?: boolean;
 }
 
-/** Roles que atraviesan cualquier comprobación de pertenencia. */
+/**
+ * Roles que atraviesan cualquier comprobación de pertenencia.
+ *
+ * FINANZA estaba fuera por omisión: la matriz de permisos (module-permissions.ts) le da
+ * Gastos, Pagos, Cotizaciones… "manage" y dice que Admin/Manager/Finanza no pasan por la
+ * pertenencia, pero sin esto sus listados salían vacíos y no podía registrar gastos
+ * generales (sin proyecto). Aún no había usuarios con ese rol, así que no cambió a nadie.
+ */
 export const UNRESTRICTED_ROLES: readonly string[] = [
   UserRole.ADMIN,
   UserRole.MANAGER,
+  UserRole.FINANZA,
 ];
 
 /**

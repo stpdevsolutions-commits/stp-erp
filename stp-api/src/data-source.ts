@@ -1,3 +1,4 @@
+import { FiscalInvoice } from './fiscal-invoices/entities/fiscal-invoice.entity';
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
@@ -42,7 +43,7 @@ export const AppDataSource = new DataSource({
     ProjectMember, ClientMember,
     Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem,
     PayrollEntry, CollaboratorLoan, ProjectReport, Notification,
-    MaterialCalc, CalcMaterialLink,
+    MaterialCalc, CalcMaterialLink, FiscalInvoice,
   ],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,

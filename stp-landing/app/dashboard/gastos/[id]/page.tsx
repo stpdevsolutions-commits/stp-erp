@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ChevronLeft, FolderKanban, Truck, Calendar, Tag, FileText } from 'lucide-react'
 import { GastoActions } from '@/components/expenses/gasto-actions'
 import { formatDate } from '@/lib/utils'
+import type { FiscalInvoice } from '@/lib/fiscal-invoices'
 
 const CATEGORY_LABELS: Record<Expense['category'], string> = {
   materials: 'Materiales',
@@ -33,6 +34,10 @@ export default async function GastoDetallePage({
   } catch {
     notFound()
   }
+
+  // La factura fiscal que originó este gasto, si la hay. Solo admin y finanzas pueden verla:
+  // para el resto (403) o si el gasto no viene de una factura (404) simplemente no se muestra.
+  const factura = await api.get<FiscalInvoice>(`/fiscal-invoices/by-expense/${id}`).catch(() => null)
 
   const [projects, suppliers, materials, me] = await Promise.all([
     api.get<PaginatedResponse<Project>>('/projects?limit=200').then((r) => r.data).catch(() => [] as Project[]),
@@ -69,6 +74,18 @@ export default async function GastoDetallePage({
       </div>
 
       <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {!gasto.project && (
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <FolderKanban className="size-3.5" />
+                <span className="text-xs">Proyecto</span>
+              </div>
+              <p className="font-medium text-sm">Gasto general (sin proyecto)</p>
+            </CardContent>
+          </Card>
+        )}
+
         {gasto.project && (
           <Card>
             <CardContent className="pt-4 pb-3">
@@ -129,21 +146,57 @@ export default async function GastoDetallePage({
         </Card>
       )}
 
-      <Card>
-        <CardContent className="pt-4 pb-3">
-          <div className="flex items-center gap-2 text-muted-foreground mb-2">
-            <FileText className="size-3.5" />
-            <span className="text-xs">Comprobante</span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            render={<a href={`/api/files/expense/${gasto.id}?v=${encodeURIComponent(gasto.updatedAt ?? gasto.createdAt)}`} target="_blank" rel="noopener noreferrer" />}
-          >
-            Ver PDF
-          </Button>
-        </CardContent>
-      </Card>
+      {factura && (
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-2 text-muted-foreground mb-2">
+              <FileText className="size-3.5" />
+              <span className="text-xs">Factura fiscal</span>
+            </div>
+            <p className="text-sm">
+              <span className="font-mono font-medium">{factura.ncf}</span> · {factura.supplierName}
+              {factura.dgiiEstado ? ` · DGII: ${factura.dgiiEstado}` : ''}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                render={<Link href={`/dashboard/facturas?search=${encodeURIComponent(factura.ncf)}`} />}
+              >
+                Ver la factura
+              </Button>
+              {factura.photoPath && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<a href={`/api/files/fiscal-invoice/${factura.id}`} target="_blank" rel="noopener noreferrer" />}
+                >
+                  Ver comprobante
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Un gasto general no guarda PDF todavía (ERP-39): el botón solo va en gastos de proyecto. */}
+      {gasto.projectId && (
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-2 text-muted-foreground mb-2">
+              <FileText className="size-3.5" />
+              <span className="text-xs">Comprobante</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              render={<a href={`/api/files/expense/${gasto.id}?v=${encodeURIComponent(gasto.updatedAt ?? gasto.createdAt)}`} target="_blank" rel="noopener noreferrer" />}
+            >
+              Ver PDF
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

@@ -12,8 +12,17 @@ import {
 import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
 import type { Client, Project } from '@/lib/types'
+import { GENERAL_EXPENSE, canUseGeneralExpenses } from '@/lib/general-expense'
 
-export function FiltrosGastos({ clients, projects }: { clients: Client[]; projects: Project[] }) {
+export function FiltrosGastos({
+  clients,
+  projects,
+  userRole,
+}: {
+  clients: Client[]
+  projects: Project[]
+  userRole?: string
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -23,7 +32,19 @@ export function FiltrosGastos({ clients, projects }: { clients: Client[]; projec
   const dateTo = params.get('dateTo') ?? ''
   const clientId = params.get('clientId') ?? ''
   const projectId = params.get('projectId') ?? ''
-  const hasFilters = !!(category || dateFrom || dateTo || clientId || projectId)
+  const general = params.get('general') === '1'
+  const hasFilters = !!(category || dateFrom || dateTo || clientId || projectId || general)
+
+  /** "Gastos generales" es un filtro aparte (`general=1`), no un proyecto. */
+  function setProject(value: string) {
+    const sp = new URLSearchParams(params.toString())
+    sp.delete('projectId')
+    sp.delete('general')
+    if (value === GENERAL_EXPENSE) sp.set('general', '1')
+    else if (value) sp.set('projectId', value)
+    sp.delete('page')
+    router.push(`${pathname}?${sp.toString()}`)
+  }
 
   function set(key: string, value: string) {
     const sp = new URLSearchParams(params.toString())
@@ -50,12 +71,18 @@ export function FiltrosGastos({ clients, projects }: { clients: Client[]; projec
         </SelectContent>
       </Select>
 
-      <Select value={projectId || 'all'} onValueChange={(v) => set('projectId', !v || v === 'all' ? '' : v)}>
+      <Select
+        value={general ? GENERAL_EXPENSE : projectId || 'all'}
+        onValueChange={(v) => setProject(!v || v === 'all' ? '' : v)}
+      >
         <SelectTrigger className="w-56">
           <SelectValue placeholder="Proyecto" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Todos los proyectos</SelectItem>
+          {canUseGeneralExpenses(userRole) && (
+            <SelectItem value={GENERAL_EXPENSE}>Gastos generales (sin proyecto)</SelectItem>
+          )}
           {projects.map((p) => (
             <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
           ))}

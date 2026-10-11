@@ -1,4 +1,4 @@
-﻿﻿'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/select'
 import type { Expense, Project, Supplier, Material } from '@/lib/types'
 import { updateExpense, deleteExpense } from '@/lib/actions/expenses'
+import { GENERAL_EXPENSE, canUseGeneralExpenses } from '@/lib/general-expense'
 
 const CATEGORY_LABELS = {
   materials: 'Materiales',
@@ -80,6 +81,7 @@ function EditDialog({
   materials,
   open,
   onOpenChange,
+  allowGeneral,
 }: {
   gasto: Expense
   projects: Project[]
@@ -87,6 +89,7 @@ function EditDialog({
   materials: Material[]
   open: boolean
   onOpenChange: (o: boolean) => void
+  allowGeneral: boolean
 }) {
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -99,7 +102,7 @@ function EditDialog({
   } = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
     defaultValues: {
-      projectId: gasto.projectId,
+      projectId: gasto.projectId ?? GENERAL_EXPENSE,
       description: gasto.description,
       category: gasto.category,
       amount: String(gasto.amount),
@@ -114,7 +117,10 @@ function EditDialog({
   })
 
   const projectId = watch('projectId')
-  const selectedProjectName = projects.find((p) => p.id === projectId)?.name
+  const selectedProjectName =
+    projectId === GENERAL_EXPENSE
+      ? 'Sin proyecto (gasto general)'
+      : projects.find((p) => p.id === projectId)?.name
   const supplierId = watch('supplierId')
   const selectedSupplierName = suppliers.find((s) => s.id === supplierId)?.name
 
@@ -143,7 +149,7 @@ function EditDialog({
     const breakdown = !isNaN(q) && !isNaN(up)
 
     const result = await updateExpense(gasto.id, {
-      projectId: data.projectId,
+      projectId: data.projectId === GENERAL_EXPENSE ? null : data.projectId,
       description: data.description,
       category: data.category,
       // Con desglose el importe lo recalcula el servidor.
@@ -185,6 +191,9 @@ function EditDialog({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
+                  {(allowGeneral || gasto.projectId === null) && (
+                    <SelectItem value={GENERAL_EXPENSE}>Sin proyecto (gasto general)</SelectItem>
+                  )}
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
                   ))}
@@ -410,7 +419,11 @@ export function GastoActions({
   // Editar requiere MANAGER, eliminar requiere ADMIN (ver expenses.controller.ts). Ver
   // PDF/Imprimir quedan para todos porque son de solo lectura.
   const isAdmin = userRole === 'ADMIN' || userRole === 'admin'
-  const isManager = isAdmin || userRole === 'MANAGER' || userRole === 'manager'
+  // Finanza también gestiona Gastos en el backend (matriz de permisos, ERP-85).
+  const isManager = isAdmin || ['manager', 'finanza'].includes(userRole.toLowerCase())
+  const allowGeneral = canUseGeneralExpenses(userRole)
+  // Un gasto general no guarda PDF todavía (ERP-39).
+  const hasPdf = gasto.projectId !== null
 
   return (
     <>
@@ -426,21 +439,25 @@ export function GastoActions({
               Editar
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem
-            onClick={() => window.open(`/api/files/expense/${gasto.id}?v=${Date.now()}`, '_blank')}
-          >
-            <FileText className="size-4" />
-            Ver PDF
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              const win = window.open(`/api/files/expense/${gasto.id}?v=${Date.now()}`, '_blank')
-              if (win) win.addEventListener('load', () => setTimeout(() => win.print(), 400))
-            }}
-          >
-            <Printer className="size-4" />
-            Imprimir
-          </DropdownMenuItem>
+          {hasPdf && (
+            <DropdownMenuItem
+              onClick={() => window.open(`/api/files/expense/${gasto.id}?v=${Date.now()}`, '_blank')}
+            >
+              <FileText className="size-4" />
+              Ver PDF
+            </DropdownMenuItem>
+          )}
+          {hasPdf && (
+            <DropdownMenuItem
+              onClick={() => {
+                const win = window.open(`/api/files/expense/${gasto.id}?v=${Date.now()}`, '_blank')
+                if (win) win.addEventListener('load', () => setTimeout(() => win.print(), 400))
+              }}
+            >
+              <Printer className="size-4" />
+              Imprimir
+            </DropdownMenuItem>
+          )}
           {isAdmin && (
             <>
               <DropdownMenuSeparator />
@@ -459,6 +476,7 @@ export function GastoActions({
         materials={materials}
         open={editOpen}
         onOpenChange={setEditOpen}
+        allowGeneral={allowGeneral}
       />
       <DeleteDialog gasto={gasto} open={deleteOpen} onOpenChange={setDeleteOpen} />
     </>

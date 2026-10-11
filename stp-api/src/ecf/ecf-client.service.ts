@@ -21,10 +21,24 @@ export interface LineaEcf {
 
 export interface CrearEcfDto {
   tipoEcf: string;
+  /** 1 = contado, 2 = crédito, 3 = gratuito. */
   tipoPago?: number;
+  terminoPago?: string;
+  /** Fecha límite de pago de una venta a crédito, 'YYYY-MM-DD'. */
+  fechaLimitePago?: string;
   rncComprador?: string;
   /** Obligatorio en ecf-api (nombreComprador! en el DTO). */
   nombreComprador: string;
+  correoComprador?: string;
+  comentarioComprador?: string;
+  /** Comprobante que modifica una nota de crédito/débito (e-CF 33/34). */
+  referencia?: {
+    ncfModificado: string;
+    fechaNcfModificado: string;
+    /** 1 anula · 2 corrige texto · 3 corrige montos. */
+    codigoModificacion: number;
+    razonModificacion?: string;
+  };
   lineas: LineaEcf[];
 }
 
@@ -130,7 +144,21 @@ export class EcfClientService {
     return this.call<ResultadoEcf>('GET', `/ecf/${id}`);
   }
 
-  /** Consulta el estado actual de un comprobante ya emitido. */
+  /** Envía a la DGII un comprobante que se emitió firmado pero sin transmitir. */
+  async transmitir(ecfId: string): Promise<ResultadoEcf> {  // la DGII responde luego: ver estado()
+    await this.call('POST', `/ecf/${ecfId}/transmit`);
+    return this.call<ResultadoEcf>('GET', `/ecf/${ecfId}`);
+  }
+
+  /** Lee el comprobante tal como está guardado en ecf-api (no consulta a la DGII). */
+  async obtener(ecfId: string): Promise<ResultadoEcf> {
+    return this.call<ResultadoEcf>('GET', `/ecf/${ecfId}`);
+  }
+
+  /**
+   * Pregunta a la DGII por el estado. ecf-api responde 400 mientras el comprobante no se
+   * haya transmitido, así que solo se usa para los transmitidos.
+   */
   async estado(ecfId: string): Promise<ResultadoEcf> {
     return this.call<ResultadoEcf>('GET', `/ecf/${ecfId}/status`);
   }

@@ -87,7 +87,7 @@ export default async function PagosPage({
     projects = proyRes.data
     userRole = me.role
   } catch (e) {
-    error = pageError(e, 'Error al cargar pagos')
+    error = pageError(e, 'Error al cargar los cobros')
   }
 
   const pagos = pagosRes.data
@@ -107,8 +107,8 @@ export default async function PagosPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Pagos</h1>
-          <p className="text-muted-foreground text-sm">Pagos recibidos de clientes</p>
+          <h1 className="text-2xl font-bold tracking-tight">Cobros</h1>
+          <p className="text-muted-foreground text-sm">Lo que nos pagan los clientes. Cada cobro se aplica a una factura emitida.</p>
         </div>
         <div className="flex gap-2">
           <ExportExcelButton href={`/api/export/pagos?${query.toString()}`} label="Exportar Excel" />
@@ -177,7 +177,7 @@ export default async function PagosPage({
                 {pagos.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      {soloVencidos ? 'No hay cobros vencidos' : 'No hay pagos registrados'}
+                      {soloVencidos ? 'No hay cobros vencidos' : 'No hay cobros registrados'}
                     </TableCell>
                   </TableRow>
                 ) : (

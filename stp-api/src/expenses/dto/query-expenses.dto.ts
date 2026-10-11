@@ -1,4 +1,4 @@
-import { IsOptional, IsEnum, IsUUID, IsDateString } from 'class-validator';
+import { IsOptional, IsEnum, IsUUID, IsDateString, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { clampPage, clampLimit } from '../../common/pagination';
 import { ExpenseCategory } from '../entities/expense.entity';
@@ -11,6 +11,12 @@ export class QueryExpensesDto {
   @IsOptional()
   @IsUUID()
   projectId?: string;
+
+  /** Solo gastos generales (sin proyecto), ERP-34. */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  general?: boolean;
 
   @IsOptional()
   @IsEnum(ExpenseCategory)

@@ -10,7 +10,8 @@ export interface ActionResult {
 }
 
 export interface CreateExpenseInput {
-  projectId: string
+  /** null = gasto general (ERP-34). */
+  projectId: string | null
   description: string
   category?: string
   /** Opcional si se manda el desglose: el servidor calcula cantidad × unitario. */
@@ -27,7 +28,7 @@ export interface CreateExpenseInput {
 }
 
 export interface UpdateExpenseInput {
-  projectId?: string
+  projectId?: string | null
   description?: string
   category?: string
   amount?: number

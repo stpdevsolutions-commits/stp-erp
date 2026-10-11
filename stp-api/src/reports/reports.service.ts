@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
+import { UserRole } from '../users/entities/user.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Project, ProjectStatus, ProjectType } from '../projects/entities/project.entity';
 import { Task } from '../tasks/entities/task.entity';
@@ -109,11 +110,16 @@ export class ReportsService {
     });
   }
 
-  /** expenses: `alias.projectId` / `project.clientId` — REQUIERE join a `project`. */
+  /**
+   * expenses: `alias.projectId` / `project.clientId` — REQUIERE join a `project`.
+   * Los gastos generales (sin proyecto, ERP-34) son solo de admin/finanza: al
+   * manager se le quitan también de los reportes.
+   */
   private scopeExpenses<T extends ObjectLiteral>(
     qb: SelectQueryBuilder<T>,
     user?: AccessSubject,
   ): Promise<SelectQueryBuilder<T>> {
+    if (user?.role === UserRole.MANAGER) qb.andWhere(`${qb.alias}.projectId IS NOT NULL`);
     return this.access.applyScope(qb, user, {
       projectExpr: `${qb.alias}.projectId`,
       clientExpr: 'project.clientId',
@@ -971,7 +977,7 @@ export class ReportsService {
       })),
       byProject: byProject.map((r) => ({
         projectId: r.projectId,
-        project: r.projectName ?? 'Sin proyecto',
+        project: r.projectName ?? 'Gastos generales',
         count: parseInt(r.count),
         total: parseFloat(r.total),
       })),

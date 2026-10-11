@@ -13,7 +13,6 @@ import {
   LogOut,
   Truck,
   Receipt,
-  CreditCard,
   BarChart3,
   FolderOpen,
   CircleUser,
@@ -24,6 +23,9 @@ import {
   Calculator,
   Wallet,
   GanttChartSquare,
+  FileCheck,
+  ReceiptText,
+  HandCoins,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -47,6 +49,8 @@ type NavItem = {
   icon: LucideIcon
   /** Prefijo por el que se marca activo, si no basta con `href`. */
   match?: string
+  /** Prefijo que NO cuenta como activo (p. ej. Facturas recibidas no se marca en /emitidas). */
+  exclude?: string
   exact?: boolean
   /** Módulo de la matriz de permisos (module-permissions.ts de la API). */
   module?: string
@@ -62,9 +66,10 @@ type NavGroup = {
 }
 
 /**
- * El menú, agrupado por el flujo de trabajo real de STP y no por el orden en que
- * se fueron construyendo los módulos: se cotiza a un cliente, la obra se ejecuta,
- * cuesta dinero, entra dinero, y hay gente y configuración detrás.
+ * El menú, agrupado por el flujo del dinero y del trabajo en STP y no por el orden en
+ * que se fueron construyendo los módulos: Ventas (lo que cotizamos, facturamos y nos
+ * pagan), la Operación de obra, Compras y gastos (lo que pagamos) y Finanzas (el
+ * resultado), con la gente y la configuración detrás.
  *
  * Un grupo desaparece entero si el rol no ve ninguna de sus entradas, así que un
  * USER no encuentra encabezados vacíos.
@@ -74,8 +79,13 @@ const NAV: NavGroup[] = [
     items: [{ href: '/dashboard', label: 'Resumen', icon: LayoutDashboard, exact: true }],
   },
   {
-    label: 'Comercial',
-    items: [{ href: '/dashboard/clientes', module: 'clientes', label: 'Clientes', icon: Users }],
+    label: 'Ventas',
+    items: [
+      { href: '/dashboard/clientes', module: 'clientes', label: 'Clientes', icon: Users },
+      { href: '/dashboard/cotizaciones', module: 'cotizaciones', label: 'Cotizaciones', icon: FileText },
+      { href: '/dashboard/facturas/emitidas', module: 'facturas', label: 'Facturas emitidas', icon: FileCheck },
+      { href: '/dashboard/pagos', module: 'pagos', label: 'Cobros', icon: HandCoins },
+    ],
   },
   {
     label: 'Operación',
@@ -88,8 +98,17 @@ const NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'Costos y compras',
+    label: 'Compras y gastos',
     items: [
+      { href: '/dashboard/proveedores', module: 'proveedores', label: 'Proveedores', icon: Truck },
+      {
+        href: '/dashboard/facturas',
+        module: 'facturas',
+        exclude: '/dashboard/facturas/emitidas',
+        label: 'Facturas recibidas',
+        icon: ReceiptText,
+      },
+      { href: '/dashboard/gastos', module: 'gastos', label: 'Gastos', icon: Receipt },
       {
         // Costos tiene cuatro vistas y sigue con subentradas desplegables: como grupo
         // propio ocuparía cuatro filas siempre, incluso mientras se trabaja en otra cosa.
@@ -106,16 +125,12 @@ const NAV: NavGroup[] = [
           { href: '/dashboard/costos/catalogo', label: 'Unidades y categorías' },
         ],
       },
-      { href: '/dashboard/proveedores', module: 'proveedores', label: 'Proveedores', icon: Truck },
       { href: '/dashboard/inventario', module: 'inventario', label: 'Inventario', icon: Package },
     ],
   },
   {
     label: 'Finanzas',
     items: [
-      { href: '/dashboard/cotizaciones', module: 'cotizaciones', label: 'Cotizaciones', icon: FileText },
-      { href: '/dashboard/pagos', module: 'pagos', label: 'Pagos', icon: CreditCard },
-      { href: '/dashboard/gastos', module: 'gastos', label: 'Gastos', icon: Receipt },
       { href: '/dashboard/nomina', module: 'nomina', label: 'Nómina', icon: Wallet },
       { href: '/dashboard/reportes', module: 'reportes', label: 'Reportes', icon: BarChart3 },
     ],
@@ -190,7 +205,8 @@ export function AppSidebar({
     }),
   })).filter((grupo) => grupo.items.length > 0)
 
-  function isActive(href: string, exact?: boolean) {
+  function isActive(href: string, exact?: boolean, exclude?: string) {
+    if (exclude && pathname.startsWith(exclude)) return false
     return exact ? pathname === href : pathname.startsWith(href)
   }
 
@@ -227,7 +243,7 @@ export function AppSidebar({
             {grupo.label && <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>}
             <SidebarMenu>
               {grupo.items.map((item) => {
-                const abierto = isActive(item.match ?? item.href, item.exact)
+                const abierto = isActive(item.match ?? item.href, item.exact, item.exclude)
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton render={<Link href={item.href} />} isActive={abierto}>

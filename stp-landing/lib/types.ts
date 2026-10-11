@@ -254,8 +254,9 @@ export interface Expense {
   /** Última modificación: sirve para invalidar la caché del PDF. */
   updatedAt?: string
   id: string
-  projectId: string
-  project?: Pick<Project, 'id' | 'name' | 'code'>
+  /** null = gasto general de la empresa (ERP-34). */
+  projectId: string | null
+  project?: Pick<Project, 'id' | 'name' | 'code'> | null
   description: string
   category: ExpenseCategory
   amount: number

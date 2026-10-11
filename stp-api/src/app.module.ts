@@ -13,7 +13,11 @@ import { ProjectsModule } from './projects/projects.module';
 import { TasksModule } from './tasks/tasks.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { FiscalInvoicesModule } from './fiscal-invoices/fiscal-invoices.module';
+import { DgiiModule } from './dgii/dgii.module';
+import { FiscalInvoice } from './fiscal-invoices/entities/fiscal-invoice.entity';
 import { PaymentsModule } from './payments/payments.module';
+import { SalesInvoicesModule } from './sales-invoices/sales-invoices.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { ReportsModule } from './reports/reports.module';
 import { HealthModule } from './health/health.module';
@@ -60,6 +64,8 @@ import { PayrollEntry } from './payroll/entities/payroll-entry.entity';
 import { CollaboratorLoan } from './payroll/entities/collaborator-loan.entity';
 import { Notification } from './notifications/entities/notification.entity';
 import { ProjectReport } from './reports/entities/project-report.entity';
+import { SalesInvoice } from './sales-invoices/entities/sales-invoice.entity';
+import { SalesInvoiceLine } from './sales-invoices/entities/sales-invoice-line.entity';
 
 @Module({
   imports: [
@@ -70,7 +76,7 @@ import { ProjectReport } from './reports/entities/project-report.entity';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry, CollaboratorLoan, ProjectReport, Notification, MaterialCalc, CalcMaterialLink],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry, CollaboratorLoan, ProjectReport, Notification, MaterialCalc, CalcMaterialLink, FiscalInvoice, SalesInvoice, SalesInvoiceLine],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',
@@ -95,7 +101,10 @@ import { ProjectReport } from './reports/entities/project-report.entity';
     TasksModule,
     QuotesModule,
     ExpensesModule,
+    FiscalInvoicesModule,
+    DgiiModule,
     PaymentsModule,
+    SalesInvoicesModule,
     SuppliersModule,
     ReportsModule,
     HealthModule,

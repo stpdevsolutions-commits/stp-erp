@@ -37,6 +37,10 @@ describe('hasUnrestrictedAccess', () => {
     expect(hasUnrestrictedAccess(UserRole.MANAGER)).toBe(true);
   });
 
+  it('FINANZA también (la matriz le da Gastos, Pagos y Cotizaciones completos)', () => {
+    expect(hasUnrestrictedAccess(UserRole.FINANZA)).toBe(true);
+  });
+
   it('USER no', () => {
     expect(hasUnrestrictedAccess(UserRole.USER)).toBe(false);
     expect(hasUnrestrictedAccess(undefined)).toBe(false);

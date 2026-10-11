@@ -35,7 +35,8 @@ export type ModuleKey =
   | 'nomina'
   | 'reportes'
   | 'colaboradores'
-  | 'configuracion';
+  | 'configuracion'
+  | 'facturas';
 
 /**
  * 'contribute' (ERP-109): ve y crea, pero no administra/borra lo de otros —
@@ -67,18 +68,22 @@ export const MODULE_PERMISSIONS: Record<UserRole, Record<ModuleKey, PermissionLe
     tareas: 'manage', fichas: 'manage', archivos: 'manage', costos: 'manage',
     proveedores: 'manage', inventario: 'manage', pagos: 'manage', gastos: 'manage',
     nomina: 'manage', reportes: 'manage', colaboradores: 'manage', configuracion: 'manage',
+    facturas: 'manage',
   },
   [UserRole.MANAGER]: {
     clientes: 'manage', cotizaciones: 'manage', proyectos: 'manage', cronograma: 'manage',
     tareas: 'manage', fichas: 'manage', archivos: 'manage', costos: 'manage',
     proveedores: 'manage', inventario: 'manage', pagos: 'view', gastos: 'manage',
     nomina: 'none', reportes: 'view', colaboradores: 'view', configuracion: 'none',
+    // Facturas fiscales (606): datos tributarios de la empresa, no de un proyecto.
+    facturas: 'none',
   },
   [UserRole.FINANZA]: {
     clientes: 'view', cotizaciones: 'manage', proyectos: 'view', cronograma: 'none',
     tareas: 'none', fichas: 'none', archivos: 'view', costos: 'view',
     proveedores: 'view', inventario: 'none', pagos: 'manage', gastos: 'manage',
     nomina: 'manage', reportes: 'view', colaboradores: 'view', configuracion: 'none',
+    facturas: 'manage',
   },
   [UserRole.USER]: {
     // 'view'/'manage' aqui solo habilita el modulo -- que registros ve
@@ -89,6 +94,7 @@ export const MODULE_PERMISSIONS: Record<UserRole, Record<ModuleKey, PermissionLe
     tareas: 'manage', fichas: 'manage', archivos: 'contribute', costos: 'none',
     proveedores: 'none', inventario: 'view', pagos: 'none', gastos: 'none',
     nomina: 'none', reportes: 'none', colaboradores: 'none', configuracion: 'none',
+    facturas: 'none',
   },
 };
 

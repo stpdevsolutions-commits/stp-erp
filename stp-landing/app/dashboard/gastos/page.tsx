@@ -1,4 +1,4 @@
-﻿﻿import Link from 'next/link'
+﻿import Link from 'next/link'
 import { api, pageError } from '@/lib/api'
 import type { Expense, Project, Client, Supplier, PaginatedResponse, Material, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +44,7 @@ export default async function GastosPage({
   if (sp.dateTo) q.set('dateTo', sp.dateTo)
   if (sp.clientId) q.set('clientId', sp.clientId)
   if (sp.projectId) q.set('projectId', sp.projectId)
+  if (sp.general === '1') q.set('general', 'true')
 
   let gastosRes: PaginatedResponse<Expense> & { totalAmount?: number } = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
@@ -87,21 +88,21 @@ export default async function GastosPage({
   const gastos = gastosRes.data
   // El backend manda la suma de todo lo filtrado; la suma local es solo respaldo.
   const totalMonto = gastosRes.totalAmount ?? gastos.reduce((sum, g) => sum + g.amount, 0)
-  const hayFiltros = Boolean(sp.category || sp.dateFrom || sp.dateTo || sp.clientId || sp.projectId)
+  const hayFiltros = Boolean(sp.category || sp.dateFrom || sp.dateTo || sp.clientId || sp.projectId || sp.general)
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Gastos</h1>
-          <p className="text-muted-foreground text-sm">Gastos operativos por proyecto</p>
+          <p className="text-muted-foreground text-sm">Gastos por proyecto y gastos generales de la empresa</p>
         </div>
         <div className="flex gap-2">
           <ExportExcelButton href={`/api/export/gastos?${q.toString()}`} label="Exportar Excel" />
           {/* Crear gasto NO tiene @Roles en el backend: cualquier miembro del proyecto
               (incl. USER, personal de campo) puede registrar uno. Solo editar/eliminar
               están restringidos — ver GastoActions. */}
-          <NuevoGastoDialog projects={projects} suppliers={suppliers} materials={materials} />
+          <NuevoGastoDialog projects={projects} suppliers={suppliers} materials={materials} userRole={userRole} />
         </div>
       </div>
 
@@ -130,7 +131,7 @@ export default async function GastosPage({
         </Card>
       </div>
 
-      <FiltrosGastos clients={clients} projects={projects} />
+      <FiltrosGastos clients={clients} projects={projects} userRole={userRole} />
 
       {error ? (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">{error}</div>
@@ -166,7 +167,7 @@ export default async function GastosPage({
                           {g.description}
                         </Link>
                         <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
-                          {[g.project?.code, formatDate(g.date), CATEGORY_LABELS[g.category]]
+                          {[g.project?.code ?? 'General', formatDate(g.date), CATEGORY_LABELS[g.category]]
                             .filter(Boolean)
                             .join(' · ')}
                         </span>
@@ -194,7 +195,9 @@ export default async function GastosPage({
                             <div className="text-sm">{g.project.name}</div>
                             <div className="text-xs text-muted-foreground font-mono">{g.project.code}</div>
                           </div>
-                        ) : '—'}
+                        ) : (
+                          <Badge variant="secondary">General</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <Badge variant="outline">{CATEGORY_LABELS[g.category]}</Badge>

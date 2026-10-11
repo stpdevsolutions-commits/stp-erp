@@ -1,6 +1,7 @@
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
 import { COMPANY } from './company';
+import { todayRD } from './dates';
 
 /**
  * Generador de reportes .xlsx con identidad STP.
@@ -301,7 +302,7 @@ export async function sendWorkbook(
   filenameBase: string,
 ): Promise<void> {
   const buffer = await workbook.xlsx.writeBuffer();
-  const filename = `${filenameBase}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const filename = `${filenameBase}_${todayRD()}.xlsx`;
   res.setHeader(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  ForbiddenException,
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
@@ -75,8 +76,14 @@ export class ExpensesController {
     param: 'projectId',
     in: 'body',
     restrictRoles: [UserRole.MANAGER],
+    // Sin proyecto = gasto general (ERP-34): el guard lo deja pasar y se decide aquí.
+    optional: true,
   })
   create(@Body() dto: CreateExpenseDto, @CurrentUser() user: AuthUser) {
+    // El manager solo registra gastos de SUS proyectos; uno general sale de su alcance.
+    if (!dto.projectId && user.role === UserRole.MANAGER) {
+      throw new ForbiddenException('Solo administración o finanzas pueden registrar gastos generales');
+    }
     return this.expensesService.create(dto, user.id);
   }
 
@@ -167,7 +174,13 @@ export class ExpensesController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateExpenseDto,
+    @CurrentUser() user: AuthUser,
   ) {
+    // ERP-34: pasar un gasto a "general" lo saca del alcance del manager (que solo
+    // ve sus proyectos), así que solo admin/finanza pueden hacerlo.
+    if (dto.projectId === null && user.role === UserRole.MANAGER) {
+      throw new ForbiddenException('Solo administración o finanzas pueden registrar gastos generales');
+    }
     return this.expensesService.update(id, dto);
   }
 

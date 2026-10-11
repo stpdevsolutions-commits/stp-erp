@@ -53,7 +53,7 @@ export class ExpensesService {
   ) {}
 
   async create(dto: CreateExpenseDto, createdById: string): Promise<Expense> {
-    await this.assertProjectExists(dto.projectId);
+    if (dto.projectId) await this.assertProjectExists(dto.projectId);
     if (dto.supplierId) await this.assertSupplierExists(dto.supplierId);
     const unitId = await this.resolveCostFields(dto.materialId, dto.unitId);
     const amount = this.computeAmount(dto);
@@ -69,7 +69,7 @@ export class ExpensesService {
   }
 
   async findAll(query: QueryExpensesDto, user?: AccessSubject) {
-    const { clientId, projectId, category, dateFrom, dateTo, page = 1, limit = 20 } = query;
+    const { clientId, projectId, general, category, dateFrom, dateTo, page = 1, limit = 20 } = query;
 
     const qb = this.expensesRepository
       .createQueryBuilder('expense')
@@ -93,6 +93,7 @@ export class ExpensesService {
     for (const b of [qb, sumQb]) {
       if (clientId) b.andWhere('project.clientId = :clientId', { clientId });
       if (projectId) b.andWhere('expense.projectId = :projectId', { projectId });
+      if (general) b.andWhere('expense.projectId IS NULL');
       if (category) b.andWhere('expense.category = :category', { category });
       if (dateFrom) b.andWhere('expense.date >= :dateFrom', { dateFrom });
       if (dateTo) b.andWhere('expense.date <= :dateTo', { dateTo });
@@ -129,7 +130,7 @@ export class ExpensesService {
    * filtro del cliente.
    */
   async sumThisMonth(
-    query: Pick<QueryExpensesDto, 'projectId' | 'category'>,
+    query: Pick<QueryExpensesDto, 'projectId' | 'general' | 'category'>,
     user?: AccessSubject,
   ): Promise<number> {
     const monthStartStr = monthStartRD();
@@ -141,6 +142,7 @@ export class ExpensesService {
       .where('expense.date >= :monthStart', { monthStart: monthStartStr });
 
     if (query.projectId) qb.andWhere('expense.projectId = :projectId', { projectId: query.projectId });
+    if (query.general) qb.andWhere('expense.projectId IS NULL');
     if (query.category) qb.andWhere('expense.category = :category', { category: query.category });
 
     await this.access.applyScope(
@@ -309,11 +311,22 @@ export class ExpensesService {
   }
 
   private async savePdfForExpense(expense: Expense): Promise<void> {
+    // Un gasto general no tiene cliente ni proyecto, y uploaded_files exige
+    // cliente: por ahora no lleva PDF guardado (pendiente en ERP-39). Además un
+    // `findOne({ where: { id: null } })` de TypeORM devolvería un proyecto cualquiera.
+    const projectId = expense.projectId;
+    if (!projectId) {
+      // Si el gasto tenía PDF de cuando estaba en un proyecto, no se deja huérfano
+      // en los archivos de ese proyecto.
+      await this.removePdfForExpense(expense.id);
+      return;
+    }
+
     // clientId is not a direct column on Expense — resolve it from the project
     let clientId: string | undefined = expense.project?.clientId;
     if (!clientId) {
       const project = await this.projectsRepository.findOne({
-        where: { id: expense.projectId },
+        where: { id: projectId },
         select: { id: true, clientId: true },
       });
       clientId = project?.clientId;
@@ -323,7 +336,7 @@ export class ExpensesService {
     // Ensure the project relation is populated for the PDF generator
     if (!expense.project) {
       const project = await this.projectsRepository.findOne({
-        where: { id: expense.projectId },
+        where: { id: projectId },
         relations: { client: true },
       });
       if (project) expense.project = project;
@@ -331,7 +344,7 @@ export class ExpensesService {
 
     const destDir = join(
       getUploadRoot(),
-      expensePdfRelativeDir(clientId, expense.projectId),
+      expensePdfRelativeDir(clientId, projectId),
     );
     mkdirSync(destDir, { recursive: true });
 
@@ -361,7 +374,7 @@ export class ExpensesService {
       size,
       context: FileContext.PROJECT_EXPENSES,
       clientId,
-      projectId: expense.projectId,
+      projectId,
       uploadedById: expense.createdById ?? undefined,
     });
     await this.fileRepo.save(record);

@@ -32,12 +32,17 @@ export class Expense {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Project, { nullable: false, onDelete: 'CASCADE', eager: false })
+  /**
+   * Sin proyecto = gasto general de la empresa (oficina, vehículo, servicios…),
+   * ERP-34. Solo lo ven y registran admin/finanza: el manager está acotado a sus
+   * proyectos (ERP-108) y un gasto sin proyecto nunca entra en su alcance.
+   */
+  @ManyToOne(() => Project, { nullable: true, onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'projectId' })
-  project: Project;
+  project: Project | null;
 
-  @Column({ type: 'uuid' })
-  projectId: string;
+  @Column({ type: 'uuid', nullable: true })
+  projectId: string | null;
 
   @Column()
   description: string;
