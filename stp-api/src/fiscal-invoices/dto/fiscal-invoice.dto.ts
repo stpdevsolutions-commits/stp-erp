@@ -34,7 +34,8 @@ const asRnc = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? normalizeRnc(value) : value;
 
 const MONEY = { maxDecimalPlaces: 2 } as const;
-const SECURITY_CODE = /^[A-Za-z0-9]{4,16}$/;
+// Son los primeros caracteres de un Base64 (SignatureValue): pueden traer + y /.
+const SECURITY_CODE = /^[A-Za-z0-9+/]{4,16}$/;
 /** Tope de cordura (RD$100 millones) contra un cero de más al teclear. */
 const MAX_MONEY = 100_000_000;
 
@@ -84,7 +85,7 @@ export class CreateFiscalInvoiceDto {
 
   /** Código de seguridad del e-CF (del QR); solo aplica a comprobantes E31, E32… */
   @IsOptional()
-  @Matches(SECURITY_CODE, { message: 'Código de seguridad no válido (4 a 16 letras o números)' })
+  @Matches(SECURITY_CODE, { message: 'Código de seguridad no válido (4 a 16 letras, números, + o /)' })
   securityCode?: string;
 
   /**
@@ -136,7 +137,7 @@ export class UpdateFiscalInvoiceDto {
   @IsOptional() @IsDateString() invoiceDate?: string;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string | null;
   @IsOptional()
-  @Matches(SECURITY_CODE, { message: 'Código de seguridad no válido (4 a 16 letras o números)' })
+  @Matches(SECURITY_CODE, { message: 'Código de seguridad no válido (4 a 16 letras, números, + o /)' })
   securityCode?: string;
 
   /** Igual que al crear; sin indicar, el gasto no cambia de destino. */
@@ -170,7 +171,7 @@ export class FromQrDto {
 /** Opcional: si se manda, se usa y se guarda en la factura antes de consultar. */
 export class ValidateDgiiDto {
   @IsOptional()
-  @Matches(SECURITY_CODE, { message: 'Código de seguridad no válido (4 a 16 letras o números)' })
+  @Matches(SECURITY_CODE, { message: 'Código de seguridad no válido (4 a 16 letras, números, + o /)' })
   codigoSeguridad?: string;
 }
 

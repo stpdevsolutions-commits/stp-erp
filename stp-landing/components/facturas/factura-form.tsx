@@ -90,7 +90,7 @@ const schema = z.object({
   securityCode: z
     .string()
     .optional()
-    .refine((v) => !v || /^[A-Za-z0-9]{4,16}$/.test(v), 'Entre 4 y 16 letras o números'),
+    .refine((v) => !v || /^[A-Za-z0-9+/]{4,16}$/.test(v), 'Entre 4 y 16 letras, números, + o /'),
   /** Gasto general, un proyecto (uuid) o sin gasto todavía. */
   destino: z.string().min(1),
 })

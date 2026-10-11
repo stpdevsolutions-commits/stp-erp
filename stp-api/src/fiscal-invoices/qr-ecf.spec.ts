@@ -37,6 +37,11 @@ describe('qr-ecf', () => {
       expect(parseDgiiQr(`${QR}&TotalITBIS=228.81`).itbis).toBe(228.81);
     });
 
+    it('un código de seguridad con + o / (Base64) se conserva, venga crudo o codificado', () => {
+      expect(parseDgiiQr(QR.replace('K9m2Xq', 'a+b/Cd')).securityCode).toBe('a+b/Cd');
+      expect(parseDgiiQr(QR.replace('K9m2Xq', 'a%2Bb%2FCd')).securityCode).toBe('a+b/Cd');
+    });
+
     it('un código de seguridad con forma rara se descarta en vez de usarse', () => {
       expect(parseDgiiQr(QR.replace('K9m2Xq', 'a b!')).securityCode).toBeNull();
     });

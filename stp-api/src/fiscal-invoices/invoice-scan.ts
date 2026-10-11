@@ -243,7 +243,7 @@ export function normalizeScan(raw: RawScan): ScanCore {
       otherTax,
       paymentMethod: PAYMENT_METHOD_CODES.includes(payment) ? payment : '01',
       expenseType: EXPENSE_TYPE_CODES.includes(expense) ? expense : null,
-      securityCode: isElectronic && /^[A-Za-z0-9]{4,16}$/.test(code) ? code : null,
+      securityCode: isElectronic && /^[A-Za-z0-9+/]{4,16}$/.test(code) ? code : null,
       notes: str(raw.notes),
     },
     totalAmount: total,

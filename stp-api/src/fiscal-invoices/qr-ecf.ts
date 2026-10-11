@@ -70,7 +70,15 @@ export function parseDgiiQr(text: string): EcfQr {
     throw new QrParseError('El QR no trae un RNC y un e-NCF válidos. Prueba escaneando la factura con la cámara.');
   }
 
-  const code = (get('codigoseguridad') ?? '').trim();
+  // searchParams convertiría un "+" en espacio, y el código (Base64) puede traerlo: se lee a mano.
+  const rawCode = /[?&]codigoseguridad=([^&#]*)/i.exec(raw)?.[1] ?? '';
+  let code = rawCode;
+  try {
+    code = decodeURIComponent(rawCode);
+  } catch {
+    /* se queda como vino y la validación de abajo lo descarta si es raro */
+  }
+  code = code.trim();
   const buyer = normalizeRnc(get('rnccomprador') ?? '');
   return {
     url: raw,
@@ -79,7 +87,7 @@ export function parseDgiiQr(text: string): EcfQr {
     ncf,
     invoiceDate: dgiiDateToIso(get('fechaemision')),
     total: amount(get('montototal')),
-    securityCode: /^[A-Za-z0-9]{4,16}$/.test(code) ? code : null,
+    securityCode: /^[A-Za-z0-9+/]{4,16}$/.test(code) ? code : null,
     itbis: amount(get('totalitbis')),
   };
 }
