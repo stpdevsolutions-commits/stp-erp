@@ -25,7 +25,13 @@ export function pageError(e: unknown, fallback: string): string {
   if (e instanceof UnauthorizedError) {
     redirect('/api/auth/logout')
   }
-  return e instanceof Error ? e.message : fallback
+  if (e instanceof Error) {
+    // El backend responde en inglés a un 403; quien llega por URL directa a algo que su rol no abre
+    // debe leer qué pasa, no "Forbidden resource".
+    if (/forbidden/i.test(e.message)) return 'Tu rol no tiene acceso a esta sección.'
+    return e.message
+  }
+  return fallback
 }
 
 async function getToken(): Promise<string | undefined> {

@@ -35,6 +35,7 @@ function translateAuthError(message?: string | string[]): string {
   const text = Array.isArray(message) ? message.join(' ') : (message ?? '')
   if (/password must be longer/i.test(text)) return 'La contraseña debe tener al menos 6 caracteres.'
   if (/email must be an email/i.test(text)) return 'Correo electrónico inválido.'
+  if (/account disabled/i.test(text)) return 'Esta cuenta está desactivada. Pide a un administrador que la reactive.'
   if (/unauthorized|invalid credentials/i.test(text)) return 'Correo o contraseña incorrectos.'
   return text || 'Error al iniciar sesión'
 }
