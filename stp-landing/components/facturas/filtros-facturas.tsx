@@ -5,13 +5,8 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SelectItem } from '@/components/ui/select'
+import { SelectBuscable } from '@/components/ui/select-buscable'
 import {
   EXPENSE_TYPE_CODES,
   PAYMENT_METHOD_CODES,
@@ -82,19 +77,13 @@ function Filtro({
   width?: string
   placeholder: string
 }) {
-  const label = options.find(([k]) => k === value)?.[1]
   return (
-    <Select value={value || ALL} onValueChange={(v) => onChange(!v || v === ALL ? '' : v)}>
-      <SelectTrigger className={width}>
-        <SelectValue placeholder={placeholder}>{label ?? allLabel}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
+    <SelectBuscable value={value || ALL} onValueChange={(v) => onChange(!v || v === ALL ? '' : v)} className={width} placeholder={placeholder}>
         <SelectItem value={ALL}>{allLabel}</SelectItem>
         {options.map(([k, l]) => (
           <SelectItem key={k} value={k}>{l}</SelectItem>
         ))}
-      </SelectContent>
-    </Select>
+    </SelectBuscable>
   )
 }
 

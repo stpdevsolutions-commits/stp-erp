@@ -2,13 +2,8 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SelectItem } from '@/components/ui/select'
+import { SelectBuscable } from '@/components/ui/select-buscable'
 import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
 import type { Client, Project } from '@/lib/types'
@@ -48,6 +43,22 @@ export function FiltrosGastos({
     router.push(`${pathname}?${sp.toString()}`)
   }
 
+  // Con un cliente elegido, el selector de proyectos ofrece solo los de ese cliente.
+  const visibleProjects = clientId ? projects.filter((p) => p.clientId === clientId) : projects
+
+  /** Cambiar de cliente quita el proyecto elegido si no es de ese cliente. */
+  function setClient(value: string) {
+    const sp = new URLSearchParams(params.toString())
+    if (value) sp.set('clientId', value)
+    else sp.delete('clientId')
+    const current = sp.get('projectId')
+    if (value && current && projects.find((p) => p.id === current)?.clientId !== value) sp.delete('projectId')
+    // Los gastos generales no tienen cliente: no combinan con elegir uno.
+    if (value) sp.delete('general')
+    sp.delete('page')
+    router.push(`${pathname}?${sp.toString()}`)
+  }
+
   function set(key: string, value: string) {
     const sp = new URLSearchParams(params.toString())
     value ? sp.set(key, value) : sp.delete(key)
@@ -62,41 +73,25 @@ export function FiltrosGastos({
   return (
     <FiltrosPlegables>
       <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
-        <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Cliente" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={clientId || 'all'} onValueChange={(v) => setClient(!v || v === 'all' ? '' : v)} className="w-48" placeholder="Cliente">
             <SelectItem value="all">Todos los clientes</SelectItem>
             {clients.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
-        <Select
-          value={general ? GENERAL_EXPENSE : projectId || 'all'}
-          onValueChange={(v) => setProject(!v || v === 'all' ? '' : v)}
-        >
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Proyecto" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={general ? GENERAL_EXPENSE : projectId || 'all'}
+          onValueChange={(v) => setProject(!v || v === 'all' ? '' : v)} className="w-56" placeholder="Proyecto">
             <SelectItem value="all">Todos los proyectos</SelectItem>
-            {canUseGeneralExpenses(userRole) && (
+            {canUseGeneralExpenses(userRole) && !clientId && (
               <SelectItem value={GENERAL_EXPENSE}>Gastos generales (sin proyecto)</SelectItem>
             )}
-            {projects.map((p) => (
+            {visibleProjects.map((p) => (
               <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
-        <Select value={category || 'all'} onValueChange={(v) => set('category', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Categoría" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={category || 'all'} onValueChange={(v) => set('category', !v || v === 'all' ? '' : v)} className="w-40" placeholder="Categoría">
             <SelectItem value="all">Todas las categorías</SelectItem>
             <SelectItem value="materials">Materiales</SelectItem>
             <SelectItem value="labor">Mano de obra</SelectItem>
@@ -104,8 +99,7 @@ export function FiltrosGastos({
             <SelectItem value="subcontract">Subcontrato</SelectItem>
             <SelectItem value="travel">Transporte</SelectItem>
             <SelectItem value="other">Otro</SelectItem>
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
         <FiltroFecha label="Desde" value={dateFrom} onChange={(v) => set('dateFrom', v)} />
 

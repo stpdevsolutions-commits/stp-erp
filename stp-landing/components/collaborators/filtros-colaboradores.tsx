@@ -3,13 +3,8 @@
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useRef } from 'react'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SelectItem } from '@/components/ui/select'
+import { SelectBuscable } from '@/components/ui/select-buscable'
 import { Search } from 'lucide-react'
 
 export function FiltrosColaboradores() {
@@ -47,16 +42,11 @@ export function FiltrosColaboradores() {
         />
       </form>
 
-      <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-40 h-8 text-sm">
-          <SelectValue placeholder="Estado" />
-        </SelectTrigger>
-        <SelectContent>
+      <SelectBuscable value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)} className="w-40 h-8 text-sm" placeholder="Estado">
           <SelectItem value="all">Todos los estados</SelectItem>
           <SelectItem value="active">Activo</SelectItem>
           <SelectItem value="inactive">Inactivo</SelectItem>
-        </SelectContent>
-      </Select>
+        </SelectBuscable>
     </div>
   )
 }

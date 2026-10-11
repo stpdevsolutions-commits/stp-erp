@@ -88,9 +88,11 @@ export default async function ProyectosPage({
   }
 
   const proyectos = proyectosRes.data
-  const byStatus = Object.fromEntries(
-    Object.keys(STATUS_LABELS).map((s) => [s, proyectos.filter((p) => p.status === s).length]),
-  )
+  // Las tarjetas cuentan TODO lo filtrado (viene del servidor), no solo las filas de la página.
+  const serverByStatus = (proyectosRes as { summary?: { byStatus: Record<string, number> } }).summary?.byStatus
+  const byStatus: Record<string, number> =
+    serverByStatus ??
+    Object.fromEntries(Object.keys(STATUS_LABELS).map((s) => [s, proyectos.filter((p) => p.status === s).length]))
 
   // Nombre del cliente filtrado: normalmente sale de la lista de clientes; si el
   // cliente está inactivo (no viene en esa lista) se toma del propio proyecto.

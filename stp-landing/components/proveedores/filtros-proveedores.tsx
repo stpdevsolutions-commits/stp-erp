@@ -4,13 +4,8 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SelectItem } from '@/components/ui/select'
+import { SelectBuscable } from '@/components/ui/select-buscable'
 import { Search, X } from 'lucide-react'
 
 export function FiltrosProveedores() {
@@ -54,19 +49,14 @@ export function FiltrosProveedores() {
         />
       </form>
 
-      <Select value={category || 'all'} onValueChange={(v) => set('category', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-36">
-          <SelectValue placeholder="Categoría" />
-        </SelectTrigger>
-        <SelectContent>
+      <SelectBuscable value={category || 'all'} onValueChange={(v) => set('category', !v || v === 'all' ? '' : v)} className="w-36" placeholder="Categoría">
           <SelectItem value="all">Todas las categorías</SelectItem>
           <SelectItem value="materials">Materiales</SelectItem>
           <SelectItem value="equipment">Equipos</SelectItem>
           <SelectItem value="services">Servicios</SelectItem>
           <SelectItem value="subcontract">Subcontrato</SelectItem>
           <SelectItem value="other">Otro</SelectItem>
-        </SelectContent>
-      </Select>
+        </SelectBuscable>
 
       {hasFilters && (
         <Button variant="ghost" size="sm" onClick={clear} className="gap-1">

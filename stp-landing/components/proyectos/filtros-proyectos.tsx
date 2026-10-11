@@ -5,13 +5,8 @@ import { useMemo, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SelectItem } from '@/components/ui/select'
+import { SelectBuscable } from '@/components/ui/select-buscable'
 import { BuscadorSelect } from '@/components/ui/buscador-select'
 import type { Client } from '@/lib/types'
 import { Search, X } from 'lucide-react'
@@ -71,19 +66,14 @@ export function FiltrosProyectos({ clients = [] }: { clients?: Client[] }) {
             />
           </form>
 
-          <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
+          <SelectBuscable value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)} className="w-36" placeholder="Estado">
               <SelectItem value="all">Todos los estados</SelectItem>
               <SelectItem value="draft">Pendiente</SelectItem>
               <SelectItem value="active">En curso</SelectItem>
               <SelectItem value="on_hold">En pausa</SelectItem>
               <SelectItem value="completed">Completado</SelectItem>
               <SelectItem value="cancelled">Cancelado</SelectItem>
-            </SelectContent>
-          </Select>
+            </SelectBuscable>
 
           <BuscadorSelect
             opciones={opcionesClientes}

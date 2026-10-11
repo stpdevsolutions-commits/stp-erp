@@ -45,6 +45,8 @@ const STATUS_LABELS: Record<Payment['status'], string> = {
 }
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
+type PaymentSummary = { received: number; pending: number; failedCount: number }
+
 const LIMIT = 20
 
 export default async function PagosPage({
@@ -74,7 +76,7 @@ export default async function PagosPage({
   const estaVencido = (p: Payment) =>
     p.status === 'pending' && !!p.dueDate && p.dueDate.slice(0, 10) < hoy
 
-  let pagosRes: PaginatedResponse<Payment> = { data: [], total: 0, page: 1, limit: LIMIT }
+  let pagosRes: PaginatedResponse<Payment> & { summary?: PaymentSummary } = { data: [], total: 0, page: 1, limit: LIMIT }
   let clients: Client[] = []
   let projects: Project[] = []
   let error: string | null = null
@@ -82,7 +84,7 @@ export default async function PagosPage({
 
   try {
     const [res, clientesRes, proyRes, me] = await Promise.all([
-      api.get<PaginatedResponse<Payment>>(`/payments?${query}`),
+      api.get<PaginatedResponse<Payment> & { summary?: PaymentSummary }>(`/payments?${query}`),
       api.get<PaginatedResponse<Client>>('/clients?limit=200'),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
       api.get<Pick<User, 'role'>>('/users/me'),
@@ -98,15 +100,13 @@ export default async function PagosPage({
   const pagos = pagosRes.data
   const isManager = ['ADMIN', 'admin', 'MANAGER', 'manager'].includes(userRole)
 
-  const totalRecibido = pagos
-    .filter((p) => p.status === 'completed')
-    .reduce((sum, p) => sum + p.amount, 0)
-
-  const totalPendiente = pagos
-    .filter((p) => p.status === 'pending')
-    .reduce((sum, p) => sum + p.amount, 0)
-
-  const totalFallidos = pagos.filter((p) => p.status === 'failed').length
+  // Las tarjetas suman TODO lo filtrado (viene del servidor), no solo las 20 filas de la página.
+  const sm = pagosRes.summary
+  const totalRecibido =
+    sm?.received ?? pagos.filter((p) => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
+  const totalPendiente =
+    sm?.pending ?? pagos.filter((p) => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0)
+  const totalFallidos = sm?.failedCount ?? pagos.filter((p) => p.status === 'failed').length
 
   return (
     <div className="space-y-6">

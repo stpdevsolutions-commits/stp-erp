@@ -2,13 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SelectItem } from '@/components/ui/select'
+import { SelectBuscable } from '@/components/ui/select-buscable'
 import { Button } from '@/components/ui/button'
 import { cn, todayRD } from '@/lib/utils'
 import type { Project, Client } from '@/lib/types'
@@ -151,21 +146,11 @@ export function ReporteNav({
       {/* Tab content */}
       {currentTab === 'proyecto' && (
         <div className="space-y-1.5">
-          <Select
-            value={activeProyecto ?? ''}
+          <SelectBuscable value={activeProyecto ?? ''}
             onValueChange={(v) => {
               if (v) router.push(`/dashboard/reportes?proyecto=${v}`)
               else router.push('/dashboard/reportes')
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar proyecto...">
-                {selectedProject
-                  ? `${selectedProject.code} — ${selectedProject.name}`
-                  : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
+            }} placeholder="Seleccionar proyecto...">
               <SelectItem value="">— Ninguno —</SelectItem>
               {projects.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
@@ -176,32 +161,22 @@ export function ReporteNav({
                   </span>
                 </SelectItem>
               ))}
-            </SelectContent>
-          </Select>
+            </SelectBuscable>
         </div>
       )}
 
       {currentTab === 'cliente' && (
         <div className="space-y-1.5">
-          <Select
-            value={activeCliente ?? ''}
+          <SelectBuscable value={activeCliente ?? ''}
             onValueChange={(v) => {
               if (v) router.push(`/dashboard/reportes?cliente=${v}`)
               else router.push('/dashboard/reportes')
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar cliente...">
-                {selectedClient?.name}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
+            }} placeholder="Seleccionar cliente...">
               <SelectItem value="">— Ninguno —</SelectItem>
               {clients.map((c) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
-            </SelectContent>
-          </Select>
+            </SelectBuscable>
         </div>
       )}
 

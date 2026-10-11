@@ -148,7 +148,25 @@ export class PaymentsService {
     });
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit };
+
+    // Cifras de las tarjetas: de todo lo que cumple los filtros, no solo de la página visible.
+    const filas = await qb
+      .clone()
+      .orderBy()
+      .skip(undefined)
+      .take(undefined)
+      .select('payment.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('COALESCE(SUM(payment.amount), 0)', 'sum')
+      .groupBy('payment.status')
+      .getRawMany<{ status: string; count: string; sum: string }>();
+    const fila = (s: PaymentStatus) => filas.find((f) => f.status === s);
+    const summary = {
+      received: parseFloat(fila(PaymentStatus.COMPLETED)?.sum ?? '0'),
+      pending: parseFloat(fila(PaymentStatus.PENDING)?.sum ?? '0'),
+      failedCount: parseInt(fila(PaymentStatus.FAILED)?.count ?? '0', 10),
+    };
+    return { data, total, page, limit, summary };
   }
 
   async findOne(id: string): Promise<Payment> {

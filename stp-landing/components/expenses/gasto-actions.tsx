@@ -31,7 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Expense, Project, Supplier, Material } from '@/lib/types'
+import type { Client, Expense, Project, Supplier, Material } from '@/lib/types'
+import { BuscadorSelect } from '@/components/ui/buscador-select'
 import { updateExpense, deleteExpense } from '@/lib/actions/expenses'
 import { GENERAL_EXPENSE, canUseGeneralExpenses } from '@/lib/general-expense'
 
@@ -77,6 +78,7 @@ type EditFormValues = z.infer<typeof editSchema>
 
 function EditDialog({
   gasto,
+  clients,
   projects,
   suppliers,
   materials,
@@ -85,6 +87,7 @@ function EditDialog({
   allowGeneral,
 }: {
   gasto: Expense
+  clients: Client[]
   projects: Project[]
   suppliers: Supplier[]
   materials: Material[]
@@ -118,10 +121,17 @@ function EditDialog({
   })
 
   const projectId = watch('projectId')
-  const selectedProjectName =
-    projectId === GENERAL_EXPENSE
-      ? 'Sin proyecto (gasto general)'
-      : projects.find((p) => p.id === projectId)?.name
+  // El cliente solo ayuda a encontrar el proyecto: no se guarda en el gasto.
+  const [clientId, setClientId] = useState(() => projects.find((p) => p.id === gasto.projectId)?.clientId ?? '')
+  const visibleProjects = clientId ? projects.filter((p) => p.clientId === clientId) : projects
+
+  function pickClient(value: string) {
+    setClientId(value)
+    const current = projects.find((p) => p.id === projectId)
+    if (value && (projectId === GENERAL_EXPENSE || (current && current.clientId !== value))) {
+      setValue('projectId', '', { shouldValidate: false })
+    }
+  }
   const supplierId = watch('supplierId')
   const selectedSupplierName = suppliers.find((s) => s.id === supplierId)?.name
 
@@ -181,26 +191,37 @@ function EditDialog({
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {clients.length > 0 && (
+              <div className="col-span-full space-y-1.5">
+                <Label htmlFor="eg-client">Cliente</Label>
+                <BuscadorSelect
+                  id="eg-client"
+                  value={clientId}
+                  onValueChange={pickClient}
+                  placeholder="Todos los clientes (escribe para buscar)"
+                  opciones={[
+                    { value: '', label: 'Todos los clientes' },
+                    ...clients.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                />
+              </div>
+            )}
+
             <div className="col-span-full space-y-1.5">
-              <Label>Proyecto <span className="text-destructive">*</span></Label>
-              <Select
-                value={watch('projectId') ?? ''}
-                onValueChange={(v) => v && setValue('projectId', v)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Seleccionar proyecto">
-                    {selectedProjectName}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(allowGeneral || gasto.projectId === null) && (
-                    <SelectItem value={GENERAL_EXPENSE}>Sin proyecto (gasto general)</SelectItem>
-                  )}
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="eg-project">Proyecto <span className="text-destructive">*</span></Label>
+              <BuscadorSelect
+                id="eg-project"
+                value={projectId ?? ''}
+                onValueChange={(v) => v && setValue('projectId', v, { shouldValidate: true })}
+                placeholder={clientId ? 'Proyectos de este cliente…' : 'Buscar proyecto…'}
+                vacio={clientId ? 'Este cliente no tiene proyectos' : 'Sin resultados'}
+                opciones={[
+                  ...((allowGeneral || gasto.projectId === null) && !clientId
+                    ? [{ value: GENERAL_EXPENSE, label: 'Sin proyecto (gasto general)' }]
+                    : []),
+                  ...visibleProjects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })),
+                ]}
+              />
               {errors.projectId && <p className="text-xs text-destructive">{errors.projectId.message}</p>}
             </div>
 
@@ -405,12 +426,14 @@ function DeleteDialog({
 
 export function GastoActions({
   gasto,
+  clients = [],
   projects,
   suppliers,
   materials = [],
   userRole,
 }: {
   gasto: Expense
+  clients?: Client[]
   projects: Project[]
   suppliers: Supplier[]
   materials?: Material[]
@@ -474,6 +497,7 @@ export function GastoActions({
       </DropdownMenu>
       <EditDialog
         gasto={gasto}
+        clients={clients}
         projects={projects}
         suppliers={suppliers}
         materials={materials}

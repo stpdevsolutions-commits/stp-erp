@@ -2,13 +2,8 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SelectItem } from '@/components/ui/select'
+import { SelectBuscable } from '@/components/ui/select-buscable'
 import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
 import type { Collaborator } from '@/lib/types'
@@ -48,36 +43,22 @@ export function FiltrosNomina({ collaborators }: { collaborators: Collaborator[]
           className="w-64"
         />
 
-        <Select
-          value={collaboratorId || 'all'}
-          onValueChange={(v) => set('collaboratorId', !v || v === 'all' ? '' : v)}
-        >
-          <SelectTrigger className="w-52">
-            <SelectValue placeholder="Colaborador">
-              {selected ? `${selected.firstName} ${selected.lastName}` : undefined}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={collaboratorId || 'all'}
+          onValueChange={(v) => set('collaboratorId', !v || v === 'all' ? '' : v)} className="w-52" placeholder="Colaborador">
             <SelectItem value="all">Todos los colaboradores</SelectItem>
             {collaborators.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.firstName} {c.lastName}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
-        <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)} className="w-36" placeholder="Estado">
             <SelectItem value="all">Todos los estados</SelectItem>
             <SelectItem value="pending">Pendiente</SelectItem>
             <SelectItem value="paid">Pagado</SelectItem>
             <SelectItem value="cancelled">Anulado</SelectItem>
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
         <FiltroFecha label="Desde" value={dateFrom} onChange={(v) => set('dateFrom', v)} />
 

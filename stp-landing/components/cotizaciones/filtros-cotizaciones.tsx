@@ -4,13 +4,8 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SelectItem } from '@/components/ui/select'
+import { SelectBuscable } from '@/components/ui/select-buscable'
 import { Search, X } from 'lucide-react'
 import type { Client } from '@/lib/types'
 import { FiltrosPlegables } from '@/components/ui/filtros-plegables'
@@ -58,31 +53,21 @@ export function FiltrosCotizaciones({ clients }: { clients: Client[] }) {
           />
         </form>
 
-        <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)} className="w-36" placeholder="Estado">
             <SelectItem value="all">Todos los estados</SelectItem>
             <SelectItem value="draft">Borrador</SelectItem>
             <SelectItem value="sent">Enviada</SelectItem>
             <SelectItem value="approved">Aprobada</SelectItem>
             <SelectItem value="rejected">Rechazada</SelectItem>
             <SelectItem value="expired">Expirada</SelectItem>
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
-        <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Cliente" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)} className="w-48" placeholder="Cliente">
             <SelectItem value="all">Todos los clientes</SelectItem>
             {clients.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clear} className="gap-1">

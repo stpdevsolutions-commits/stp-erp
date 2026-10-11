@@ -25,7 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Material, Project, Supplier } from '@/lib/types'
+import type { Client, Material, Project, Supplier } from '@/lib/types'
+import { BuscadorSelect } from '@/components/ui/buscador-select'
 import { createExpense } from '@/lib/actions/expenses'
 import { todayRD } from '@/lib/utils'
 import { GENERAL_EXPENSE, canUseGeneralExpenses } from '@/lib/general-expense'
@@ -72,11 +73,14 @@ const schema = z
 type FormValues = z.infer<typeof schema>
 
 export function NuevoGastoDialog({
+  clients = [],
   projects,
   suppliers,
   materials = [],
   userRole,
 }: {
+  /** Para acotar la lista de proyectos; si falta, el selector de cliente no se muestra. */
+  clients?: Client[]
   projects: Project[]
   suppliers: Supplier[]
   materials?: Material[]
@@ -101,10 +105,18 @@ export function NuevoGastoDialog({
   })
 
   const projectId = watch('projectId')
-  const selectedProjectName =
-    projectId === GENERAL_EXPENSE
-      ? 'Sin proyecto (gasto general)'
-      : projects.find((p) => p.id === projectId)?.name
+  // El cliente solo ayuda a encontrar el proyecto: no se guarda en el gasto (el cliente sale del proyecto).
+  const [clientId, setClientId] = useState('')
+  const visibleProjects = clientId ? projects.filter((p) => p.clientId === clientId) : projects
+
+  function pickClient(value: string) {
+    setClientId(value)
+    const current = projects.find((p) => p.id === projectId)
+    // Un cliente nuevo invalida el proyecto elegido si no es suyo, y el gasto general no tiene cliente.
+    if (value && (projectId === GENERAL_EXPENSE || (current && current.clientId !== value))) {
+      setValue('projectId', '', { shouldValidate: false })
+    }
+  }
 
   const supplierId = watch('supplierId')
   const selectedSupplierName = suppliers.find((s) => s.id === supplierId)?.name
@@ -150,6 +162,7 @@ export function NuevoGastoDialog({
     }
     toast.success('Gasto creado')
     reset({ category: 'materials', date: today, supplierId: '', itbisIncluded: 'false' })
+    setClientId('')
     setOpen(false)
   }
 
@@ -158,7 +171,7 @@ export function NuevoGastoDialog({
       open={open}
       onOpenChange={(o) => {
         setOpen(o)
-        if (!o) { reset({ category: 'materials', date: today, supplierId: '', itbisIncluded: 'false' }); setServerError(null) }
+        if (!o) { reset({ category: 'materials', date: today, supplierId: '', itbisIncluded: 'false' }); setClientId(''); setServerError(null) }
       }}
     >
       <DialogTrigger render={<Button size="sm" />}>
@@ -178,26 +191,37 @@ export function NuevoGastoDialog({
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {clients.length > 0 && (
+              <div className="col-span-full space-y-1.5">
+                <Label htmlFor="g-client">Cliente</Label>
+                <BuscadorSelect
+                  id="g-client"
+                  value={clientId}
+                  onValueChange={pickClient}
+                  placeholder="Todos los clientes (escribe para buscar)"
+                  opciones={[
+                    { value: '', label: 'Todos los clientes' },
+                    ...clients.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                />
+              </div>
+            )}
+
             <div className="col-span-full space-y-1.5">
-              <Label>Proyecto <span className="text-destructive">*</span></Label>
-              <Select
-                value={watch('projectId') ?? ''}
-                onValueChange={(v) => v && setValue('projectId', v)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Seleccionar proyecto">
-                    {selectedProjectName}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {allowGeneral && (
-                    <SelectItem value={GENERAL_EXPENSE}>Sin proyecto (gasto general)</SelectItem>
-                  )}
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="g-project">Proyecto <span className="text-destructive">*</span></Label>
+              <BuscadorSelect
+                id="g-project"
+                value={projectId ?? ''}
+                onValueChange={(v) => v && setValue('projectId', v, { shouldValidate: true })}
+                placeholder={clientId ? 'Proyectos de este cliente…' : 'Buscar proyecto…'}
+                vacio={clientId ? 'Este cliente no tiene proyectos' : 'Sin resultados'}
+                opciones={[
+                  ...(allowGeneral && !clientId
+                    ? [{ value: GENERAL_EXPENSE, label: 'Sin proyecto (gasto general)' }]
+                    : []),
+                  ...visibleProjects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })),
+                ]}
+              />
               {errors.projectId && <p className="text-xs text-destructive">{errors.projectId.message}</p>}
             </div>
 

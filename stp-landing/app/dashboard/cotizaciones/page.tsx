@@ -90,12 +90,12 @@ export default async function CotizacionesPage({
   }
 
   const cotizaciones = cotizacionesRes.data
-  const totalAprobado = cotizaciones
-    .filter((c) => c.status === 'approved')
-    .reduce((sum, c) => sum + c.total, 0)
-  const totalPendiente = cotizaciones
-    .filter((c) => c.status === 'sent')
-    .reduce((sum, c) => sum + c.total, 0)
+  // Las tarjetas suman TODO lo filtrado (viene del servidor), no solo las filas de la página.
+  const sm = (cotizacionesRes as { summary?: { approved: number; sent: number } }).summary
+  const totalAprobado =
+    sm?.approved ?? cotizaciones.filter((c) => c.status === 'approved').reduce((sum, c) => sum + c.total, 0)
+  const totalPendiente =
+    sm?.sent ?? cotizaciones.filter((c) => c.status === 'sent').reduce((sum, c) => sum + c.total, 0)
 
   return (
     <div className="space-y-6">

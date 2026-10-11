@@ -502,7 +502,20 @@ export class QuotesService implements OnModuleInit {
     });
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit };
+
+    // Cifras de las tarjetas: de todo lo que cumple los filtros, no solo de la página visible.
+    const filas = await qb
+      .clone()
+      .orderBy()
+      .skip(undefined)
+      .take(undefined)
+      .select('quote.status', 'status')
+      .addSelect('COALESCE(SUM(quote.total), 0)', 'sum')
+      .groupBy('quote.status')
+      .getRawMany<{ status: string; sum: string }>();
+    const monto = (s: QuoteStatus) => parseFloat(filas.find((f) => f.status === s)?.sum ?? '0');
+    const summary = { approved: monto(QuoteStatus.APPROVED), sent: monto(QuoteStatus.SENT) };
+    return { data, total, page, limit, summary };
   }
 
   /**

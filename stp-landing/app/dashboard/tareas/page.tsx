@@ -51,6 +51,8 @@ const PRIORITY_VARIANTS: Record<Task['priority'], 'default' | 'secondary' | 'des
   urgent: 'destructive',
 }
 
+type TaskSummary = { pending: number; inProgress: number; done: number; overdue: number; urgent: number }
+
 const LIMIT = 20
 
 export default async function TareasPage({
@@ -73,7 +75,7 @@ export default async function TareasPage({
   const soloVencidas = sp.vencidas === '1'
   if (soloVencidas) q.set('overdue', 'true')
 
-  let tareasRes: PaginatedResponse<Task> = { data: [], total: 0, page, limit: LIMIT }
+  let tareasRes: PaginatedResponse<Task> & { summary?: TaskSummary } = { data: [], total: 0, page, limit: LIMIT }
   let projects: Project[] = []
   let clients: Client[] = []
   let collaborators: Collaborator[] = []
@@ -87,7 +89,7 @@ export default async function TareasPage({
     // sistema. `/users` es ADMIN-only: para MANAGER y USER devuelve 403, así que va
     // con su propio catch — antes tumbaba la carga entera de la página.
     const [tr, proyRes, clientesRes, colabRes, usersRes] = await Promise.all([
-      api.get<PaginatedResponse<Task>>(`/tasks?${q.toString()}`),
+      api.get<PaginatedResponse<Task> & { summary?: TaskSummary }>(`/tasks?${q.toString()}`),
       api.get<PaginatedResponse<Project>>('/projects?limit=200'),
       api.get<PaginatedResponse<Client>>('/clients?limit=200'),
       api
@@ -107,16 +109,18 @@ export default async function TareasPage({
   }
 
   const tareas = tareasRes.data
-  const pendientes = tareas.filter((t) => t.status === 'pending').length
-  const enCurso = tareas.filter((t) => t.status === 'in_progress' || t.status === 'review').length
-  const completadas = tareas.filter((t) => t.status === 'done').length
-  const urgentes = tareas.filter((t) => t.priority === 'urgent' && t.status !== 'done').length
+  // Las tarjetas cuentan TODO lo filtrado (viene del servidor), no solo las 20 filas de la página.
+  const sm = tareasRes.summary
+  const pendientes = sm?.pending ?? tareas.filter((t) => t.status === 'pending').length
+  const enCurso = sm?.inProgress ?? tareas.filter((t) => t.status === 'in_progress' || t.status === 'review').length
+  const completadas = sm?.done ?? tareas.filter((t) => t.status === 'done').length
+  const urgentes = sm?.urgent ?? tareas.filter((t) => t.priority === 'urgent' && t.status !== 'done').length
   // Fecha local de RD (UTC-4) como YYYY-MM-DD, igual que el criterio del Resumen:
   // vencida = fecha límite anterior a hoy y la tarea no está cerrada.
   const hoy = todayRD()
   const estaVencida = (t: (typeof tareas)[number]) =>
     !!t.dueDate && t.dueDate.slice(0, 10) < hoy && t.status !== 'done' && t.status !== 'cancelled'
-  const vencidas = tareas.filter(estaVencida).length
+  const vencidas = sm?.overdue ?? tareas.filter(estaVencida).length
 
   return (
     <div className="space-y-6">

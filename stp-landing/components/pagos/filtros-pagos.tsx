@@ -2,13 +2,8 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SelectItem } from '@/components/ui/select'
+import { SelectBuscable } from '@/components/ui/select-buscable'
 import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
 import type { Client } from '@/lib/types'
@@ -41,44 +36,29 @@ export function FiltrosPagos({ clients }: { clients: Client[] }) {
   return (
     <FiltrosPlegables>
       <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
-        <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Cliente" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)} className="w-48" placeholder="Cliente">
             <SelectItem value="all">Todos los clientes</SelectItem>
             {clients.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
-        <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)} className="w-36" placeholder="Estado">
             <SelectItem value="all">Todos los estados</SelectItem>
             <SelectItem value="completed">Completado</SelectItem>
             <SelectItem value="pending">Pendiente</SelectItem>
             <SelectItem value="failed">Fallido</SelectItem>
             <SelectItem value="refunded">Reembolsado</SelectItem>
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
-        <Select value={method || 'all'} onValueChange={(v) => set('method', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Método" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={method || 'all'} onValueChange={(v) => set('method', !v || v === 'all' ? '' : v)} className="w-36" placeholder="Método">
             <SelectItem value="all">Todos los métodos</SelectItem>
             <SelectItem value="cash">Efectivo</SelectItem>
             <SelectItem value="transfer">Transferencia</SelectItem>
             <SelectItem value="check">Cheque</SelectItem>
             <SelectItem value="card">Tarjeta</SelectItem>
             <SelectItem value="other">Otro</SelectItem>
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
         <FiltroFecha label="Desde" value={dateFrom} onChange={(v) => set('dateFrom', v)} />
 

@@ -134,7 +134,7 @@ export class ExpensesService {
    * filtro del cliente.
    */
   async sumThisMonth(
-    query: Pick<QueryExpensesDto, 'projectId' | 'general' | 'category'>,
+    query: Pick<QueryExpensesDto, 'clientId' | 'projectId' | 'general' | 'category'>,
     user?: AccessSubject,
   ): Promise<number> {
     const monthStartStr = monthStartRD();
@@ -145,6 +145,7 @@ export class ExpensesService {
       .select('SUM(expense.amount)', 'sum')
       .where('expense.date >= :monthStart', { monthStart: monthStartStr });
 
+    if (query.clientId) qb.andWhere('project.clientId = :clientId', { clientId: query.clientId });
     if (query.projectId) qb.andWhere('expense.projectId = :projectId', { projectId: query.projectId });
     if (query.general) qb.andWhere('expense.projectId IS NULL');
     if (query.category) qb.andWhere('expense.category = :category', { category: query.category });

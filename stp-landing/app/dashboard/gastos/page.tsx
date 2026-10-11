@@ -60,8 +60,12 @@ export default async function GastosPage({
   let userRole = 'USER'
   let totalEsteMes = 0
 
+  // "Este mes" respeta todos los filtros menos las fechas (el mes ya es su período).
   const summaryQuery = new URLSearchParams()
   if (sp.category) summaryQuery.set('category', sp.category)
+  if (sp.clientId) summaryQuery.set('clientId', sp.clientId)
+  if (sp.projectId) summaryQuery.set('projectId', sp.projectId)
+  if (sp.general === '1') summaryQuery.set('general', 'true')
 
   try {
     const [gr, proyRes, clientesRes, provRes, me, esteMes] = await Promise.all([
@@ -107,7 +111,7 @@ export default async function GastosPage({
           {/* Crear gasto NO tiene @Roles en el backend: cualquier miembro del proyecto
               (incl. USER, personal de campo) puede registrar uno. Solo editar/eliminar
               están restringidos — ver GastoActions. */}
-          <NuevoGastoDialog projects={projects} suppliers={suppliers} materials={materials} userRole={userRole} />
+          <NuevoGastoDialog clients={clients} projects={projects} suppliers={suppliers} materials={materials} userRole={userRole} />
         </div>
       </div>
 
@@ -192,7 +196,7 @@ export default async function GastosPage({
                         {formatDate(g.date)}
                       </TableCell>
                       <TableCell>
-                        <GastoActions gasto={g} projects={projects} suppliers={suppliers} materials={materials} userRole={userRole} />
+                        <GastoActions gasto={g} clients={clients} projects={projects} suppliers={suppliers} materials={materials} userRole={userRole} />
                       </TableCell>
                     </TableRow>
                   ))

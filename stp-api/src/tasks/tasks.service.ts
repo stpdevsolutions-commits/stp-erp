@@ -103,7 +103,34 @@ export class TasksService {
     await this.applyTaskScope(qb, user);
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit };
+
+    // Cifras de las tarjetas: de todo lo que cumple los filtros, no solo de la página visible.
+    const filas = await qb
+      .clone()
+      .orderBy()
+      .skip(undefined)
+      .take(undefined)
+      .select('task.status', 'status')
+      .addSelect('task.priority', 'priority')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE task.dueDate < :sumToday AND task.status NOT IN (:...sumClosed))',
+        'overdue',
+      )
+      .groupBy('task.status')
+      .addGroupBy('task.priority')
+      .setParameters({ sumToday: todayRD(), sumClosed: [TaskStatus.DONE, TaskStatus.CANCELLED] })
+      .getRawMany<{ status: string; priority: string; count: string; overdue: string }>();
+    const suma = (pred: (f: (typeof filas)[number]) => boolean, campo: 'count' | 'overdue' = 'count') =>
+      filas.filter(pred).reduce((s, f) => s + parseInt(f[campo] ?? '0', 10), 0);
+    const summary = {
+      pending: suma((f) => f.status === TaskStatus.PENDING),
+      inProgress: suma((f) => f.status === TaskStatus.IN_PROGRESS || f.status === TaskStatus.REVIEW),
+      done: suma((f) => f.status === TaskStatus.DONE),
+      overdue: suma(() => true, 'overdue'),
+      urgent: suma((f) => f.priority === 'urgent' && f.status !== TaskStatus.DONE),
+    };
+    return { data, total, page, limit, summary };
   }
 
   async findOne(id: string, user?: AccessSubject): Promise<Task> {

@@ -57,7 +57,7 @@ export function BuscadorSelect({
     >
       <Combobox.InputGroup
         className={cn(
-          'flex h-9 w-full items-center gap-1 rounded-lg border border-input bg-transparent pr-1 pl-2.5 text-sm transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 has-disabled:cursor-not-allowed has-disabled:opacity-50 dark:bg-input/30',
+          'flex h-9 max-md:h-10 w-full items-center gap-1 rounded-lg border border-input bg-transparent pr-1 pl-2.5 text-sm transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 has-disabled:cursor-not-allowed has-disabled:opacity-50 dark:bg-input/30',
           className,
         )}
       >

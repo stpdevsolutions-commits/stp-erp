@@ -3,13 +3,8 @@
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import type { Client, FichaStatus, FichaType, Project } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SelectItem } from '@/components/ui/select'
+import { SelectBuscable } from '@/components/ui/select-buscable'
 import { X } from 'lucide-react'
 import { FiltrosPlegables } from '@/components/ui/filtros-plegables'
 
@@ -39,6 +34,20 @@ export function FiltrosFichas({ clients, projects }: { clients: Client[]; projec
   const status = params.get('status') ?? ''
   const hasFilters = !!(clientId || projectId || type || status)
 
+  // Con un cliente elegido, el selector de proyectos ofrece solo los de ese cliente.
+  const visibleProjects = clientId ? projects.filter((p) => p.clientId === clientId) : projects
+
+  /** Cambiar de cliente quita el proyecto elegido si no es de ese cliente. */
+  function setClient(value: string) {
+    const sp = new URLSearchParams(params.toString())
+    if (value) sp.set('clientId', value)
+    else sp.delete('clientId')
+    const current = sp.get('projectId')
+    if (value && current && projects.find((p) => p.id === current)?.clientId !== value) sp.delete('projectId')
+    sp.delete('page')
+    router.push(`${pathname}?${sp.toString()}`)
+  }
+
   function set(key: string, value: string) {
     const sp = new URLSearchParams(params.toString())
     value ? sp.set(key, value) : sp.delete(key)
@@ -48,53 +57,33 @@ export function FiltrosFichas({ clients, projects }: { clients: Client[]; projec
   return (
     <FiltrosPlegables>
       <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
-        <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Cliente" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={clientId || 'all'} onValueChange={(v) => setClient(!v || v === 'all' ? '' : v)} className="w-48" placeholder="Cliente">
             <SelectItem value="all">Todos los clientes</SelectItem>
             {clients.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
-        <Select value={projectId || 'all'} onValueChange={(v) => set('projectId', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Proyecto" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={projectId || 'all'} onValueChange={(v) => set('projectId', !v || v === 'all' ? '' : v)} className="w-56" placeholder="Proyecto">
             <SelectItem value="all">Todos los proyectos</SelectItem>
-            {projects.map((p) => (
+            {visibleProjects.map((p) => (
               <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
-        <Select value={type || 'all'} onValueChange={(v) => set('type', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={type || 'all'} onValueChange={(v) => set('type', !v || v === 'all' ? '' : v)} className="w-44" placeholder="Tipo">
             <SelectItem value="all">Todos los tipos</SelectItem>
             {(Object.entries(TYPE_LABEL) as [FichaType, string][]).map(([v, l]) => (
               <SelectItem key={v} value={v}>{l}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
-        <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
+        <SelectBuscable value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)} className="w-40" placeholder="Estado">
             <SelectItem value="all">Todos los estados</SelectItem>
             {(Object.entries(STATUS_LABEL) as [FichaStatus, string][]).map(([v, l]) => (
               <SelectItem key={v} value={v}>{l}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </SelectBuscable>
 
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={() => router.push(pathname)} className="gap-1">

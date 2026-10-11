@@ -74,7 +74,19 @@ export class ProjectsService {
     });
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit };
+
+    // Cifras de las tarjetas: de todo lo que cumple los filtros, no solo de la página visible.
+    const filas = await qb
+      .clone()
+      .orderBy()
+      .skip(undefined)
+      .take(undefined)
+      .select('project.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('project.status')
+      .getRawMany<{ status: string; count: string }>();
+    const byStatus = Object.fromEntries(filas.map((f) => [f.status, parseInt(f.count, 10)]));
+    return { data, total, page, limit, summary: { byStatus } };
   }
 
   async findOne(id: string): Promise<Project> {
