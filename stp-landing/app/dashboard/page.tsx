@@ -52,6 +52,7 @@ export default async function InicioPage() {
   const overduePayments = dash?.payments.overdueCount ?? 0
   const overdueAmount = dash?.payments.overdueAmount ?? 0
   const canSeeTasks = !me?.modules || (me.modules.tareas ?? 'none') !== 'none'
+  const canSeeSummary = !me?.modules || (me.modules.reportes ?? 'none') !== 'none'
   const canSeePayments = !me?.modules || (me.modules.pagos ?? 'none') !== 'none'
 
   return (
@@ -115,12 +116,14 @@ export default async function InicioPage() {
         {overdueTasks === 0 && overduePayments === 0 && dash && (
           <span className="text-muted-foreground">Sin tareas ni cobros vencidos.</span>
         )}
-        <Link
-          href="/dashboard/resumen"
-          className="ml-auto inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Ver resumen <ArrowRight className="size-4" />
-        </Link>
+        {canSeeSummary && (
+          <Link
+            href="/dashboard/resumen"
+            className="ml-auto inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground max-md:min-h-10"
+          >
+            Ver resumen <ArrowRight className="size-4" />
+          </Link>
+        )}
       </section>
 
       <FrequentLinks allowed={areas.flatMap((a) => a.items.map((i) => ({ href: i.href, label: i.label })))} />

@@ -213,3 +213,12 @@
     scrollbar-width: none;
   }
 }
+
+/* iOS Safari amplía la página al enfocar un campo con fuente menor a 16 px. En celular se fuerza
+   ese mínimo en todos los campos de texto (incluidos los que traen text-sm); en escritorio no cambia. */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  textarea {
+    font-size: 16px !important;
+  }
+}

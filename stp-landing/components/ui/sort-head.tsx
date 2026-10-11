@@ -55,7 +55,7 @@ export function SortHead({
         type="button"
         onClick={toggle}
         className={cn(
-          '-mx-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-primary/10 hover:text-foreground',
+          '-mx-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 max-md:py-2.5 transition-colors hover:bg-primary/10 hover:text-foreground',
           active && 'text-foreground',
         )}
       >

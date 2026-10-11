@@ -113,7 +113,7 @@ export function GlobalSearch({
           setOpen(true)
           setTimeout(() => inputRef.current?.focus(), 0)
         }}
-        className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:hidden"
+        className="flex size-8 max-md:size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:hidden"
       >
         <Search className="size-4" />
       </button>

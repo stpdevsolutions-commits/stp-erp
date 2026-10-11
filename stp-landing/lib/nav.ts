@@ -65,6 +65,8 @@ export const NAV: NavGroup[] = [
       {
         href: '/dashboard/resumen',
         label: 'Resumen',
+        // Sus datos salen de /reports: sin permiso de Reportes la pantalla solo daría error.
+        module: 'reportes',
         description: 'Indicadores, cartera por cobrar y flujo de caja',
         icon: LayoutDashboard,
       },

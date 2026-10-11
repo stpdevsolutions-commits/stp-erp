@@ -90,7 +90,7 @@ export function NotificationsBell() {
       <button
         type="button"
         onClick={handleToggle}
-        className="relative flex size-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="relative flex size-8 max-md:size-10 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <Bell className="size-4" />
         {count > 0 && (

@@ -67,7 +67,7 @@ export function BuscadorSelect({
           className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
         />
         <Combobox.Trigger
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+          className="flex size-7 max-md:size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
           aria-label="Ver opciones"
         >
           <ChevronDownIcon className="size-4" />

@@ -65,7 +65,7 @@ export function AppHeader({
         <NotificationsBell />
 
         {user && (
-          <Link href="/dashboard/perfil" aria-label="Mi perfil">
+          <Link href="/dashboard/perfil" aria-label="Mi perfil" className="flex items-center justify-center max-md:size-10">
             <Avatar>
               <AvatarFallback className="bg-primary font-semibold text-primary-foreground">
                 {initials}
