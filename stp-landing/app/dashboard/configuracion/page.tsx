@@ -4,6 +4,8 @@ import { HeroUpload } from '@/components/settings/hero-upload'
 import { TermsForm } from '@/components/settings/terms-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { api } from '@/lib/api'
+import { Lock } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 import type { CompanyFormData } from '@/lib/actions/settings'
 
 export default async function ConfiguracionPage() {
@@ -11,11 +13,21 @@ export default async function ConfiguracionPage() {
     api.get<CompanyFormData>('/settings/company'),
     api.get<{ terms: string | null }>('/settings/terms'),
     api.get<{ hasImage: boolean; version: string | null; caption: string }>('/settings/hero-info'),
-    api.get<{ role: string }>('/users/me'),
+    api.get<{ role: string; modules?: Record<string, string> }>('/users/me'),
   ])
 
   const hero = heroData.status === 'fulfilled' ? heroData.value : { hasImage: false, version: null, caption: '' }
   const isAdmin = meData.status === 'fulfilled' && meData.value.role.toLowerCase() === 'admin'
+
+  // La matriz de permisos dice que solo Administración abre Configuración; el menú ya la oculta a
+  // los demás roles y aquí se cierra también el acceso por URL directa.
+  if (meData.status === 'fulfilled' && meData.value.modules && (meData.value.modules.configuracion ?? 'none') === 'none') {
+    return (
+      <div className="mx-auto max-w-md">
+        <EmptyState icon={Lock} title="Tu rol no tiene acceso a esta sección." hint="Pide a un administrador que haga el cambio que necesitas." />
+      </div>
+    )
+  }
 
   const terms = termsData.status === 'fulfilled' ? (termsData.value.terms ?? '') : ''
 
