@@ -132,7 +132,11 @@ export default async function FacturasEmitidasPage({
                       {f.kind === 'credit_note' ? '-' : ''}{DOP.format(f.total)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums hidden md:table-cell">
-                      {f.status === 'issued' && f.kind === 'invoice' ? DOP.format(f.balance ?? 0) : '—'}
+                      {f.status !== 'issued' || f.kind !== 'invoice'
+                        ? '—'
+                        : (f.balance ?? 0) < -0.005
+                          ? <span className="text-orange-700 dark:text-orange-400">A devolver {DOP.format(-(f.balance ?? 0))}</span>
+                          : DOP.format(f.balance ?? 0)}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">

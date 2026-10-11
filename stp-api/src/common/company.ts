@@ -1,5 +1,7 @@
 export type CompanyData = {
   name: string;
+  /** Razón social tal como consta en el RNC (la pide la representación impresa del e-CF). */
+  legalName?: string;
   shortName: string;
   rnc: string;
   address1: string;
@@ -11,6 +13,7 @@ export type CompanyData = {
 
 export const COMPANY: CompanyData = {
   name: 'Soluciones Técnicas Profesionales',
+  legalName: 'SOLUCIONES TECNICAS PROFESIONALES STP SRL',
   shortName: 'STP',
   rnc: '132943058',
   address1: 'Calle Bonanza #58, Loyola, Herrera',

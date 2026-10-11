@@ -116,8 +116,17 @@ export default async function FacturaEmitidaDetallePage({ params }: { params: Pr
           <p className="text-xl font-bold tabular-nums text-green-700 dark:text-green-400">{DOP.format(paid)}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-4 pb-3">
-          <p className="text-xs text-muted-foreground">Saldo</p>
-          <p className="text-xl font-bold tabular-nums">{issued ? DOP.format(invoice.balance ?? invoice.total) : '—'}</p>
+          {issued && (invoice.balance ?? 0) < -0.005 ? (
+            <>
+              <p className="text-xs text-muted-foreground">A devolver al cliente</p>
+              <p className="text-xl font-bold tabular-nums text-orange-700 dark:text-orange-400">{DOP.format(-(invoice.balance ?? 0))}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">Saldo</p>
+              <p className="text-xl font-bold tabular-nums">{issued ? DOP.format(invoice.balance ?? invoice.total) : '—'}</p>
+            </>
+          )}
         </CardContent></Card>
         </>
         )}
@@ -141,7 +150,7 @@ export default async function FacturaEmitidaDetallePage({ params }: { params: Pr
             <div className="flex justify-between gap-4"><span className="text-muted-foreground">e-NCF</span><span className="font-mono font-semibold">{invoice.ecfEncf ?? '—'}</span></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground">Estado</span><span className="font-medium">{ecfEstadoLabel(invoice.ecfEstado)}</span></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground">Tipo</span><span>{invoice.ecfTipo?.replace('_v_1_0', '').replace('e-CF_', 'e-CF ') ?? '—'}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground">Código de seguridad</span><span className="font-mono">{invoice.ecfCodigoSeguridad ?? '—'}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground">Código de seguridad</span><span className="font-mono">{invoice.ecfCodigoSeguridad && invoice.ecfCodigoSeguridad !== '0' ? invoice.ecfCodigoSeguridad : '—'}</span></div>
             {invoice.ecfMensaje && (
               <p className={`sm:col-span-2 rounded-md px-3 py-2 text-xs ${invoice.ecfEstado === 'rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
                 Respuesta de la DGII: {invoice.ecfMensaje}

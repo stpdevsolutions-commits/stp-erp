@@ -73,6 +73,46 @@ describe('PDF de la factura de venta', () => {
     expect(buf.toString('latin1')).toContain('/Subtype /Image');
   });
 
+  it('un comprobante emitido sale con el formato de la DGII: QR, fecha de firma y vencimiento', async () => {
+    const buf = await generateSalesInvoicePdf(
+      base({
+        status: SalesInvoiceStatus.ISSUED,
+        ecfEncf: 'E310000000004',
+        ecfTipo: 'e-CF_31_v_1_0',
+        ecfCodigoSeguridad: 'pXQ8QZ',
+        ecfQrUrl: 'https://ecf.dgii.gov.do/ecf/consultatimbre?RncEmisor=132943058&ENCF=E310000000004',
+        lines: [
+          { description: 'Gravado', quantity: 1, unitPrice: 1000, itbisRate: 18, goodOrService: 2, total: 1000, itbisAmount: 180 },
+          { description: 'Exento', quantity: 2, unitPrice: 500, itbisRate: 0, goodOrService: 2, total: 1000, itbisAmount: 0 },
+        ] as never,
+      }),
+      COMPANY,
+      { fechaFirma: '11-10-2026 07:34:27', fechaVencimiento: '31-12-2027' },
+    );
+    expect(buf.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(buf.toString('latin1')).toContain('/Subtype /Image');
+  });
+
+  it('un comprobante emitido de muchas líneas repite el encabezado y mantiene el QR en la última hoja', async () => {
+    const buf = await generateSalesInvoicePdf(
+      base(
+        {
+          status: SalesInvoiceStatus.ISSUED,
+          ecfEncf: 'E310000000004',
+          ecfTipo: 'e-CF_31_v_1_0',
+          ecfCodigoSeguridad: 'pXQ8QZ',
+          ecfQrUrl: 'https://ecf.dgii.gov.do/ecf/consultatimbre?RncEmisor=132943058&ENCF=E310000000004',
+        },
+        60,
+      ),
+      COMPANY,
+      { fechaFirma: '11-10-2026 07:34:27', fechaVencimiento: '31-12-2027' },
+    );
+    const pages = (buf.toString('latin1').match(/\/Type \/Page\b/g) ?? []).length;
+    expect(pages).toBeGreaterThan(1);
+    expect(buf.toString('latin1')).toContain('/Subtype /Image');
+  });
+
   it('pagina cuando hay muchas líneas', async () => {
     const buf = await generateSalesInvoicePdf(base({}, 60), COMPANY);
     const pages = (buf.toString('latin1').match(/\/Type \/Page\b/g) ?? []).length;

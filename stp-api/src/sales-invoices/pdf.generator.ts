@@ -1,5 +1,4 @@
 import PDFDocument from 'pdfkit';
-import QRCode from 'qrcode';
 import type { SalesInvoice } from './entities/sales-invoice.entity';
 import { SalesInvoiceKind, SalesInvoiceStatus } from './entities/sales-invoice.entity';
 import { findLogoPath } from '../common/logo.utils';
@@ -23,6 +22,7 @@ import { formatDateRD } from '../common/dates';
 /** 'YYYY-MM-DD' → 'dd/mm/aaaa' (sin pasar por Date: no hay desfase de zona). */
 const ymd = (d: string) => d.slice(0, 10).split('-').reverse().join('/');
 import { formatRD } from '../common/money';
+import { generateEcfRepresentationPdf, type EcfPrintInfo } from './ecf-representation.generator';
 
 const INFO_BG = '#f8fafc';
 const PAGE_BOTTOM = 770;
@@ -39,25 +39,19 @@ const W_ITBIS = 38;
 const COL_TOTAL = LEFT + 412;
 const W_TOTAL = WIDTH - 412 - 8;
 
-function ecfLabel(tipo: string | null): string {
-  const n = tipo?.match(/e-CF_(\d+)/)?.[1];
-  if (n === '31') return 'Factura de crédito fiscal electrónica (e-CF 31)';
-  if (n === '32') return 'Factura de consumo electrónica (e-CF 32)';
-  if (n === '34') return 'Nota de crédito electrónica (e-CF 34)';
-  return 'Comprobante fiscal electrónico';
-}
-
 /**
- * PDF de una factura de venta (representación impresa). Va al vuelo, sin guardarse:
- * lo que cambia (estado del e-CF, cobros) no deja un archivo viejo atrás. Un borrador
- * sale marcado "BORRADOR" y sin e-NCF.
+ * PDF de una factura de venta. Va al vuelo, sin guardarse. Un borrador sale marcado
+ * "BORRADOR" con el diseño comercial del ERP; un comprobante ya emitido (con e-NCF) sale
+ * como representación impresa del e-CF, en el formato que exige la DGII.
  */
-export async function generateSalesInvoicePdf(invoice: SalesInvoice, company: CompanyData): Promise<Buffer> {
-  // Código QR del comprobante (el mismo enlace de consulta de la DGII). Se genera antes de
-  // abrir el documento porque la librería es asíncrona y el dibujo del PDF no lo es.
-  const qr = invoice.ecfQrUrl
-    ? await QRCode.toBuffer(invoice.ecfQrUrl, { margin: 1, width: 220, errorCorrectionLevel: 'M' })
-    : null;
+export async function generateSalesInvoicePdf(
+  invoice: SalesInvoice,
+  company: CompanyData,
+  info: EcfPrintInfo = {},
+): Promise<Buffer> {
+  if (invoice.status === SalesInvoiceStatus.ISSUED && invoice.ecfEncf) {
+    return generateEcfRepresentationPdf(invoice, company, info);
+  }
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 0, size: 'A4', autoFirstPage: true });
@@ -182,13 +176,6 @@ export async function generateSalesInvoicePdf(invoice: SalesInvoice, company: Co
     doc.moveTo(labelX, y).lineTo(RIGHT, y).strokeColor(TEAL).lineWidth(0.8).stroke();
     y += 6;
     totalRow('TOTAL', formatRD(invoice.total), true);
-    if (issued) {
-      const paid = invoice.paidAmount ?? 0;
-      if (paid > 0) {
-        totalRow('Cobrado', formatRD(paid));
-        totalRow('Saldo', formatRD(invoice.balance ?? invoice.total - paid));
-      }
-    }
 
     // ── Notas ───────────────────────────────────────────────────────────────
     if (invoice.notes) {
@@ -197,35 +184,6 @@ export async function generateSalesInvoicePdf(invoice: SalesInvoice, company: Co
       const nh = textHeight(doc, invoice.notes, WIDTH);
       doc.text(invoice.notes, LEFT, y, { width: WIDTH });
       y += nh;
-    }
-
-    // ── Comprobante fiscal electrónico ──────────────────────────────────────
-    if (issued && invoice.ecfEncf) {
-      const blockH = qr ? 96 : 46;
-      if (y + blockH + 24 > PAGE_BOTTOM) {
-        doc.addPage();
-        y = 40;
-      }
-      y += 16;
-      const textW = qr ? WIDTH - 28 - 92 : WIDTH - 28;
-      doc.rect(LEFT, y, WIDTH, blockH).fill(INFO_BG);
-      doc.rect(LEFT, y, 4, blockH).fill(TEAL);
-      doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7);
-      textLine(doc, ecfLabel(invoice.ecfTipo).toUpperCase(), LEFT + 14, y + 8, textW);
-      doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9.5);
-      textLine(doc, `e-NCF ${invoice.ecfEncf}`, LEFT + 14, y + 20, textW);
-      if (invoice.ecfCodigoSeguridad) {
-        doc.fillColor(MID_GRAY).font('Helvetica').fontSize(7.5);
-        textLine(doc, 'Código de seguridad', LEFT + 14, y + 36, textW);
-        doc.fillColor(DARK_TEXT).font('Helvetica-Bold').fontSize(9.5);
-        textLine(doc, invoice.ecfCodigoSeguridad, LEFT + 14, y + 46, textW);
-      }
-      if (invoice.ecfQrUrl) {
-        doc.fillColor(MID_GRAY).font('Helvetica').fontSize(6.5);
-        doc.text(`Consulta en la DGII: ${invoice.ecfQrUrl}`, LEFT + 14, y + 62, { width: textW, height: 28, ellipsis: true });
-      }
-      if (qr) doc.image(qr, RIGHT - 84, y + 8, { fit: [80, 80] });
-      y += blockH;
     }
 
     // ── Pie ─────────────────────────────────────────────────────────────────

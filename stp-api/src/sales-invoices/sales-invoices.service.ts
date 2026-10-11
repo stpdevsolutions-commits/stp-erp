@@ -35,6 +35,7 @@ import { CreatePaymentDto } from '../payments/dto/create-payment.dto';
 import { EcfClientService } from '../ecf/ecf-client.service';
 import { SettingsService } from '../settings/settings.service';
 import { generateSalesInvoicePdf } from './pdf.generator';
+import type { EcfPrintInfo } from './ecf-representation.generator';
 import { auditLog } from '../common/audit-log';
 import { todayRD } from '../common/dates';
 
@@ -49,6 +50,12 @@ const NET_SQL = `(inv."total" - ${CREDIT_SQL})`;
 
 /** Tolerancia de centavos al comparar saldos. */
 const EPS = 0.005;
+
+/** La DGII/ecf-api devuelve "0" cuando aún no hay código (p. ej. un rechazo): se trata como vacío. */
+const codigoSeguridad = (v?: string | null): string | null => {
+  const t = (v ?? '').trim();
+  return t && t !== '0' ? t : null;
+};
 
 @Injectable()
 export class SalesInvoicesService {
@@ -214,8 +221,24 @@ export class SalesInvoicesService {
   async pdf(id: string): Promise<{ buffer: Buffer; filename: string }> {
     const inv = await this.findOne(id);
     const company = await this.settings.getCompanyData();
-    const buffer = await generateSalesInvoicePdf(inv, company);
+    const buffer = await generateSalesInvoicePdf(inv, company, await this.ecfPrintInfo(inv));
     return { buffer, filename: `${inv.ecfEncf ?? inv.number}.pdf` };
+  }
+
+  /**
+   * Fecha de firma y vencimiento de la secuencia, que la representación impresa debe mostrar y
+   * que solo están en el XML firmado de ecf-api. Si ecf-api no responde, el PDF sale sin ellos.
+   */
+  private async ecfPrintInfo(inv: SalesInvoice): Promise<EcfPrintInfo> {
+    if (inv.status !== SalesInvoiceStatus.ISSUED || !inv.ecfId) return {};
+    try {
+      const r = await this.ecf.obtener(inv.ecfId);
+      const xml = typeof r.xmlFirmado === 'string' ? r.xmlFirmado : '';
+      const tag = (name: string) => xml.match(new RegExp(`<${name}>([^<]*)</${name}>`))?.[1]?.trim() || null;
+      return { fechaFirma: tag('FechaHoraFirma'), fechaVencimiento: tag('FechaVencimientoSecuencia') };
+    } catch {
+      return {};
+    }
   }
 
   /** Cobros aplicados a la factura. */
@@ -552,7 +575,7 @@ export class SalesInvoicesService {
       ecfTipo: dto.tipoEcf,
       ecfUuid: r.uuid ?? null,
       ecfEstado: r.estado ?? null,
-      ecfCodigoSeguridad: r.codigoSeguridadDgii ?? null,
+      ecfCodigoSeguridad: codigoSeguridad(r.codigoSeguridadDgii),
       ecfQrUrl: r.qrUrl ?? null,
       ecfError: null,
       ecfMensaje: null,
@@ -597,7 +620,7 @@ export class SalesInvoicesService {
     }
     await this.repo.update(id, {
       ecfEstado: r.estado ?? inv.ecfEstado,
-      ecfCodigoSeguridad: r.codigoSeguridadDgii ?? inv.ecfCodigoSeguridad,
+      ecfCodigoSeguridad: codigoSeguridad(r.codigoSeguridadDgii) ?? inv.ecfCodigoSeguridad,
       ecfQrUrl: r.qrUrl ?? inv.ecfQrUrl,
       ...(mensaje !== undefined ? { ecfMensaje: mensaje } : {}),
     });
