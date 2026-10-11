@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -18,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { QrReader } from '@/components/facturas/qr-reader'
+import { GastoCandidatos } from '@/components/facturas/gasto-candidatos'
 import {
   Select,
   SelectContent,
@@ -32,6 +33,7 @@ import {
   PAYMENT_METHODS_606,
   expenseTypeLabel,
   isEcf,
+  type ExpenseCandidate,
   type ScanResult,
   normalizeNcf,
   normalizeRnc,
@@ -39,6 +41,8 @@ import {
 } from '@/lib/fiscal-invoices'
 import {
   createFiscalInvoice,
+  findExpenseCandidates,
+  linkFiscalInvoiceToExpense,
   lookupRncInDgii,
   scanFiscalInvoice,
   scanQrText,
@@ -175,6 +179,10 @@ export function FacturaForm({
   const [scanInfo, setScanInfo] = useState<ScanResult | null>(prefill ?? null)
   const [qrOpen, setQrOpen] = useState(false)
   const [historyHint, setHistoryHint] = useState<string | null>(null)
+  // Gastos ya registrados a mano que se parecen a esta factura (ERP-50) y el que se eligió vincular.
+  const [candidates, setCandidates] = useState<ExpenseCandidate[]>([])
+  const [linkId, setLinkId] = useState<string | null>(null)
+  const [syncExpense, setSyncExpense] = useState(false)
 
   const {
     register,
@@ -192,8 +200,45 @@ export function FacturaForm({
   const paymentMethod = watch('paymentMethod')
   const ncfValue = watch('ncf') ?? ''
   const destino = watch('destino')
-  const destinoLabel =
-    destino === GENERAL_EXPENSE
+  const supplierRncW = watch('supplierRnc') ?? ''
+  const supplierNameW = watch('supplierName') ?? ''
+  const invoiceDateW = watch('invoiceDate') ?? ''
+  const baseW = num(watch('baseAmount'))
+  // Solo una factura que todavía no tiene gasto puede vincularse a uno que ya existía.
+  const canLink = !invoice?.expenseId && !createdId
+
+  useEffect(() => {
+    if (!canLink) return
+    const rnc = normalizeRnc(supplierRncW)
+    if (!(rnc.length === 9 || rnc.length === 11) || !invoiceDateW || total <= 0) {
+      setCandidates([])
+      setLinkId(null)
+      return
+    }
+    let cancelled = false
+    const t = setTimeout(async () => {
+      const res = await findExpenseCandidates({
+        supplierRnc: rnc,
+        supplierName: supplierNameW.trim(),
+        totalAmount: total,
+        baseAmount: baseW,
+        invoiceDate: invoiceDateW,
+      })
+      if (cancelled || !res.ok) return
+      const found = res.data ?? []
+      setCandidates(found)
+      // Si el gasto elegido ya no es candidato (cambió el monto o la fecha), se suelta.
+      setLinkId((cur) => (cur && found.some((c) => c.expenseId === cur) ? cur : null))
+    }, 600)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [canLink, supplierRncW, supplierNameW, invoiceDateW, total, baseW])
+
+  const destinoLabel = linkId
+    ? 'Gasto ya registrado (vinculado)'
+    : destino === GENERAL_EXPENSE
       ? 'Gasto general (sin proyecto)'
       : destino === PENDING
         ? 'Sin asignar (solo cuenta para el 606)'
@@ -324,8 +369,11 @@ export function FacturaForm({
       expenseType: data.expenseType,
       invoiceDate: data.invoiceDate,
       ...(isEcf(data.ncf) && data.securityCode?.trim() ? { securityCode: data.securityCode.trim() } : {}),
-      // Sin asignar = no se manda destino (no se crea ni se toca el gasto).
-      ...(data.destino === PENDING ? {} : { projectId: data.destino === GENERAL_EXPENSE ? null : data.destino }),
+      // Sin asignar = no se manda destino (no se crea ni se toca el gasto). Vinculada a un gasto que
+      // ya existía = tampoco: ese gasto ya tiene su proyecto.
+      ...(data.destino === PENDING || linkId
+        ? {}
+        : { projectId: data.destino === GENERAL_EXPENSE ? null : data.destino }),
     }
 
     let id: string
@@ -336,11 +384,22 @@ export function FacturaForm({
         return
       }
       id = invoice.id
+      if (canLink && linkId) {
+        const link = await linkFiscalInvoiceToExpense(invoice.id, linkId, syncExpense)
+        if (!link.ok) {
+          setServerError(`Los cambios se guardaron, pero no se pudo vincular al gasto (${link.error}).`)
+          return
+        }
+      }
     } else if (createdId) {
       // Ya se guardó en un intento anterior (solo falló la foto): no se crea otra vez.
       id = createdId
     } else {
-      const result = await createFiscalInvoice({ ...input, notes: data.notes?.trim() || undefined })
+      const result = await createFiscalInvoice({
+        ...input,
+        notes: data.notes?.trim() || undefined,
+        ...(linkId ? { expenseId: linkId, syncExpense } : {}),
+      })
       if (!result.ok || !result.id) {
         setServerError(result.error ?? 'Error desconocido')
         return
@@ -578,9 +637,22 @@ export function FacturaForm({
           </div>
         )}
 
+        {canLink && candidates.length > 0 && (
+          <div className="col-span-full">
+            <GastoCandidatos
+              candidates={candidates}
+              value={linkId}
+              onChange={setLinkId}
+              sync={syncExpense}
+              onSyncChange={setSyncExpense}
+              name={`gasto-candidato-${invoice?.id ?? 'nueva'}`}
+            />
+          </div>
+        )}
+
         <div className="col-span-full space-y-1.5">
           <Label>Destino del gasto</Label>
-          <Select value={destino} onValueChange={(v) => v && setValue('destino', v)}>
+          <Select value={destino} onValueChange={(v) => v && setValue('destino', v)} disabled={!!linkId}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Elegir destino">{destinoLabel}</SelectValue>
             </SelectTrigger>
@@ -596,7 +668,9 @@ export function FacturaForm({
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            La factura cuenta para el 606 en cualquier caso. Con destino, además crea su gasto en el ERP.
+            {linkId
+              ? 'La factura se vincula al gasto que ya registraste: no se crea otro y el proyecto es el de ese gasto.'
+              : 'La factura cuenta para el 606 en cualquier caso. Con destino, además crea su gasto en el ERP.'}
           </p>
         </div>
 

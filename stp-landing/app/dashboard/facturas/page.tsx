@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Camera } from 'lucide-react'
+import { Camera, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { api, pageError } from '@/lib/api'
 import type { PaginatedResponse, Project, User } from '@/lib/types'
@@ -66,6 +66,12 @@ export default async function FacturasPage({
         </div>
         <div className="flex gap-2">
           {['admin', 'finanza'].includes(userRole.toLowerCase()) ? <ValidarPendientesButton /> : null}
+          {['admin', 'finanza'].includes(userRole.toLowerCase()) ? (
+            <Button variant="outline" render={<Link href="/dashboard/facturas/conciliar" />} className="gap-2">
+              <Link2 className="size-4" />
+              Conciliar
+            </Button>
+          ) : null}
           <ExportExcelButton href={`/api/export/facturas-606?${exportQuery.toString()}`} label="Exportar 606" />
           <Button variant="outline" render={<Link href="/dashboard/escanear" />} className="gap-2">
             <Camera className="size-4" />

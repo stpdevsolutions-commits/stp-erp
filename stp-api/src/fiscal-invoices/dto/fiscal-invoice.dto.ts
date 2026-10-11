@@ -2,6 +2,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
   IsNumber,
@@ -10,12 +11,13 @@ import {
   IsUUID,
   Matches,
   ValidateIf,
+  ValidateNested,
   Max,
   MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { clampLimit, clampPage } from '../../common/pagination';
 import {
   EXPENSE_TYPE_CODES,
@@ -92,6 +94,19 @@ export class CreateFiscalInvoiceDto {
   @IsOptional()
   @IsUUID()
   projectId?: string | null;
+
+  /**
+   * En vez de crear un gasto nuevo, vincula la factura a un gasto que ya estaba registrado a
+   * mano (ERP-50). No se combina con `projectId`.
+   */
+  @IsOptional()
+  @IsUUID()
+  expenseId?: string;
+
+  /** Con `expenseId`: poner en el gasto el monto, la fecha y el proveedor de la factura. */
+  @IsOptional()
+  @IsBoolean()
+  syncExpense?: boolean;
 }
 
 export class UpdateFiscalInvoiceDto {
@@ -230,4 +245,48 @@ export class ValidatePendingDto {
 
   /** Ids que ya se intentaron y siguen sin resultado: se saltan para no repetirlas. */
   @IsOptional() @IsArray() @ArrayMaxSize(1000) @IsUUID('4', { each: true }) exclude?: string[];
+}
+
+/** Datos de una factura (aún sin guardar) para buscarle un gasto ya registrado. */
+export class ExpenseCandidatesQueryDto {
+  @IsOptional()
+  @Transform(asRnc)
+  @IsString()
+  @MaxLength(11)
+  supplierRnc?: string;
+
+  @IsOptional() @IsString() @MaxLength(255) supplierName?: string;
+
+  @Type(() => Number) @IsNumber(MONEY) @Min(0) @Max(MAX_MONEY) totalAmount: number;
+
+  @IsOptional() @Type(() => Number) @IsNumber(MONEY) @Min(0) @Max(MAX_MONEY) baseAmount?: number;
+
+  @IsDateString()
+  invoiceDate: string;
+}
+
+/** Vincula una factura a un gasto que ya existía. */
+export class LinkExpenseDto {
+  @IsUUID()
+  expenseId: string;
+
+  /** Poner en el gasto los datos de la factura (por defecto se respeta lo que ya tiene). */
+  @IsOptional()
+  @IsBoolean()
+  syncExpense?: boolean;
+}
+
+export class LinkPairDto extends LinkExpenseDto {
+  @IsUUID()
+  invoiceId: string;
+}
+
+/** Confirma varias vinculaciones de la conciliación de una vez. */
+export class ApplyLinksDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => LinkPairDto)
+  pairs: LinkPairDto[];
 }

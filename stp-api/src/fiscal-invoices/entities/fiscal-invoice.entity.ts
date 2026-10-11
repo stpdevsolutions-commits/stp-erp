@@ -110,6 +110,14 @@ export class FiscalInvoice {
   @Column({ type: 'uuid', nullable: true })
   expenseId: string | null;
 
+  /**
+   * `true`: el gasto nació de esta factura (se sincroniza con ella y se borra con ella).
+   * `false`: el gasto ya existía, tecleado a mano, y la factura solo se vinculó a él (ERP-50):
+   * no se le pisan los datos ni se borra al borrar la factura.
+   */
+  @Column({ type: 'boolean', default: true })
+  expenseOwned: boolean;
+
   /** Id de la factura en FiscoRD, para que la migración no duplique si se repite. */
   @Index('UQ_fiscal_invoices_legacy', { unique: true, where: '"legacyId" IS NOT NULL' })
   @Column({ type: 'varchar', length: 64, nullable: true })

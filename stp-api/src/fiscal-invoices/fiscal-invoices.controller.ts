@@ -21,8 +21,11 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { FiscalInvoicesService } from './fiscal-invoices.service';
 import {
+  ApplyLinksDto,
   AssignFiscalInvoicesDto,
+  ExpenseCandidatesQueryDto,
   FromQrDto,
+  LinkExpenseDto,
   CreateFiscalInvoiceDto,
   QueryFiscalInvoicesDto,
   UpdateFiscalInvoiceDto,
@@ -140,6 +143,28 @@ export class FiscalInvoicesController {
     await sendWorkbook(res, workbook, period ? `606_${period}` : '606');
   }
 
+  /** Gastos ya registrados a mano que se parecen a una factura que se está por guardar (ERP-50). */
+  @Get('expense-candidates')
+  @RequireModule('facturas', 'manage')
+  expenseCandidates(@Query() query: ExpenseCandidatesQueryDto) {
+    return this.service.expenseCandidates(query);
+  }
+
+  /** Conciliación: el gasto manual que corresponde a cada factura sin gasto. */
+  @Get('reconcile')
+  @RequireModule('facturas', 'manage')
+  reconcile() {
+    return this.service.reconciliation();
+  }
+
+  /** Confirma varias vinculaciones propuestas por la conciliación. */
+  @Post('reconcile/apply')
+  @HttpCode(HttpStatus.OK) // actualiza facturas existentes
+  @RequireModule('facturas', 'manage')
+  applyLinks(@Body() dto: ApplyLinksDto, @CurrentUser() user: AuthUser) {
+    return this.service.applyLinks(dto.pairs, user.id);
+  }
+
   /** La factura que originó un gasto (el detalle del gasto la muestra). */
   @Get('by-expense/:expenseId')
   byExpense(@Param('expenseId', ParseUUIDPipe) expenseId: string) {
@@ -181,6 +206,25 @@ export class FiscalInvoicesController {
   @RequireModule('facturas', 'manage')
   assign(@Body() dto: AssignFiscalInvoicesDto, @CurrentUser() user: AuthUser) {
     return this.service.assign(dto.ids, dto.projectId, user.id);
+  }
+
+  @Get(':id/expense-candidates')
+  @RequireModule('facturas', 'manage')
+  candidatesForInvoice(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.candidatesForInvoice(id);
+  }
+
+  @Post(':id/link-expense')
+  @HttpCode(HttpStatus.OK) // actualiza una factura existente
+  @RequireModule('facturas', 'manage')
+  linkExpense(@Param('id', ParseUUIDPipe) id: string, @Body() dto: LinkExpenseDto, @CurrentUser() user: AuthUser) {
+    return this.service.linkExpense(id, dto.expenseId, user.id, !!dto.syncExpense);
+  }
+
+  @Delete(':id/link-expense')
+  @RequireModule('facturas', 'manage')
+  unlinkExpense(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.service.unlinkExpense(id, user.id);
   }
 
   @Get(':id')

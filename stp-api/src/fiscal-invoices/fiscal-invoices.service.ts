@@ -6,22 +6,31 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, IsNull, Repository } from 'typeorm';
 import { existsSync, unlink } from 'fs';
 import { join, relative } from 'path';
 import { FiscalInvoice } from './entities/fiscal-invoice.entity';
 import {
   CreateFiscalInvoiceDto,
+  ExpenseCandidatesQueryDto,
+  LinkPairDto,
   QueryFiscalInvoicesDto,
   UpdateFiscalInvoiceDto,
 } from './dto/fiscal-invoice.dto';
+import {
+  DATE_WINDOW_DAYS,
+  matchExpenses,
+  suggestAll,
+  type ExpenseMatch,
+  type MatchExpense,
+} from './expense-match';
 import { expenseCategoryFor, invoiceTotal, isValidNcf, isValidRnc, ncfTypeOf, normalizeRnc } from './fiscal-invoice-rules';
 import { InvoiceScanService } from './invoice-scan.service';
 import { matchesMagic, normalizeScan, type ScanCore, type ScanResult } from './invoice-scan';
 import { QrParseError, parseDgiiQr } from './qr-ecf';
 import { applyHistory, summarizeHistory, type SupplierHistory } from './supplier-history';
 import { ExpensesService } from '../expenses/expenses.service';
-import { ExpenseCategory } from '../expenses/entities/expense.entity';
+import { Expense, ExpenseCategory } from '../expenses/entities/expense.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { getUploadRoot, validateFileMagicBytes } from '../files/files.utils';
 import { auditLog } from '../common/audit-log';
@@ -51,6 +60,8 @@ export class FiscalInvoicesService {
     private readonly expenses: ExpensesService,
     @InjectRepository(Supplier)
     private readonly suppliers: Repository<Supplier>,
+    @InjectRepository(Expense)
+    private readonly expenseRepo: Repository<Expense>,
     private readonly scanner: InvoiceScanService,
   ) {}
 
@@ -58,9 +69,14 @@ export class FiscalInvoicesService {
 
   async create(dto: CreateFiscalInvoiceDto, createdById: string): Promise<FiscalInvoice> {
     await this.assertNotDuplicate(dto.supplierRnc, dto.ncf);
+    if (dto.expenseId && dto.projectId !== undefined) {
+      throw new BadRequestException('Elige un destino nuevo (proyecto o general) o vincular a un gasto, no las dos cosas.');
+    }
+    // El vínculo con un gasto existente se hace aparte y con comprobaciones, nunca escribiéndolo directo.
+    const { expenseId: linkTo, syncExpense, ...fields } = dto;
 
     const invoice = this.repo.create({
-      ...dto,
+      ...fields,
       ncfType: this.typeOrFail(dto.ncf),
       paymentMethod: dto.paymentMethod ?? '01',
       createdById,
@@ -79,9 +95,10 @@ export class FiscalInvoicesService {
 
     // Con destino (proyecto o general) la factura origina su gasto en el ERP. Si el gasto
     // no se puede crear, la factura tampoco queda: no se deja una a medias.
-    if (dto.projectId !== undefined) {
+    if (dto.projectId !== undefined || linkTo) {
       try {
-        await this.applyDestination(saved, dto.projectId, createdById);
+        if (linkTo) await this.linkExpense(saved.id, linkTo, createdById, !!syncExpense);
+        else await this.applyDestination(saved, dto.projectId, createdById);
       } catch (err) {
         await this.repo.delete(saved.id);
         throw err;
@@ -102,15 +119,14 @@ export class FiscalInvoicesService {
   ): Promise<void> {
     if (!invoice.expenseId && projectId === undefined) return;
 
-    const supplierId = await this.ensureSupplier(invoice);
-    const payload = {
-      description: `${invoice.supplierName} — ${invoice.ncf}`,
-      category: expenseCategoryFor(invoice.expenseType) as ExpenseCategory,
-      amount: invoice.totalAmount,
-      date: invoice.invoiceDate,
-      supplierId,
-      notes: invoice.notes ? `Factura ${invoice.ncf}. ${invoice.notes}` : `Factura ${invoice.ncf}`,
-    };
+    // Gasto que ya existía y solo se vinculó (ERP-50): no se le pisan los datos; a lo sumo
+    // cambia de proyecto si se pidió.
+    if (invoice.expenseId && !invoice.expenseOwned) {
+      if (projectId !== undefined) await this.expenses.update(invoice.expenseId, { projectId });
+      return;
+    }
+
+    const payload = await this.expensePayload(invoice);
 
     if (invoice.expenseId) {
       await this.expenses.update(invoice.expenseId, {
@@ -121,6 +137,19 @@ export class FiscalInvoicesService {
     }
     const expense = await this.expenses.create({ ...payload, projectId }, userId);
     await this.repo.update(invoice.id, { expenseId: expense.id });
+  }
+
+  /** Lo que la factura pone en su gasto: descripción, categoría, monto, fecha, proveedor y notas. */
+  private async expensePayload(invoice: FiscalInvoice) {
+    const supplierId = await this.ensureSupplier(invoice);
+    return {
+      description: `${invoice.supplierName} — ${invoice.ncf}`,
+      category: expenseCategoryFor(invoice.expenseType) as ExpenseCategory,
+      amount: invoice.totalAmount,
+      date: invoice.invoiceDate,
+      supplierId,
+      notes: invoice.notes ? `Factura ${invoice.ncf}. ${invoice.notes}` : `Factura ${invoice.ncf}`,
+    };
   }
 
   /** Proveedor del ERP con ese RNC (se compara sin guiones); si no existe, se crea. */
@@ -313,6 +342,171 @@ export class FiscalInvoicesService {
     return { updated, failed };
   }
 
+  // ── Vincular con gastos ya registrados a mano (ERP-50) ──────────────────────
+
+  /** Gastos que todavía no tienen factura, con lo necesario para compararlos y mostrarlos. */
+  private async unlinkedExpenses(dateFrom?: string, dateTo?: string) {
+    const qb = this.expenseRepo
+      .createQueryBuilder('e')
+      .leftJoinAndSelect('e.supplier', 's')
+      .leftJoinAndSelect('e.project', 'p')
+      .where('NOT EXISTS (SELECT 1 FROM fiscal_invoices f WHERE f."expenseId" = e.id)');
+    if (dateFrom) qb.andWhere('e.date >= :dateFrom', { dateFrom });
+    if (dateTo) qb.andWhere('e.date <= :dateTo', { dateTo });
+    return qb.orderBy('e.date', 'DESC').getMany();
+  }
+
+  private toMatchExpense(e: Expense): MatchExpense {
+    return {
+      id: e.id,
+      description: e.description,
+      amount: e.amount,
+      date: e.date,
+      notes: e.notes,
+      supplierRnc: e.supplier?.rnc ?? null,
+      supplierName: e.supplier?.name ?? null,
+    };
+  }
+
+  /** Datos del gasto para mostrar en pantalla. */
+  private expenseSummary(e: Expense) {
+    return {
+      id: e.id,
+      description: e.description,
+      amount: e.amount,
+      date: e.date,
+      notes: e.notes,
+      supplierName: e.supplier?.name ?? null,
+      projectId: e.projectId,
+      projectCode: e.project?.code ?? null,
+      projectName: e.project?.name ?? null,
+    };
+  }
+
+  private dateWindow(date: string) {
+    const d = new Date(`${date.slice(0, 10)}T00:00:00Z`);
+    const shift = (days: number) => new Date(d.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+    return { from: shift(-DATE_WINDOW_DAYS), to: shift(DATE_WINDOW_DAYS) };
+  }
+
+  /** Gastos ya registrados que se parecen a una factura (guardada o por guardar). */
+  async expenseCandidates(input: ExpenseCandidatesQueryDto) {
+    const { from, to } = this.dateWindow(input.invoiceDate);
+    const expenses = await this.unlinkedExpenses(from, to);
+    const byId = new Map(expenses.map((e) => [e.id, e]));
+    const matches = matchExpenses(
+      {
+        supplierRnc: input.supplierRnc ?? '',
+        supplierName: input.supplierName ?? '',
+        totalAmount: input.totalAmount,
+        baseAmount: input.baseAmount,
+        invoiceDate: input.invoiceDate,
+      },
+      expenses.map((e) => this.toMatchExpense(e)),
+    );
+    return matches.map((m) => ({ ...m, expense: this.expenseSummary(byId.get(m.expenseId)!) }));
+  }
+
+  async candidatesForInvoice(id: string) {
+    const inv = await this.findOne(id);
+    if (inv.expenseId) return [];
+    return this.expenseCandidates({
+      supplierRnc: inv.supplierRnc,
+      supplierName: inv.supplierName,
+      totalAmount: inv.totalAmount,
+      baseAmount: inv.baseAmount,
+      invoiceDate: inv.invoiceDate,
+    });
+  }
+
+  /**
+   * Conciliación: para cada factura sin gasto, el gasto manual que más se le parece (cada gasto
+   * se propone a una sola factura). Solo trae las que tienen alguna coincidencia.
+   */
+  async reconciliation() {
+    const [invoices, expenses] = await Promise.all([
+      this.repo.find({ where: { expenseId: IsNull() }, order: { invoiceDate: 'DESC' } }),
+      this.unlinkedExpenses(),
+    ]);
+    const invById = new Map(invoices.map((i) => [i.id, i]));
+    const expById = new Map(expenses.map((e) => [e.id, e]));
+    const suggestions = suggestAll(
+      invoices.map((i) => ({
+        id: i.id,
+        supplierRnc: i.supplierRnc,
+        supplierName: i.supplierName,
+        totalAmount: i.totalAmount,
+        baseAmount: i.baseAmount,
+        invoiceDate: i.invoiceDate,
+      })),
+      expenses.map((e) => this.toMatchExpense(e)),
+    );
+    const withExpense = (m: ExpenseMatch) => ({ ...m, expense: this.expenseSummary(expById.get(m.expenseId)!) });
+    return {
+      unlinkedInvoices: invoices.length,
+      unlinkedExpenses: expenses.length,
+      items: suggestions.map((sg) => {
+        const i = invById.get(sg.invoiceId)!;
+        return {
+          invoice: {
+            id: i.id,
+            ncf: i.ncf,
+            supplierName: i.supplierName,
+            supplierRnc: i.supplierRnc,
+            invoiceDate: i.invoiceDate,
+            totalAmount: i.totalAmount,
+            baseAmount: i.baseAmount,
+          },
+          best: withExpense(sg.best),
+          ambiguous: sg.ambiguous,
+          alternatives: sg.alternatives.map(withExpense),
+        };
+      }),
+    };
+  }
+
+  /**
+   * Vincula una factura a un gasto que ya existía. El gasto se conserva tal cual (con sus notas y
+   * su foto); con `syncExpense` se le ponen además el monto, la fecha y el proveedor de la factura.
+   */
+  async linkExpense(invoiceId: string, expenseId: string, userId: string, syncExpense = false): Promise<FiscalInvoice> {
+    const invoice = await this.findOne(invoiceId);
+    if (invoice.expenseId) throw new ConflictException('Esta factura ya tiene un gasto.');
+    const expense = await this.expenseRepo.findOne({ where: { id: expenseId } });
+    if (!expense) throw new NotFoundException('Gasto no encontrado');
+    const taken = await this.repo.findOne({ where: { expenseId } });
+    if (taken) throw new ConflictException(`Ese gasto ya está enlazado a la factura ${taken.ncf} de ${taken.supplierName}.`);
+
+    await this.repo.update(invoiceId, { expenseId, expenseOwned: false });
+    if (syncExpense) await this.expenses.update(expenseId, await this.expensePayload(invoice));
+    auditLog(userId, 'fiscal-invoice.expense-linked', { invoiceId, ncf: invoice.ncf, expenseId, syncExpense });
+    return this.findOne(invoiceId);
+  }
+
+  /** Suelta el gasto de una factura. El gasto no se borra: queda como estaba, sin factura. */
+  async unlinkExpense(invoiceId: string, userId: string): Promise<FiscalInvoice> {
+    const invoice = await this.findOne(invoiceId);
+    if (!invoice.expenseId) throw new ConflictException('Esta factura no tiene gasto.');
+    await this.repo.update(invoiceId, { expenseId: null, expenseOwned: true });
+    auditLog(userId, 'fiscal-invoice.expense-unlinked', { invoiceId, ncf: invoice.ncf, expenseId: invoice.expenseId });
+    return this.findOne(invoiceId);
+  }
+
+  /** Confirma varias vinculaciones de la conciliación; las que fallan se informan sin frenar las demás. */
+  async applyLinks(pairs: LinkPairDto[], userId: string) {
+    let linked = 0;
+    const failed: { invoiceId: string; error: string }[] = [];
+    for (const p of pairs) {
+      try {
+        await this.linkExpense(p.invoiceId, p.expenseId, userId, !!p.syncExpense);
+        linked += 1;
+      } catch (err) {
+        failed.push({ invoiceId: p.invoiceId, error: err instanceof Error ? err.message : 'Error desconocido' });
+      }
+    }
+    return { linked, failed };
+  }
+
   /** Consulta base con los filtros del listado; la comparten la pantalla y la exportación. */
   private filteredQuery(query: QueryFiscalInvoicesDto) {
     const { search, dateFrom, dateTo, expenseType, project } = query;
@@ -448,7 +642,8 @@ export class FiscalInvoicesService {
       total: invoice.totalAmount,
     });
     const photo = invoice.photoPath;
-    const expenseId = invoice.expenseId;
+    // Solo se borra el gasto que nació de esta factura; uno vinculado ya existía y se conserva.
+    const expenseId = invoice.expenseOwned ? invoice.expenseId : null;
     await this.repo.remove(invoice);
     // El archivo y el gasto se borran DESPUÉS y sin propagar: el dato contable es la factura.
     if (photo) this.unlinkStored(photo);

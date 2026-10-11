@@ -1,18 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { FiscalInvoicesService } from './fiscal-invoices.service';
 
 const PROJECT = '11111111-1111-4111-8111-111111111111';
 
 /** Un repositorio en memoria y dobles de ExpensesService/proveedores, sin base de datos. */
-function build(opts: { existingSupplierId?: string; expenseCreate?: () => Promise<any> } = {}) {
+function build(opts: { existingSupplierId?: string; expenseCreate?: () => Promise<any>; manualExpenses?: string[] } = {}) {
   const store = new Map<string, any>();
   let seq = 0;
 
   const repo = {
     create: jest.fn((o: any) => ({ ...o })),
     save: jest.fn(async (o: any) => {
-      const row = { ...o, id: o.id ?? `inv-${++seq}`, expenseId: o.expenseId ?? null, photoPath: null };
+      const row = { ...o, id: o.id ?? `inv-${++seq}`, expenseId: o.expenseId ?? null, expenseOwned: o.expenseOwned ?? true, photoPath: null };
       store.set(row.id, row);
       return row;
     }),
@@ -46,6 +46,11 @@ function build(opts: { existingSupplierId?: string; expenseCreate?: () => Promis
     save: jest.fn(async (o: any) => ({ id: 'sup-new', ...o })),
   };
 
+  // Gastos tecleados a mano que ya existen (ERP-50).
+  const expenseRepo = {
+    findOne: jest.fn(async ({ where }: any) => ((opts.manualExpenses ?? []).includes(where.id) ? { id: where.id } : null)),
+  };
+
   const scanner = { read: jest.fn(async () => ({ raw: {}, provider: 'gemini' })) };
   const dgii = {
     fetchTimbre: jest.fn(async (): Promise<any> => null),
@@ -53,8 +58,8 @@ function build(opts: { existingSupplierId?: string; expenseCreate?: () => Promis
     checkComprobante: jest.fn(async (): Promise<any> => ({ verdict: 'unknown', estado: null, message: '', isEcf: true })),
   };
   const settings = { getCompanyData: jest.fn(async () => ({ rnc: '132943058' })) };
-  const service = new FiscalInvoicesService(repo as any, dgii as any, settings as any, expenses as any, suppliers as any, scanner as any);
-  return { service, repo, expenses, suppliers, store, scanner, dgii, settings };
+  const service = new FiscalInvoicesService(repo as any, dgii as any, settings as any, expenses as any, suppliers as any, expenseRepo as any, scanner as any);
+  return { service, repo, expenses, suppliers, store, scanner, dgii, settings, expenseRepo };
 }
 
 const dto = (over: Record<string, unknown> = {}) =>
@@ -396,5 +401,114 @@ describe('FiscalInvoicesService — factura → gasto (ERP-39)', () => {
     const inv = await service.create(dto({ projectId: null }), 'u');
     expect((await service.findByExpense('exp-1')).id).toBe(inv.id);
     await expect(service.findByExpense('otro')).rejects.toThrow('no viene de una factura');
+  });
+});
+
+describe('FiscalInvoicesService — vincular a un gasto ya registrado (ERP-50)', () => {
+  const MANUAL = '22222222-2222-4222-8222-222222222222';
+
+  it('al crear con expenseId no crea otro gasto: vincula el que ya existía y no lo pisa', async () => {
+    const { service, expenses, store } = build({ manualExpenses: [MANUAL] });
+    const inv = await service.create(dto({ expenseId: MANUAL }), 'user-1');
+    expect(expenses.create).not.toHaveBeenCalled();
+    expect(expenses.update).not.toHaveBeenCalled();
+    expect(inv.expenseId).toBe(MANUAL);
+    expect(store.get(inv.id).expenseOwned).toBe(false);
+  });
+
+  it('con syncExpense le pone al gasto los datos de la factura', async () => {
+    const { service, expenses } = build({ manualExpenses: [MANUAL] });
+    await service.create(dto({ expenseId: MANUAL, syncExpense: true }), 'user-1');
+    const [id, payload] = expenses.update.mock.calls[0] as any[];
+    expect(id).toBe(MANUAL);
+    expect(payload).toMatchObject({ amount: 1180, date: '2026-10-05', description: 'FERRETERIA UNO SRL — B0100000012' });
+    expect('projectId' in payload).toBe(false);
+  });
+
+  it('no deja elegir a la vez un destino nuevo y un gasto existente', async () => {
+    const { service } = build({ manualExpenses: [MANUAL] });
+    await expect(service.create(dto({ expenseId: MANUAL, projectId: PROJECT }), 'user-1')).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('si el gasto no existe, la factura tampoco queda', async () => {
+    const { service, store } = build();
+    await expect(service.create(dto({ expenseId: MANUAL }), 'user-1')).rejects.toBeInstanceOf(NotFoundException);
+    expect(store.size).toBe(0);
+  });
+
+  it('un gasto ya enlazado a otra factura no se puede vincular otra vez', async () => {
+    const { service, store } = build({ manualExpenses: [MANUAL] });
+    await service.create(dto({ expenseId: MANUAL }), 'user-1');
+    await expect(
+      service.create(dto({ ncf: 'B0100000013', expenseId: MANUAL }), 'user-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(store.size).toBe(1); // la segunda factura no quedó a medias
+  });
+
+  it('editar la factura NO toca los datos del gasto vinculado', async () => {
+    const { service, expenses } = build({ manualExpenses: [MANUAL] });
+    const inv = await service.create(dto({ expenseId: MANUAL }), 'user-1');
+    await service.update(inv.id, { baseAmount: 5000 } as any, 'user-1');
+    expect(expenses.update).not.toHaveBeenCalled();
+  });
+
+  it('cambiar el proyecto de la factura vinculada solo cambia el proyecto del gasto', async () => {
+    const { service, expenses } = build({ manualExpenses: [MANUAL] });
+    const inv = await service.create(dto({ expenseId: MANUAL }), 'user-1');
+    await service.update(inv.id, { projectId: PROJECT } as any, 'user-1');
+    expect(expenses.update).toHaveBeenCalledWith(MANUAL, { projectId: PROJECT });
+  });
+
+  it('borrar la factura vinculada conserva el gasto que ya existía', async () => {
+    const { service, expenses } = build({ manualExpenses: [MANUAL] });
+    const inv = await service.create(dto({ expenseId: MANUAL }), 'user-1');
+    await service.remove(inv.id, 'user-1');
+    expect(expenses.remove).not.toHaveBeenCalled();
+  });
+
+  it('borrar una factura que creó su propio gasto sigue borrando ese gasto', async () => {
+    const { service, expenses } = build();
+    const inv = await service.create(dto({ projectId: null }), 'user-1');
+    await service.remove(inv.id, 'user-1');
+    expect(expenses.remove).toHaveBeenCalledWith('exp-1', 'user-1');
+  });
+
+  it('vincular una factura que ya guardada sin gasto, y luego desvincularla sin borrar el gasto', async () => {
+    const { service, expenses, store } = build({ manualExpenses: [MANUAL] });
+    const inv = await service.create(dto(), 'user-1');
+    await service.linkExpense(inv.id, MANUAL, 'user-1');
+    expect(store.get(inv.id)).toMatchObject({ expenseId: MANUAL, expenseOwned: false });
+
+    await service.unlinkExpense(inv.id, 'user-1');
+    expect(store.get(inv.id)).toMatchObject({ expenseId: null, expenseOwned: true });
+    expect(expenses.remove).not.toHaveBeenCalled();
+  });
+
+  it('vincular una factura que ya tiene gasto es un conflicto', async () => {
+    const { service } = build({ manualExpenses: [MANUAL] });
+    const inv = await service.create(dto({ projectId: null }), 'user-1');
+    await expect(service.linkExpense(inv.id, MANUAL, 'user-1')).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('desvincular una factura sin gasto es un conflicto', async () => {
+    const { service } = build();
+    const inv = await service.create(dto(), 'user-1');
+    await expect(service.unlinkExpense(inv.id, 'user-1')).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('applyLinks informa las que fallan sin frenar las demás', async () => {
+    const { service } = build({ manualExpenses: [MANUAL] });
+    const a = await service.create(dto(), 'user-1');
+    const b = await service.create(dto({ ncf: 'B0100000013' }), 'user-1');
+    const r = await service.applyLinks(
+      [
+        { invoiceId: a.id, expenseId: MANUAL },
+        { invoiceId: b.id, expenseId: MANUAL }, // el mismo gasto ya quedó enlazado a la primera
+      ] as any,
+      'user-1',
+    );
+    expect(r.linked).toBe(1);
+    expect(r.failed).toHaveLength(1);
+    expect(r.failed[0].invoiceId).toBe(b.id);
   });
 });

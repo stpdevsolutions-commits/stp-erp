@@ -26,6 +26,8 @@ export interface FiscalInvoice {
   dgiiEstado: string | null
   dgiiValidatedAt: string | null
   expenseId: string | null
+  /** `false`: el gasto ya existía (tecleado a mano) y la factura solo se vinculó a él. */
+  expenseOwned?: boolean
   /** El gasto enlazado lleva el proyecto; sin gasto o sin proyecto = gasto general. */
   expense?: {
     id: string
@@ -140,4 +142,49 @@ export interface SupplierSuggestion {
   expenseTypeShare: number | null
   paymentMethod: string | null
   paymentMethodShare: number | null
+}
+
+/** Un gasto ya registrado, tal como lo muestran la búsqueda y la conciliación. */
+export interface ExpenseSummary {
+  id: string
+  description: string
+  amount: number
+  date: string
+  notes: string | null
+  supplierName: string | null
+  projectId: string | null
+  projectCode: string | null
+  projectName: string | null
+}
+
+/** Qué tan probable es que un gasto ya registrado sea el de la factura (ERP-50). */
+export interface ExpenseCandidate {
+  expenseId: string
+  score: number
+  /** `strong`: mismo proveedor, monto y fecha cercana. `possible`: se parece, a revisar. */
+  level: 'strong' | 'possible'
+  reasons: string[]
+  expense: ExpenseSummary
+}
+
+export interface ReconcileItem {
+  invoice: {
+    id: string
+    ncf: string
+    supplierName: string
+    supplierRnc: string
+    invoiceDate: string
+    totalAmount: number
+    baseAmount: number
+  }
+  best: ExpenseCandidate
+  /** Hay otro gasto casi igual de probable: conviene revisar antes de confirmar. */
+  ambiguous: boolean
+  alternatives: ExpenseCandidate[]
+}
+
+export interface Reconciliation {
+  unlinkedInvoices: number
+  unlinkedExpenses: number
+  items: ReconcileItem[]
 }
