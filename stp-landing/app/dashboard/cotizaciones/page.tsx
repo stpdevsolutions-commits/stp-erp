@@ -104,7 +104,7 @@ export default async function CotizacionesPage({
           <h1 className="text-2xl font-bold tracking-tight">Cotizaciones</h1>
           <p className="text-muted-foreground text-sm">Gestión de cotizaciones y propuestas</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ExportExcelButton href={`/api/export/cotizaciones?${q.toString()}`} label="Exportar Excel" />
           <NuevaCotizacionDialog
             clients={clients}

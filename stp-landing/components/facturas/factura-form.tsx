@@ -1,7 +1,7 @@
 'use client'
 
 import { toast } from '@/lib/toast'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { QrReader } from '@/components/facturas/qr-reader'
 import { GastoCandidatos } from '@/components/facturas/gasto-candidatos'
+import { CalculadoraFiscal, type TaxKey } from '@/components/facturas/calculadora-fiscal'
 import {
   Select,
   SelectContent,
@@ -198,6 +199,16 @@ export function FacturaForm({
     num(watch('baseAmount')) + num(watch('itbis')) + num(watch('isc')) + num(watch('tip')) + num(watch('otherTax')),
   )
   const expenseType = watch('expenseType')
+  // Un QR se transcribe tal cual: la calculadora lo recibe para abrirse en ese método.
+  const qrScan = useMemo(
+    () =>
+      scanInfo?.source === 'qr'
+        ? { total: scanInfo.totalAmount ?? total, itbis: scanInfo.fields.itbis }
+        : null,
+    // `total` cambia al teclear; solo importa la lectura.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scanInfo],
+  )
   const paymentMethod = watch('paymentMethod')
   const ncfValue = watch('ncf') ?? ''
   const destino = watch('destino')
@@ -554,6 +565,20 @@ export function FacturaForm({
           <Input id="f-name" placeholder="Ferretería…" {...register('supplierName')} />
           {errors.supplierName && <p className="text-xs text-destructive">{errors.supplierName.message}</p>}
         </div>
+
+        {!invoice && (
+          <CalculadoraFiscal
+            values={{
+              baseAmount: num(watch('baseAmount')),
+              itbis: num(watch('itbis')),
+              isc: num(watch('isc')),
+              tip: num(watch('tip')),
+              otherTax: num(watch('otherTax')),
+            }}
+            onChange={(key: TaxKey, v: number) => setValue(key, v ? String(v) : '', { shouldDirty: true })}
+            scan={qrScan}
+          />
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor="f-base">Monto base (sin impuestos) <span className="text-destructive">*</span></Label>

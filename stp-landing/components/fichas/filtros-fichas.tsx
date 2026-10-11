@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { X } from 'lucide-react'
+import { FiltrosPlegables } from '@/components/ui/filtros-plegables'
 
 const TYPE_LABEL: Record<FichaType, string> = {
   electrico: 'Eléctrico',
@@ -45,61 +46,63 @@ export function FiltrosFichas({ clients, projects }: { clients: Client[]; projec
   }
 
   return (
-    <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
-      <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-48">
-          <SelectValue placeholder="Cliente" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los clientes</SelectItem>
-          {clients.map((c) => (
-            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <FiltrosPlegables>
+      <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
+        <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los clientes</SelectItem>
+            {clients.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <Select value={projectId || 'all'} onValueChange={(v) => set('projectId', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-56">
-          <SelectValue placeholder="Proyecto" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los proyectos</SelectItem>
-          {projects.map((p) => (
-            <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <Select value={projectId || 'all'} onValueChange={(v) => set('projectId', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Proyecto" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los proyectos</SelectItem>
+            {projects.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <Select value={type || 'all'} onValueChange={(v) => set('type', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-44">
-          <SelectValue placeholder="Tipo" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los tipos</SelectItem>
-          {(Object.entries(TYPE_LABEL) as [FichaType, string][]).map(([v, l]) => (
-            <SelectItem key={v} value={v}>{l}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <Select value={type || 'all'} onValueChange={(v) => set('type', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los tipos</SelectItem>
+            {(Object.entries(TYPE_LABEL) as [FichaType, string][]).map(([v, l]) => (
+              <SelectItem key={v} value={v}>{l}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-40">
-          <SelectValue placeholder="Estado" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los estados</SelectItem>
-          {(Object.entries(STATUS_LABEL) as [FichaStatus, string][]).map(([v, l]) => (
-            <SelectItem key={v} value={v}>{l}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los estados</SelectItem>
+            {(Object.entries(STATUS_LABEL) as [FichaStatus, string][]).map(([v, l]) => (
+              <SelectItem key={v} value={v}>{l}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={() => router.push(pathname)} className="gap-1">
-          <X className="size-4" />
-          Limpiar
-        </Button>
-      )}
-    </div>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={() => router.push(pathname)} className="gap-1">
+            <X className="size-4" />
+            Limpiar
+          </Button>
+        )}
+      </div>
+    </FiltrosPlegables>
   )
 }

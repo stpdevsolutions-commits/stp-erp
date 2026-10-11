@@ -102,7 +102,7 @@ export default async function GastosPage({
           <h1 className="text-2xl font-bold tracking-tight">Gastos</h1>
           <p className="text-muted-foreground text-sm">Gastos por proyecto y gastos generales de la empresa</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ExportExcelButton href={`/api/export/gastos?${q.toString()}`} label="Exportar Excel" />
           {/* Crear gasto NO tiene @Roles en el backend: cualquier miembro del proyecto
               (incl. USER, personal de campo) puede registrar uno. Solo editar/eliminar

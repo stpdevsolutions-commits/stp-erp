@@ -12,6 +12,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
 import type { Client } from '@/lib/types'
+import { FiltrosPlegables } from '@/components/ui/filtros-plegables'
+import { FiltroFecha } from '@/components/ui/filtro-fecha'
 
 export function FiltrosPagos({ clients }: { clients: Client[] }) {
   const router = useRouter()
@@ -37,68 +39,58 @@ export function FiltrosPagos({ clients }: { clients: Client[] }) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
-      <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-48">
-          <SelectValue placeholder="Cliente" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los clientes</SelectItem>
-          {clients.map((c) => (
-            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <FiltrosPlegables>
+      <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
+        <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los clientes</SelectItem>
+            {clients.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-36">
-          <SelectValue placeholder="Estado" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los estados</SelectItem>
-          <SelectItem value="completed">Completado</SelectItem>
-          <SelectItem value="pending">Pendiente</SelectItem>
-          <SelectItem value="failed">Fallido</SelectItem>
-          <SelectItem value="refunded">Reembolsado</SelectItem>
-        </SelectContent>
-      </Select>
+        <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los estados</SelectItem>
+            <SelectItem value="completed">Completado</SelectItem>
+            <SelectItem value="pending">Pendiente</SelectItem>
+            <SelectItem value="failed">Fallido</SelectItem>
+            <SelectItem value="refunded">Reembolsado</SelectItem>
+          </SelectContent>
+        </Select>
 
-      <Select value={method || 'all'} onValueChange={(v) => set('method', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-36">
-          <SelectValue placeholder="Método" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los métodos</SelectItem>
-          <SelectItem value="cash">Efectivo</SelectItem>
-          <SelectItem value="transfer">Transferencia</SelectItem>
-          <SelectItem value="check">Cheque</SelectItem>
-          <SelectItem value="card">Tarjeta</SelectItem>
-          <SelectItem value="other">Otro</SelectItem>
-        </SelectContent>
-      </Select>
+        <Select value={method || 'all'} onValueChange={(v) => set('method', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Método" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los métodos</SelectItem>
+            <SelectItem value="cash">Efectivo</SelectItem>
+            <SelectItem value="transfer">Transferencia</SelectItem>
+            <SelectItem value="check">Cheque</SelectItem>
+            <SelectItem value="card">Tarjeta</SelectItem>
+            <SelectItem value="other">Otro</SelectItem>
+          </SelectContent>
+        </Select>
 
-      <Input
-        type="date"
-        value={dateFrom}
-        onChange={(e) => set('dateFrom', e.target.value)}
-        className="w-40"
-        title="Desde"
-      />
+        <FiltroFecha label="Desde" value={dateFrom} onChange={(v) => set('dateFrom', v)} />
 
-      <Input
-        type="date"
-        value={dateTo}
-        onChange={(e) => set('dateTo', e.target.value)}
-        className="w-40"
-        title="Hasta"
-      />
+        <FiltroFecha label="Hasta" value={dateTo} onChange={(v) => set('dateTo', v)} />
 
-      {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={clear} className="gap-1">
-          <X className="size-4" />
-          Limpiar
-        </Button>
-      )}
-    </div>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={clear} className="gap-1">
+            <X className="size-4" />
+            Limpiar
+          </Button>
+        )}
+      </div>
+    </FiltrosPlegables>
   )
 }

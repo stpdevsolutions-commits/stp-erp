@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Client, Project } from '@/lib/types'
+import { FiltrosPlegables } from '@/components/ui/filtros-plegables'
+import { FiltroFecha } from '@/components/ui/filtro-fecha'
 
 const ALL = 'all'
 const STATUS: Record<string, string> = { draft: 'Borrador', issued: 'Emitida' }
@@ -82,48 +84,50 @@ export function FiltrosEmitidas({ clients, projects }: { clients: Client[]; proj
   const clientProjects = get('clientId') ? projects.filter((p) => p.clientId === get('clientId')) : projects
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
-        <Input
-          key={resetKey}
-          defaultValue={get('search')}
-          onChange={(e) => {
-            if (timer.current) clearTimeout(timer.current)
-            const v = e.target.value.trim()
-            timer.current = setTimeout(() => set('search', v), 350)
-          }}
-          placeholder="Buscar número, e-NCF o cliente…"
-          className="w-72"
-        />
-        <Input type="date" value={get('dateFrom')} onChange={(e) => set('dateFrom', e.target.value)} className="w-40" title="Desde" />
-        <Input type="date" value={get('dateTo')} onChange={(e) => set('dateTo', e.target.value)} className="w-40" title="Hasta" />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Filtro
-          value={get('clientId')} onChange={(v) => set('clientId', v)} allLabel="Todos los clientes" width="w-64"
-          options={clients.map((c): [string, string] => [c.id, c.name])}
-        />
-        <Filtro
-          value={get('projectId')} onChange={(v) => set('projectId', v)} allLabel="Todos los proyectos" width="w-64"
-          options={clientProjects.map((p): [string, string] => [p.id, `${p.code} · ${p.name}`])}
-        />
-        <Filtro value={get('kind')} onChange={(v) => set('kind', v)} allLabel="Facturas y notas de crédito" width="w-60" options={Object.entries(KIND)} />
-        <Filtro value={get('status')} onChange={(v) => set('status', v)} allLabel="Borradores y emitidas" width="w-52" options={Object.entries(STATUS)} />
-        <Filtro value={get('payment')} onChange={(v) => set('payment', v)} allLabel="Cualquier estado de cobro" width="w-60" options={Object.entries(PAYMENT)} />
-        <Filtro value={get('ecfEstado')} onChange={(v) => set('ecfEstado', v)} allLabel="Cualquier estado del e-CF" width="w-60" options={Object.entries(ECF)} />
-        {hasFilters && (
-          <Button
-            variant="ghost" size="sm" className="gap-1"
-            onClick={() => {
-              setResetKey((k) => k + 1)
-              router.push(pathname)
+    <FiltrosPlegables>
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
+          <Input
+            key={resetKey}
+            defaultValue={get('search')}
+            onChange={(e) => {
+              if (timer.current) clearTimeout(timer.current)
+              const v = e.target.value.trim()
+              timer.current = setTimeout(() => set('search', v), 350)
             }}
-          >
-            <X className="size-4" />
-            Limpiar
-          </Button>
-        )}
+            placeholder="Buscar número, e-NCF o cliente…"
+            className="w-72"
+          />
+          <FiltroFecha label="Desde" value={get('dateFrom')} onChange={(v) => set('dateFrom', v)} />
+          <FiltroFecha label="Hasta" value={get('dateTo')} onChange={(v) => set('dateTo', v)} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Filtro
+            value={get('clientId')} onChange={(v) => set('clientId', v)} allLabel="Todos los clientes" width="w-64"
+            options={clients.map((c): [string, string] => [c.id, c.name])}
+          />
+          <Filtro
+            value={get('projectId')} onChange={(v) => set('projectId', v)} allLabel="Todos los proyectos" width="w-64"
+            options={clientProjects.map((p): [string, string] => [p.id, `${p.code} · ${p.name}`])}
+          />
+          <Filtro value={get('kind')} onChange={(v) => set('kind', v)} allLabel="Facturas y notas de crédito" width="w-60" options={Object.entries(KIND)} />
+          <Filtro value={get('status')} onChange={(v) => set('status', v)} allLabel="Borradores y emitidas" width="w-52" options={Object.entries(STATUS)} />
+          <Filtro value={get('payment')} onChange={(v) => set('payment', v)} allLabel="Cualquier estado de cobro" width="w-60" options={Object.entries(PAYMENT)} />
+          <Filtro value={get('ecfEstado')} onChange={(v) => set('ecfEstado', v)} allLabel="Cualquier estado del e-CF" width="w-60" options={Object.entries(ECF)} />
+          {hasFilters && (
+            <Button
+              variant="ghost" size="sm" className="gap-1"
+              onClick={() => {
+                setResetKey((k) => k + 1)
+                router.push(pathname)
+              }}
+            >
+              <X className="size-4" />
+              Limpiar
+            </Button>
+          )}
+        </div>
       </div>
-    </div>
+    </FiltrosPlegables>
   )
 }

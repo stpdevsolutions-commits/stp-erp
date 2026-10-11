@@ -222,3 +222,20 @@
     font-size: 16px !important;
   }
 }
+
+/* Campos de fecha: en iPhone/Android el valor elegido debe verse completo y alineado a la izquierda. */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 2rem;
+  text-align: left;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.2em;
+}
+@media (max-width: 767px) {
+  input[type="date"] {
+    min-height: 2.5rem;
+  }
+}

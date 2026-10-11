@@ -115,7 +115,7 @@ export default async function PagosPage({
           <h1 className="text-2xl font-bold tracking-tight">Cobros</h1>
           <p className="text-muted-foreground text-sm">Lo que nos pagan los clientes. Cada cobro se aplica a una factura emitida.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ExportExcelButton href={`/api/export/pagos?${query.toString()}`} label="Exportar Excel" />
           {isManager && <NuevoPagoDialog clients={clients} projects={projects} />}
         </div>

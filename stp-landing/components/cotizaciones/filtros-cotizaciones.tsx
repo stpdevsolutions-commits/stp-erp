@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Search, X } from 'lucide-react'
 import type { Client } from '@/lib/types'
+import { FiltrosPlegables } from '@/components/ui/filtros-plegables'
 
 export function FiltrosCotizaciones({ clients }: { clients: Client[] }) {
   const router = useRouter()
@@ -44,50 +45,52 @@ export function FiltrosCotizaciones({ clients }: { clients: Client[] }) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
-      <form key={search} onSubmit={handleSearch} className="relative">
-        <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground pointer-events-none" />
-        <Input
-          ref={inputRef}
-          name="search"
-          defaultValue={search}
-          placeholder="Buscar cotización..."
-          className="pl-8 w-52"
-        />
-      </form>
+    <FiltrosPlegables>
+      <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
+        <form key={search} onSubmit={handleSearch} className="relative">
+          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground pointer-events-none" />
+          <Input
+            ref={inputRef}
+            name="search"
+            defaultValue={search}
+            placeholder="Buscar cotización..."
+            className="pl-8 w-52"
+          />
+        </form>
 
-      <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-36">
-          <SelectValue placeholder="Estado" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los estados</SelectItem>
-          <SelectItem value="draft">Borrador</SelectItem>
-          <SelectItem value="sent">Enviada</SelectItem>
-          <SelectItem value="approved">Aprobada</SelectItem>
-          <SelectItem value="rejected">Rechazada</SelectItem>
-          <SelectItem value="expired">Expirada</SelectItem>
-        </SelectContent>
-      </Select>
+        <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los estados</SelectItem>
+            <SelectItem value="draft">Borrador</SelectItem>
+            <SelectItem value="sent">Enviada</SelectItem>
+            <SelectItem value="approved">Aprobada</SelectItem>
+            <SelectItem value="rejected">Rechazada</SelectItem>
+            <SelectItem value="expired">Expirada</SelectItem>
+          </SelectContent>
+        </Select>
 
-      <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-48">
-          <SelectValue placeholder="Cliente" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los clientes</SelectItem>
-          {clients.map((c) => (
-            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los clientes</SelectItem>
+            {clients.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={clear} className="gap-1">
-          <X className="size-4" />
-          Limpiar
-        </Button>
-      )}
-    </div>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={clear} className="gap-1">
+            <X className="size-4" />
+            Limpiar
+          </Button>
+        )}
+      </div>
+    </FiltrosPlegables>
   )
 }

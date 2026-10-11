@@ -15,6 +15,7 @@ import {
 import { BuscadorSelect } from '@/components/ui/buscador-select'
 import type { Client } from '@/lib/types'
 import { Search, X } from 'lucide-react'
+import { FiltrosPlegables } from '@/components/ui/filtros-plegables'
 
 export function FiltrosProyectos({ clients = [] }: { clients?: Client[] }) {
   const router = useRouter()
@@ -56,66 +57,68 @@ export function FiltrosProyectos({ clients = [] }: { clients?: Client[] }) {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
-        <form key={search} onSubmit={handleSearch} className="relative">
-          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground pointer-events-none" />
-          <Input
-            ref={inputRef}
-            name="search"
-            defaultValue={search}
-            placeholder="Buscar proyecto..."
-            className="pl-8 w-52"
+    <FiltrosPlegables>
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
+          <form key={search} onSubmit={handleSearch} className="relative">
+            <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground pointer-events-none" />
+            <Input
+              ref={inputRef}
+              name="search"
+              defaultValue={search}
+              placeholder="Buscar proyecto..."
+              className="pl-8 w-52"
+            />
+          </form>
+
+          <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="draft">Pendiente</SelectItem>
+              <SelectItem value="active">En curso</SelectItem>
+              <SelectItem value="on_hold">En pausa</SelectItem>
+              <SelectItem value="completed">Completado</SelectItem>
+              <SelectItem value="cancelled">Cancelado</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <BuscadorSelect
+            opciones={opcionesClientes}
+            value={clientId}
+            onValueChange={(v) => set('clientId', v)}
+            placeholder="Todos los clientes"
+            vacio="Sin clientes"
+            className="w-56"
           />
-        </form>
 
-        <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los estados</SelectItem>
-            <SelectItem value="draft">Pendiente</SelectItem>
-            <SelectItem value="active">En curso</SelectItem>
-            <SelectItem value="on_hold">En pausa</SelectItem>
-            <SelectItem value="completed">Completado</SelectItem>
-            <SelectItem value="cancelled">Cancelado</SelectItem>
-          </SelectContent>
-        </Select>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={clear} className="gap-1">
+              <X className="size-4" />
+              Limpiar
+            </Button>
+          )}
+        </div>
 
-        <BuscadorSelect
-          opciones={opcionesClientes}
-          value={clientId}
-          onValueChange={(v) => set('clientId', v)}
-          placeholder="Todos los clientes"
-          vacio="Sin clientes"
-          className="w-56"
-        />
-
-        {hasFilters && (
-          <Button variant="ghost" size="sm" onClick={clear} className="gap-1">
-            <X className="size-4" />
-            Limpiar
-          </Button>
+        {clientId && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-1">
+              Cliente: {clienteActual?.name ?? 'seleccionado'}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => set('clientId', '')}
+              className="h-6 gap-1 px-2 text-xs"
+            >
+              <X className="size-3" />
+              Quitar filtro de cliente
+            </Button>
+          </div>
         )}
       </div>
-
-      {clientId && (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="gap-1">
-            Cliente: {clienteActual?.name ?? 'seleccionado'}
-          </Badge>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => set('clientId', '')}
-            className="h-6 gap-1 px-2 text-xs"
-          >
-            <X className="size-3" />
-            Quitar filtro de cliente
-          </Button>
-        </div>
-      )}
-    </div>
+    </FiltrosPlegables>
   )
 }

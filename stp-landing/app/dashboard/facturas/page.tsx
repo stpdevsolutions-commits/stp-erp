@@ -65,7 +65,7 @@ export default async function FacturasPage({
             Comprobantes de compra que nos hacen los proveedores (Formato 606), con o sin proyecto
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 max-sm:w-full">
           {['admin', 'finanza'].includes(userRole.toLowerCase()) ? <ValidarPendientesButton /> : null}
           {['admin', 'finanza'].includes(userRole.toLowerCase()) ? (
             <Button variant="outline" render={<Link href="/dashboard/facturas/conciliar" />} className="gap-2">

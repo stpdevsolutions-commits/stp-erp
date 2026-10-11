@@ -115,8 +115,7 @@ export function ProjectDetailTabs({
 
   return (
     <Tabs defaultValue="tareas">
-      <div className="overflow-x-auto">
-      <TabsList>
+      <TabsList className="max-md:h-auto max-md:w-full max-md:flex-wrap max-md:justify-start max-md:group-data-horizontal/tabs:h-auto max-md:[&>button]:h-10 max-md:[&>button]:flex-none max-md:[&>button]:px-3">
         <TabsTrigger value="tareas">
           Tareas <span className="ml-1 text-xs opacity-60">({tasks.total})</span>
         </TabsTrigger>
@@ -133,7 +132,6 @@ export function ProjectDetailTabs({
           Archivos <span className="ml-1 text-xs opacity-60">({files.total})</span>
         </TabsTrigger>
       </TabsList>
-      </div>
 
       {/* TAREAS */}
       <TabsContent value="tareas">

@@ -131,7 +131,7 @@ export function FacturasTabla({
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
           <span className="text-sm font-medium">{selected.size} seleccionada(s)</span>
           <Select value={destino} onValueChange={(v) => v && setDestino(v)}>
-            <SelectTrigger className="w-72">
+            <SelectTrigger className="w-72 max-sm:w-full">
               <SelectValue placeholder="Asignar a…">{destinoLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -161,7 +161,7 @@ export function FacturasTabla({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-8">
+              <TableHead className="w-8 max-sm:px-1.5">
                 <input
                   type="checkbox"
                   aria-label="Seleccionar todas las facturas de esta página"
@@ -199,11 +199,11 @@ export function FacturasTabla({
                       className="size-4 accent-[var(--primary)]"
                     />
                   </TableCell>
-                  <TableCell className="font-mono text-xs whitespace-nowrap">
+                  <TableCell className="font-mono text-[11px] md:text-xs whitespace-nowrap">
                     {f.ncf}
                     <span className="block text-muted-foreground md:hidden font-sans">{formatDate(f.invoiceDate)}</span>
                   </TableCell>
-                  <TableCell className="whitespace-normal min-w-[160px]">
+                  <TableCell className="whitespace-normal min-w-0 md:min-w-[160px]">
                     <div className="text-sm font-medium">{f.supplierName}</div>
                     <div className="text-xs text-muted-foreground font-mono">{formatRnc(f.supplierRnc)}</div>
                   </TableCell>

@@ -19,6 +19,8 @@ import {
   expenseTypeLabel,
 } from '@/lib/fiscal-invoices'
 import type { Project } from '@/lib/types'
+import { FiltrosPlegables } from '@/components/ui/filtros-plegables'
+import { FiltroFecha } from '@/components/ui/filtro-fecha'
 
 const ALL = 'all'
 
@@ -135,82 +137,78 @@ export function FiltrosFacturas({ projects = [] }: { projects?: Project[] }) {
   const setProject = (v: string) => push((sp) => { sp.delete('project'); put(sp, 'projectId', v) })
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
-        <Input
-          key={`s${resetKey}`}
-          defaultValue={get('search')}
-          onChange={(e) => typed('search', e.target.value)}
-          placeholder="Buscar NCF, RNC o emisor…"
-          className="w-64"
-        />
-        <Input
-          type="date" value={get('dateFrom')} onChange={(e) => set('dateFrom', e.target.value)}
-          className="w-40" title="Desde"
-        />
-        <Input
-          type="date" value={get('dateTo')} onChange={(e) => set('dateTo', e.target.value)}
-          className="w-40" title="Hasta"
-        />
-        <Input
-          key={`a${resetKey}`} type="number" min={0} inputMode="decimal" defaultValue={get('amountMin')}
-          onChange={(e) => typed('amountMin', e.target.value)} placeholder="Monto desde" className="w-32"
-        />
-        <Input
-          key={`b${resetKey}`} type="number" min={0} inputMode="decimal" defaultValue={get('amountMax')}
-          onChange={(e) => typed('amountMax', e.target.value)} placeholder="Monto hasta" className="w-32"
-        />
-      </div>
+    <FiltrosPlegables>
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
+          <Input
+            key={`s${resetKey}`}
+            defaultValue={get('search')}
+            onChange={(e) => typed('search', e.target.value)}
+            placeholder="Buscar NCF, RNC o emisor…"
+            className="w-64"
+          />
+          <FiltroFecha label="Desde" value={get('dateFrom')} onChange={(v) => set('dateFrom', v)} />
+          <FiltroFecha label="Hasta" value={get('dateTo')} onChange={(v) => set('dateTo', v)} />
+          <Input
+            key={`a${resetKey}`} type="number" min={0} inputMode="decimal" defaultValue={get('amountMin')}
+            onChange={(e) => typed('amountMin', e.target.value)} placeholder="Monto desde" className="w-32"
+          />
+          <Input
+            key={`b${resetKey}`} type="number" min={0} inputMode="decimal" defaultValue={get('amountMax')}
+            onChange={(e) => typed('amountMax', e.target.value)} placeholder="Monto hasta" className="w-32"
+          />
+        </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Filtro
-          value={get('project')} onChange={setScope} placeholder="Destino" allLabel="Con y sin proyecto"
-          options={Object.entries(PROJECT_SCOPE)} width="w-56"
-        />
-        <Filtro
-          value={get('projectId')} onChange={setProject} placeholder="Proyecto" allLabel="Todos los proyectos"
-          options={projects.map((p): [string, string] => [p.id, `${p.code} · ${p.name}`])} width="w-64"
-        />
-        <Filtro
-          value={get('assigned')} onChange={(v) => set('assigned', v)} placeholder="Asignación"
-          allLabel="Asignadas y sin asignar" options={Object.entries(ASSIGNED)} width="w-56"
-        />
-        <Filtro
-          value={get('expenseType')} onChange={(v) => set('expenseType', v)} placeholder="Tipo de gasto"
-          allLabel="Todos los tipos de gasto" width="w-64"
-          options={EXPENSE_TYPE_CODES.map((c): [string, string] => [c, expenseTypeLabel(c)])}
-        />
-        <Filtro
-          value={get('paymentMethod')} onChange={(v) => set('paymentMethod', v)} placeholder="Forma de pago"
-          allLabel="Todas las formas de pago" width="w-64"
-          options={PAYMENT_METHOD_CODES.map((c): [string, string] => [c, `${c} · ${PAYMENT_METHODS_606[c]}`])}
-        />
-        <Filtro
-          value={get('ncfType')} onChange={(v) => set('ncfType', v)} placeholder="Tipo de comprobante"
-          allLabel="Todos los comprobantes" options={Object.entries(NCF_TYPES)} width="w-64"
-        />
-        <Filtro
-          value={get('dgii')} onChange={(v) => set('dgii', v)} placeholder="DGII" allLabel="Cualquier estado DGII"
-          options={Object.entries(DGII)} width="w-60"
-        />
-        <Filtro
-          value={get('hasPhoto')} onChange={(v) => set('hasPhoto', v)} placeholder="Comprobante adjunto"
-          allLabel="Con y sin foto" options={Object.entries(PHOTO)} width="w-48"
-        />
+        <div className="flex flex-wrap gap-2">
+          <Filtro
+            value={get('project')} onChange={setScope} placeholder="Destino" allLabel="Con y sin proyecto"
+            options={Object.entries(PROJECT_SCOPE)} width="w-56"
+          />
+          <Filtro
+            value={get('projectId')} onChange={setProject} placeholder="Proyecto" allLabel="Todos los proyectos"
+            options={projects.map((p): [string, string] => [p.id, `${p.code} · ${p.name}`])} width="w-64"
+          />
+          <Filtro
+            value={get('assigned')} onChange={(v) => set('assigned', v)} placeholder="Asignación"
+            allLabel="Asignadas y sin asignar" options={Object.entries(ASSIGNED)} width="w-56"
+          />
+          <Filtro
+            value={get('expenseType')} onChange={(v) => set('expenseType', v)} placeholder="Tipo de gasto"
+            allLabel="Todos los tipos de gasto" width="w-64"
+            options={EXPENSE_TYPE_CODES.map((c): [string, string] => [c, expenseTypeLabel(c)])}
+          />
+          <Filtro
+            value={get('paymentMethod')} onChange={(v) => set('paymentMethod', v)} placeholder="Forma de pago"
+            allLabel="Todas las formas de pago" width="w-64"
+            options={PAYMENT_METHOD_CODES.map((c): [string, string] => [c, `${c} · ${PAYMENT_METHODS_606[c]}`])}
+          />
+          <Filtro
+            value={get('ncfType')} onChange={(v) => set('ncfType', v)} placeholder="Tipo de comprobante"
+            allLabel="Todos los comprobantes" options={Object.entries(NCF_TYPES)} width="w-64"
+          />
+          <Filtro
+            value={get('dgii')} onChange={(v) => set('dgii', v)} placeholder="DGII" allLabel="Cualquier estado DGII"
+            options={Object.entries(DGII)} width="w-60"
+          />
+          <Filtro
+            value={get('hasPhoto')} onChange={(v) => set('hasPhoto', v)} placeholder="Comprobante adjunto"
+            allLabel="Con y sin foto" options={Object.entries(PHOTO)} width="w-48"
+          />
 
-        {hasFilters && (
-          <Button
-            variant="ghost" size="sm" className="gap-1"
-            onClick={() => {
-              setResetKey((k) => k + 1)
-              router.push(pathname)
-            }}
-          >
-            <X className="size-4" />
-            Limpiar
-          </Button>
-        )}
+          {hasFilters && (
+            <Button
+              variant="ghost" size="sm" className="gap-1"
+              onClick={() => {
+                setResetKey((k) => k + 1)
+                router.push(pathname)
+              }}
+            >
+              <X className="size-4" />
+              Limpiar
+            </Button>
+          )}
+        </div>
       </div>
-    </div>
+    </FiltrosPlegables>
   )
 }

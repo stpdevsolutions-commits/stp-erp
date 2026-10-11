@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Search, X } from 'lucide-react'
 import type { Client, Project } from '@/lib/types'
+import { FiltrosPlegables } from '@/components/ui/filtros-plegables'
 
 export function FiltrosTareas({ clients, projects }: { clients: Client[]; projects: Project[] }) {
   const router = useRouter()
@@ -46,75 +47,77 @@ export function FiltrosTareas({ clients, projects }: { clients: Client[]; projec
   }
 
   return (
-    <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
-      <form key={search} onSubmit={handleSearch} className="relative">
-        <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground pointer-events-none" />
-        <Input
-          ref={inputRef}
-          name="search"
-          defaultValue={search}
-          placeholder="Buscar tarea..."
-          className="pl-8 w-52"
-        />
-      </form>
+    <FiltrosPlegables>
+      <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full">
+        <form key={search} onSubmit={handleSearch} className="relative">
+          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground pointer-events-none" />
+          <Input
+            ref={inputRef}
+            name="search"
+            defaultValue={search}
+            placeholder="Buscar tarea..."
+            className="pl-8 w-52"
+          />
+        </form>
 
-      <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-48">
-          <SelectValue placeholder="Cliente" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los clientes</SelectItem>
-          {clients.map((c) => (
-            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <Select value={clientId || 'all'} onValueChange={(v) => set('clientId', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los clientes</SelectItem>
+            {clients.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <Select value={projectId || 'all'} onValueChange={(v) => set('projectId', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-56">
-          <SelectValue placeholder="Proyecto" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los proyectos</SelectItem>
-          {projects.map((p) => (
-            <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <Select value={projectId || 'all'} onValueChange={(v) => set('projectId', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Proyecto" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los proyectos</SelectItem>
+            {projects.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-36">
-          <SelectValue placeholder="Estado" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos los estados</SelectItem>
-          <SelectItem value="pending">Pendiente</SelectItem>
-          <SelectItem value="in_progress">En curso</SelectItem>
-          <SelectItem value="review">En revisión</SelectItem>
-          <SelectItem value="done">Completada</SelectItem>
-          <SelectItem value="cancelled">Cancelada</SelectItem>
-        </SelectContent>
-      </Select>
+        <Select value={status || 'all'} onValueChange={(v) => set('status', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los estados</SelectItem>
+            <SelectItem value="pending">Pendiente</SelectItem>
+            <SelectItem value="in_progress">En curso</SelectItem>
+            <SelectItem value="review">En revisión</SelectItem>
+            <SelectItem value="done">Completada</SelectItem>
+            <SelectItem value="cancelled">Cancelada</SelectItem>
+          </SelectContent>
+        </Select>
 
-      <Select value={priority || 'all'} onValueChange={(v) => set('priority', !v || v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-36">
-          <SelectValue placeholder="Prioridad" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas las prioridades</SelectItem>
-          <SelectItem value="urgent">Urgente</SelectItem>
-          <SelectItem value="high">Alta</SelectItem>
-          <SelectItem value="medium">Media</SelectItem>
-          <SelectItem value="low">Baja</SelectItem>
-        </SelectContent>
-      </Select>
+        <Select value={priority || 'all'} onValueChange={(v) => set('priority', !v || v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Prioridad" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las prioridades</SelectItem>
+            <SelectItem value="urgent">Urgente</SelectItem>
+            <SelectItem value="high">Alta</SelectItem>
+            <SelectItem value="medium">Media</SelectItem>
+            <SelectItem value="low">Baja</SelectItem>
+          </SelectContent>
+        </Select>
 
-      {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={clear} className="gap-1">
-          <X className="size-4" />
-          Limpiar
-        </Button>
-      )}
-    </div>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={clear} className="gap-1">
+            <X className="size-4" />
+            Limpiar
+          </Button>
+        )}
+      </div>
+    </FiltrosPlegables>
   )
 }
