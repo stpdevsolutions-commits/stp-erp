@@ -7,9 +7,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-green: var(--brand-green);
+  --color-brand-green-soft: var(--brand-green-soft);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -85,6 +88,10 @@
   --sidebar-accent-foreground: oklch(0.347 0.113 258.4);
   --sidebar-border: oklch(0.9 0.007 258);
   --sidebar-ring: oklch(0.45 0.1 258);
+  /* Identidad "plano técnico": navy profundo para zonas de marca, verde del techo del logo */
+  --brand-deep: oklch(0.25 0.085 258);
+  --brand-green: oklch(0.517 0.11 160.2);
+  --brand-green-soft: oklch(0.78 0.12 165);
 }
 
 .dark {
@@ -119,6 +126,9 @@
   --sidebar-accent-foreground: oklch(0.92 0.03 258);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.717 0.135 256.9);
+  --brand-deep: oklch(0.2 0.06 258);
+  --brand-green: oklch(0.685 0.135 161);
+  --brand-green-soft: oklch(0.8 0.12 165);
 }
 
 @layer base {
@@ -201,5 +211,14 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+}
+
+/* iOS Safari amplía la página al enfocar un campo con fuente menor a 16 px. En celular se fuerza
+   ese mínimo en todos los campos de texto; en escritorio no cambia. */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  textarea {
+    font-size: 16px !important;
   }
 }

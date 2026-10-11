@@ -28,6 +28,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { Project, Ticket, TicketStatus } from '@/lib/types'
+import { ticketCode } from '@/lib/ticket-code'
+import { TableEmpty } from '@/components/ui/empty-state'
+import { StatCard } from '@/components/ui/stat-card'
 import { NuevoTicketDialog } from './nuevo-ticket-dialog'
 import { TicketActions } from './ticket-actions'
 import { TYPE_LABELS, STATUS_LABELS, PRIORITY_LABELS, PRIORITY_BADGE, STATUS_BADGE, PRIORITY_WEIGHT } from './labels'
@@ -74,19 +77,14 @@ function loadFilters(): PersistedFilters {
   }
 }
 
-/** "FRD-7" si el proyecto ya tiene código, o "#7" (número global) si por lo
- * que sea no vino el proyecto en la respuesta — nunca deja la celda vacía. */
-function ticketCode(t: Ticket, project?: Project): string {
-  if (project?.code) return `${project.code}-${t.projectNumber}`
-  return `#${t.number}`
-}
-
 export function TicketsBoard({
   projects,
   initialTickets,
+  urlFilters,
 }: {
   projects: Project[]
   initialTickets: Ticket[]
+  urlFilters?: { project?: string; status?: string; sort?: string; all?: string }
 }) {
   const [projectFilter, setProjectFilter] = useState(TODOS)
   const [typeFilter, setTypeFilter] = useState(TODOS)
@@ -103,15 +101,23 @@ export function TicketsBoard({
   const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
-    const saved = loadFilters()
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const fromUrl = !!(urlFilters?.project || urlFilters?.status || urlFilters?.sort || urlFilters?.all)
+    const saved = fromUrl ? DEFAULT_FILTERS : loadFilters()
+    const validStatuses = (urlFilters?.status ?? '')
+      .split(',')
+      .filter((v): v is TicketStatus => v in STATUS_LABELS)
+    const urlProject = urlFilters?.project && projects.some((p) => p.id === urlFilters.project) ? urlFilters.project : null
+    const urlSort = urlFilters?.sort && urlFilters.sort in SORT_LABELS ? (urlFilters.sort as SortKey) : null
     // Un proyecto guardado que ya no existe (borrado) dejaría el Select en
     // blanco y ocultaría todo — si no está en la lista, se vuelve a "todos".
-    setProjectFilter(projects.some((p) => p.id === saved.projectFilter) ? saved.projectFilter : TODOS)
+    setProjectFilter(urlProject ?? (projects.some((p) => p.id === saved.projectFilter) ? saved.projectFilter : TODOS))
     setTypeFilter(saved.typeFilter)
-    setStatusFilters(saved.statusFilters)
+    setStatusFilters(fromUrl ? validStatuses : saved.statusFilters)
     setSearch(saved.search)
-    setSort(saved.sort)
+    setSort(urlSort ?? saved.sort)
     setHydrated(true)
+    /* eslint-enable react-hooks/set-state-in-effect */
     // Solo al montar: los filtros guardados se aplican una vez y de ahí en
     // adelante manda el estado en memoria.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,7 +182,14 @@ export function TicketsBoard({
         <NuevoTicketDialog projects={projects} />
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
+        <StatCard label="Pendientes"><div className="text-2xl font-bold">{tickets.filter((t) => t.status === 'pending').length}</div></StatCard>
+        <StatCard label="En curso"><div className="text-2xl font-bold">{tickets.filter((t) => t.status === 'in_progress').length}</div></StatCard>
+        <StatCard label="En revisión"><div className="text-2xl font-bold">{tickets.filter((t) => t.status === 'review').length}</div></StatCard>
+        <StatCard label="Resueltos"><div className="text-2xl font-bold text-green-700 dark:text-green-400">{tickets.filter((t) => t.status === 'done').length}</div></StatCard>
+      </div>
+
+      <div className="flex flex-wrap gap-2 max-sm:[&>*]:w-full max-sm:[&_[data-slot=select-trigger]]:w-full max-sm:[&_input]:w-full max-sm:[&_button]:w-full">
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -259,21 +272,23 @@ export function TicketsBoard({
           <TableRow>
             <TableHead>Código</TableHead>
             <TableHead>Título</TableHead>
-            <TableHead>Proyecto</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Prioridad</TableHead>
+            <TableHead className="hidden md:table-cell">Proyecto</TableHead>
+            <TableHead className="hidden lg:table-cell">Tipo</TableHead>
+            <TableHead className="hidden sm:table-cell">Prioridad</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead>Asignado a</TableHead>
+            <TableHead className="hidden xl:table-cell">Asignado a</TableHead>
             <TableHead />
           </TableRow>
         </TableHeader>
         <TableBody>
           {tickets.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
-                No hay tickets con estos filtros.
-              </TableCell>
-            </TableRow>
+            <TableEmpty
+              colSpan={8}
+              filtered={initialTickets.length > 0}
+              title={initialTickets.length > 0 ? 'No hay tickets con estos filtros' : 'Aún no hay tickets'}
+              hint={initialTickets.length > 0 ? undefined : 'Reporta el primero con el botón «Nuevo ticket».'}
+              action={initialTickets.length > 0 ? undefined : <NuevoTicketDialog projects={projects} />}
+            />
           )}
           {tickets.map((t) => {
             const project = t.projectId ? projectById.get(t.projectId) : undefined
@@ -288,16 +303,19 @@ export function TicketsBoard({
                   <Link href={`/tickets/${t.id}`} className="hover:underline">
                     {t.title}
                   </Link>
+                  <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
+                    {[project?.name, TYPE_LABELS[t.type], PRIORITY_LABELS[t.priority]].filter(Boolean).join(' · ')}
+                  </span>
                 </TableCell>
-                <TableCell>{project?.name ?? '—'}</TableCell>
-                <TableCell>{TYPE_LABELS[t.type]}</TableCell>
-                <TableCell>
+                <TableCell className="hidden md:table-cell">{project?.name ?? '—'}</TableCell>
+                <TableCell className="hidden lg:table-cell">{TYPE_LABELS[t.type]}</TableCell>
+                <TableCell className="hidden sm:table-cell">
                   <Badge variant={PRIORITY_BADGE[t.priority]}>{PRIORITY_LABELS[t.priority]}</Badge>
                 </TableCell>
                 <TableCell>
                   <Badge variant={STATUS_BADGE[t.status]}>{STATUS_LABELS[t.status]}</Badge>
                 </TableCell>
-                <TableCell>{t.assignedTo ?? '—'}</TableCell>
+                <TableCell className="hidden xl:table-cell">{t.assignedTo ?? '—'}</TableCell>
                 <TableCell>
                   <TicketActions ticket={t} projects={projects} />
                 </TableCell>

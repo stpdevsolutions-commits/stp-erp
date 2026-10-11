@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -106,6 +107,7 @@ function EditDialog({
       setServerError(result.error ?? 'Error desconocido')
       return
     }
+    toast.success('Ticket actualizado')
     handleClose()
   }
 
@@ -258,6 +260,7 @@ function DeleteDialog({
       setError(result.error ?? 'Error al eliminar')
       return
     }
+    toast.success('Ticket eliminado')
     onOpenChange(false)
   }
 

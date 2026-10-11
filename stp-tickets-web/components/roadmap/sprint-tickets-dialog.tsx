@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useMemo, useState, useTransition } from 'react'
 import { Check, Search } from 'lucide-react'
 import {
@@ -71,6 +72,7 @@ export function SprintTicketsDialog({
         // Revertir si falló.
         setLocalSprint((prev) => ({ ...prev, [t.id]: isIn ? sprint.id : null }))
       }
+      toast.success('Etapa del ticket actualizada')
     })
   }
 

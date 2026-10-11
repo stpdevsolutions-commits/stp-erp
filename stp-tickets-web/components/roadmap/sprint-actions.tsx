@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState, useTransition } from 'react'
 import { MoreHorizontal, Pencil, Trash2, ListChecks, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -50,6 +51,7 @@ function DeleteDialog({
       setError(res.error ?? 'Error al eliminar')
       return
     }
+    toast.success('Etapa eliminada')
     onOpenChange(false)
   }
 
@@ -98,7 +100,9 @@ export function SprintActions({
   function changeStatus(status: SprintStatus) {
     if (status === sprint.status) return
     startTransition(async () => {
-      await updateSprint(sprint.id, { status })
+      const r = await updateSprint(sprint.id, { status })
+      if (r.ok) toast.success('Estado de la etapa actualizado')
+      else toast.error(r.error ?? 'No se pudo cambiar el estado')
     })
   }
 

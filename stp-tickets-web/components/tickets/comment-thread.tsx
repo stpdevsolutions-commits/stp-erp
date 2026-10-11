@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/lib/toast'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { addComment } from '@/lib/actions/tickets'
@@ -31,6 +32,7 @@ export function CommentThread({
       setError(result.error ?? 'Error al comentar')
       return
     }
+    toast.success('Comentario agregado')
     // Optimista: lo agregamos localmente ya — revalidatePath refresca el
     // resto de la página en el próximo request, no hace falta esperarlo aquí.
     setComments((prev) => [
