@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -16,11 +16,20 @@ import { FiscalInvoicesService } from './fiscal-invoices.service';
 import { EXPENSE_TYPES_606 } from './fiscal-invoice-rules';
 import { SCAN_MAX_BYTES, SCAN_MIME_TYPES, ScanResult } from './invoice-scan';
 import { CreateFiscalInvoiceDto } from './dto/fiscal-invoice.dto';
+import { foldName } from './supplier-name';
 
 const SESSION_TTL_MS = 20 * 60 * 1000;
 const AUTOREPLY_EVERY_MS = 24 * 60 * 60 * 1000;
 /** Tipo de gasto del 606 cuando la lectura no pudo deducirlo (se avisa para que se revise). */
 const DEFAULT_EXPENSE_TYPE = '02';
+
+const STATUS_LABEL: Record<string, string> = {
+  draft: 'Borrador',
+  active: 'Activo',
+  on_hold: 'En pausa',
+  completed: 'Completado',
+  cancelled: 'Cancelado',
+}
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' });
 
@@ -112,7 +121,7 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
     this.autoReplied.set(from, Date.now());
     const text =
       this.config.get<string>('WHATSAPP_AUTOREPLY_TEXT') ??
-      'Hola, este número es automático y no recibe consultas. Para hablar con STP, contáctanos por tu medio habitual.';
+      'Gracias por comunicarte con Soluciones Técnicas Profesionales (STP). Recibimos tu mensaje y un miembro de nuestro equipo se pondrá en contacto contigo lo antes posible.';
     await this.whatsapp.sendText(from, text);
   }
 
@@ -202,42 +211,52 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
 
   /**
    * Lista de proyectos, de 9 en 9 con "Ver más" (WhatsApp admite 10 filas por lista). Sin búsqueda
-   * muestra los activos más recientes; escribiendo parte del nombre, del código o del cliente se
-   * busca entre todos los que no están cancelados.
+   * muestra los activos más recientes. Escribiendo una o varias palabras se busca entre todos los
+   * proyectos que no están cancelados (completados, en pausa…), sin importar mayúsculas ni tildes,
+   * en el nombre, el código o el nombre del cliente: "supermercado boca" o "cielos" bastan.
    */
   private async askProject(to: string, search?: string, page = 0): Promise<void> {
-    const qb = this.projects
-      .createQueryBuilder('p')
-      .leftJoin('p.client', 'c')
-      .orderBy('p.updatedAt', 'DESC');
-    if (search) {
-      qb.where('p.status != :cancelled', { cancelled: ProjectStatus.CANCELLED }).andWhere(
-        '(p.name ILIKE :q OR p.code ILIKE :q OR c.name ILIKE :q)',
-        { q: `%${search.replace(/[%_\\]/g, '')}%` },
-      );
-    } else {
-      qb.where('p.status = :active', { active: ProjectStatus.ACTIVE });
-    }
-    const total = await qb.getCount();
-    const PAGE = total > 10 ? 9 : 10;
-    const found = await qb.skip(page * 9).take(PAGE).getMany();
+    const all = await this.projects.find({
+      relations: { client: true },
+      where: search ? { status: Not(ProjectStatus.CANCELLED) } : { status: ProjectStatus.ACTIVE },
+      order: { updatedAt: 'DESC' },
+    });
+    const tokens = search ? foldName(search).split(' ').filter(Boolean) : [];
+    const matching = tokens.length
+      ? all.filter((p) => {
+          const hay = foldName(`${p.code} ${p.name} ${p.client?.name ?? ''}`);
+          return tokens.every((t) => hay.includes(t));
+        })
+      : all;
 
-    const rows = found.map((p) => ({ id: `p:${p.id}`, title: p.code, description: p.name }));
+    const total = matching.length;
+    if (total === 0) {
+      await this.whatsapp.sendText(
+        to,
+        search
+          ? `No encontré proyectos con "${search}". Escribe otra palabra del nombre, del código o del cliente.
+(Escribe "cancelar" para salir.)`
+          : `No hay proyectos activos. Escribe una palabra del nombre o del cliente para buscar entre todos.
+(Escribe "cancelar" para salir.)`,
+      );
+      return;
+    }
+
+    const PAGE = total > 10 ? 9 : 10;
+    const slice = matching.slice(page * 9, page * 9 + PAGE);
+    const rows = slice.map((p) => ({
+      id: `p:${p.id}`,
+      title: p.code,
+      description: `${p.status === ProjectStatus.ACTIVE ? '' : `[${STATUS_LABEL[p.status] ?? p.status}] `}${p.name}`,
+    }));
     // 9 proyectos + "Ver más" = las 10 filas que admite una lista de WhatsApp.
     if (total > 10 && (page + 1) * 9 < total) {
       rows.push({ id: `more:${page + 1}`, title: 'Ver más proyectos', description: `Quedan ${total - (page + 1) * 9} por mostrar` });
     }
 
-    let body: string;
-    if (total === 0) {
-      body = search ? `No encontré proyectos con "${search}". Escribe otra parte del nombre o del cliente.` : 'No hay proyectos activos.';
-      await this.whatsapp.sendText(to, `${body}
-(Escribe "cancelar" para salir.)`);
-      return;
-    }
-    body = search
+    const body = search
       ? `Proyectos que coinciden con "${search}" (${total}). ¿A cuál va?`
-      : `Proyectos activos (${total}). Elige uno, o escribe parte del nombre o del cliente para buscar.`;
+      : `Proyectos activos (${total}). Elige uno, o escribe una palabra del nombre o del cliente para buscar entre todos (también completados o en pausa).`;
     await this.whatsapp.sendList(to, `${body}
 (Escribe "cancelar" para salir.)`, 'Elegir proyecto', rows);
   }

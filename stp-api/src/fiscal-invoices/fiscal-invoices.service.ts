@@ -1,3 +1,4 @@
+import { chooseSupplierName } from './supplier-name';
 import {
   BadRequestException,
   ConflictException,
@@ -262,6 +263,24 @@ export class FiscalInvoicesService {
     return { ...summarizeHistory(rows), supplierName: rows[0]?.supplierName ?? null };
   }
 
+  /**
+   * Nombres que el ERP ya conoce de un proveedor (por su RNC): primero el de su ficha y luego los
+   * de sus facturas anteriores. Sirven para que el mismo proveedor no quede escrito de varias formas.
+   */
+  private async knownSupplierNames(supplierRnc: string): Promise<string[]> {
+    const supplier = await this.suppliers
+      .createQueryBuilder('s')
+      .where("REPLACE(REPLACE(s.rnc, '-', ''), ' ', '') = :rnc", { rnc: supplierRnc })
+      .getOne();
+    const rows = await this.repo.find({
+      where: { supplierRnc },
+      select: { supplierName: true },
+      order: { invoiceDate: 'DESC' },
+      take: 30,
+    });
+    return [...new Set([supplier?.name, ...rows.map((r) => r.supplierName)].filter((n): n is string => !!n))];
+  }
+
   /** Sugerencias para el formulario manual: al escribir el RNC de un proveedor conocido. */
   async suggest(rawRnc: string) {
     const rnc = normalizeRnc(rawRnc);
@@ -291,7 +310,6 @@ export class FiscalInvoicesService {
         const a = applyHistory(core.fields, history, source);
         core.fields.expenseType = a.expenseType;
         core.fields.paymentMethod = a.paymentMethod;
-        if (!core.fields.supplierName && history.supplierName) core.fields.supplierName = history.supplierName;
         if (a.applied.length > 0) {
           const que = a.applied.map((f) => (f === 'expenseType' ? 'el tipo de gasto' : 'la forma de pago'));
           hints.push(
@@ -299,6 +317,12 @@ export class FiscalInvoicesService {
           );
         }
       }
+    }
+
+    // El mismo proveedor siempre con el mismo nombre ("CIELOS ACUSTICOS, SRL" y "Cielos Acústicos, SRL"
+    // son uno solo): se usa la mejor escritura entre la leída y las que el ERP ya tiene.
+    if (isValidRnc(supplierRnc)) {
+      core.fields.supplierName = chooseSupplierName(core.fields.supplierName, await this.knownSupplierNames(supplierRnc));
     }
 
     // Si ya está registrada, se avisa antes de que la persona termine de llenar el formulario.
