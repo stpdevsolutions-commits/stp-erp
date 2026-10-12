@@ -161,6 +161,10 @@ export class GeneralReportService {
     const ingresos = income.summary.total;
     const gastos = expenses.summary.total;
     const utilidad = ingresos - gastos;
+    // Gastos sin proyecto = gastos generales de la empresa; el resto, de proyectos.
+    const gastosGenerales = expenses.byProject
+      .filter((p) => p.projectId == null)
+      .reduce((s, p) => s + p.total, 0);
 
     return {
       period: { from, to },
@@ -169,6 +173,8 @@ export class GeneralReportService {
         income: ingresos,
         incomeCount: income.summary.count,
         expenses: gastos,
+        projectExpenses: gastos - gastosGenerales,
+        generalExpenses: gastosGenerales,
         expenseCount: expenses.summary.count,
         profit: utilidad,
         margin: pct(utilidad, ingresos),

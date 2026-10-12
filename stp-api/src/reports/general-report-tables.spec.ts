@@ -8,6 +8,8 @@ function general(overrides: Partial<GeneralReportShape> = {}): GeneralReportShap
       income: 200000,
       incomeCount: 4,
       expenses: 150000,
+      projectExpenses: 120000,
+      generalExpenses: 30000,
       expenseCount: 12,
       profit: 50000,
       margin: 25,
@@ -43,6 +45,8 @@ describe('buildGeneralDoc', () => {
     expect(tabla(doc, 'Resultado')!.rows).toEqual([
       ['Ingresos cobrados', 200000, 100],
       ['Gastos', 150000, 87.5],
+      ['   de proyectos', 120000, null],
+      ['   generales de la empresa', 30000, null],
       ['Utilidad', 50000, 150],
     ]);
     expect(tabla(doc, 'Indicadores')!.rows[0]).toEqual(['Margen de utilidad', '25%']);
@@ -57,7 +61,7 @@ describe('buildGeneralDoc', () => {
     );
     const resultado = tabla(doc, 'Resultado')!;
     expect(resultado.columns.map((c) => c.header)).toEqual(['Concepto', 'Monto']);
-    expect(resultado.rows[2]).toEqual(['Utilidad', 50000]);
+    expect(resultado.rows[4]).toEqual(['Utilidad', 50000]);
     expect(doc.filters.map((f) => f.label)).toEqual(['Desde', 'Hasta']);
   });
 

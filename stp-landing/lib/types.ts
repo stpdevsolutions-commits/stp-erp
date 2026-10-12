@@ -363,7 +363,7 @@ export interface DashboardReport {
   clients: { total: number }
   projects: Partial<Record<Project['status'], number>>
   quotes: Partial<Record<Quote['status'], { count: number; amount: number }>>
-  expenses: { thisMonth: number }
+  expenses: { thisMonth: number; thisMonthGeneral?: number }
   payments: { thisMonth: number; overdueCount?: number; overdueAmount?: number }
   tasks: { overdue: number }
 }
@@ -529,6 +529,9 @@ export interface GeneralReport {
     income: number
     incomeCount: number
     expenses: number
+    /** De los gastos, los de proyectos y los generales de la empresa (sin proyecto). */
+    projectExpenses: number
+    generalExpenses: number
     expenseCount: number
     profit: number
     margin: number | null

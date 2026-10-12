@@ -20,6 +20,10 @@ export interface GeneralFinance {
   income: number;
   incomeCount: number;
   expenses: number;
+  /** De los gastos, los que pertenecen a un proyecto. */
+  projectExpenses: number;
+  /** De los gastos, los generales de la empresa (sin proyecto). */
+  generalExpenses: number;
   expenseCount: number;
   profit: number;
   /** Utilidad / ingresos × 100. `null` si no hubo ingresos. */
@@ -95,6 +99,8 @@ function tablaResultado(f: GeneralFinance): ExportTable {
     rows: [
       fila('Ingresos cobrados', f.income, f.variation?.income ?? null),
       fila('Gastos', f.expenses, f.variation?.expenses ?? null),
+      fila('   de proyectos', f.projectExpenses, null),
+      fila('   generales de la empresa', f.generalExpenses, null),
       fila('Utilidad', f.profit, f.variation?.profit ?? null),
     ],
   };

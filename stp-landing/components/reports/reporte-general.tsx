@@ -56,6 +56,7 @@ function Cifra({
   titulo,
   valor,
   nota,
+  detalle,
   variacion,
   invertido,
   tono,
@@ -63,6 +64,8 @@ function Cifra({
   titulo: string
   valor: string
   nota?: string
+  /** Desglose del valor en líneas "concepto — monto". */
+  detalle?: { label: string; valor: string }[]
   variacion?: number | null
   invertido?: boolean
   tono?: 'positivo' | 'negativo' | 'neutro'
@@ -82,6 +85,16 @@ function Cifra({
           <Variacion valor={variacion ?? null} invertido={invertido} />
         </div>
         {nota && <p className="text-[11px] text-muted-foreground mt-1">{nota}</p>}
+        {detalle && (
+          <dl className="mt-1.5 space-y-0.5 border-t pt-1.5 text-[11px] text-muted-foreground">
+            {detalle.map((d) => (
+              <div key={d.label} className="flex items-baseline justify-between gap-2">
+                <dt>{d.label}</dt>
+                <dd className="font-medium tabular-nums text-foreground">{d.valor}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </CardContent>
     </Card>
   )
@@ -118,6 +131,10 @@ export function ReporteGeneral({ report }: { report: GeneralReport }) {
           titulo="Gastos"
           valor={DOP.format(finance.expenses)}
           nota={`${finance.expenseCount} registro${finance.expenseCount === 1 ? '' : 's'}`}
+          detalle={[
+            { label: 'De proyectos', valor: DOP.format(finance.projectExpenses ?? finance.expenses) },
+            { label: 'Generales de la empresa', valor: DOP.format(finance.generalExpenses ?? 0) },
+          ]}
           variacion={finance.variation?.expenses}
           invertido
           tono="negativo"

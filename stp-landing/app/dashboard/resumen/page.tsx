@@ -31,6 +31,8 @@ export default async function DashboardPage() {
   const proyectosEnCurso = dashReport?.projects.active ?? 0
   const tareasVencidas = dashReport?.tasks.overdue ?? 0
   const gastosEsteMes = dashReport?.expenses.thisMonth ?? 0
+  const gastosGeneralesMes = dashReport?.expenses.thisMonthGeneral ?? 0
+  const gastosProyectosMes = gastosEsteMes - gastosGeneralesMes
   const cobrosEsteMes = dashReport?.payments.thisMonth ?? 0
   const balanceMes = cobrosEsteMes - gastosEsteMes
 
@@ -122,6 +124,12 @@ export default async function DashboardPage() {
                 <span className="hidden sm:inline"> − </span>
                 <span className="sm:hidden">menos </span>
                 {DOP.format(gastosEsteMes)} gastados
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                Gastos: {DOP.format(gastosProyectosMes)} de proyectos
+                <br className="sm:hidden" />
+                <span className="hidden sm:inline"> · </span>
+                {DOP.format(gastosGeneralesMes)} generales
               </p>
             </CardContent>
           </Card>

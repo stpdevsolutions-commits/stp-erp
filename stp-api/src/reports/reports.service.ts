@@ -210,6 +210,15 @@ export class ReportsService {
       .where('e.date >= :from AND e.date <= :to', { from: firstOfMonth, to: today });
     await this.scopeExpenses(expensesQb, user);
 
+    // De esos gastos del mes, los generales de la empresa (combustible, comida…: sin proyecto).
+    const generalExpensesQb = this.expensesRepo
+      .createQueryBuilder('e')
+      .leftJoin('e.project', 'project')
+      .select('COALESCE(SUM(e.amount), 0)', 'total')
+      .where('e.date >= :from AND e.date <= :to', { from: firstOfMonth, to: today })
+      .andWhere('e.projectId IS NULL');
+    await this.scopeExpenses(generalExpensesQb, user);
+
     const paymentsQb = this.paymentsRepo
       .createQueryBuilder('p')
       .select('COALESCE(SUM(p.amount), 0)', 'total')
@@ -244,6 +253,7 @@ export class ReportsService {
       projectsByStatus,
       quotesByStatus,
       expensesThisMonth,
+      generalExpensesThisMonth,
       paymentsThisMonth,
       overdueTasksCount,
       overduePayments,
@@ -252,6 +262,7 @@ export class ReportsService {
       projectsQb.getRawMany(),
       quotesQb.getRawMany(),
       expensesQb.getRawOne<{ total: string }>(),
+      generalExpensesQb.getRawOne<{ total: string }>(),
       paymentsQb.getRawOne<{ total: string }>(),
       overdueQb.getCount(),
       overduePaymentsQb.getRawOne<{ total: string; count: string }>(),
@@ -270,7 +281,10 @@ export class ReportsService {
         }),
         {} as Record<string, { count: number; amount: number }>,
       ),
-      expenses: { thisMonth: num(expensesThisMonth?.total) },
+      expenses: {
+        thisMonth: num(expensesThisMonth?.total),
+        thisMonthGeneral: num(generalExpensesThisMonth?.total),
+      },
       payments: {
         thisMonth: num(paymentsThisMonth?.total),
         overdueCount: int(overduePayments?.count),
