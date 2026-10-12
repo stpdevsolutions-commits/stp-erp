@@ -17,6 +17,7 @@ import { EXPENSE_TYPES_606 } from './fiscal-invoice-rules';
 import { SCAN_MAX_BYTES, SCAN_MIME_TYPES, ScanResult } from './invoice-scan';
 import { CreateFiscalInvoiceDto } from './dto/fiscal-invoice.dto';
 import { foldName } from './supplier-name';
+import { decodeQrFromImage } from './qr-image';
 
 const SESSION_TTL_MS = 20 * 60 * 1000;
 const AUTOREPLY_EVERY_MS = 24 * 60 * 60 * 1000;
@@ -68,6 +69,8 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
   private readonly logger = new Logger(WhatsappInvoiceFlowService.name);
   private readonly sessions = new Map<string, Session>();
   private readonly autoReplied = new Map<string, number>();
+  /** Remitentes cuya foto se está leyendo ahora mismo. */
+  private readonly processing = new Set<string>();
 
   constructor(
     private readonly whatsapp: WhatsappService,
@@ -127,7 +130,49 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
 
   // ── Foto o PDF ──────────────────────────────────────────────────────────────
 
+  /**
+   * Una factura a la vez por persona: mientras una espera destino, o se está leyendo, una foto nueva
+   * no la pisa (antes la segunda reemplazaba a la primera sin avisar).
+   */
   private async onFile(msg: InboundMessage, user: User): Promise<void> {
+    if (this.processing.has(msg.from)) {
+      await this.whatsapp.sendText(msg.from, 'Todavía estoy leyendo tu foto anterior. Espera unos segundos y mándame la siguiente.');
+      return;
+    }
+    const pending = this.sessions.get(msg.from);
+    if (pending) {
+      const f = pending.scan.fields;
+      const total = pending.scan.totalAmount ?? f.baseAmount + f.itbis + f.isc + f.tip + f.otherTax;
+      await this.whatsapp.sendText(
+        msg.from,
+        `Todavía tengo pendiente la factura ${f.ncf} (${DOP.format(total)}). Elige su destino, o escribe "cancelar" para descartarla, y después mándame la otra.`,
+      );
+      return;
+    }
+    this.processing.add(msg.from);
+    try {
+      await this.processFile(msg, user);
+    } finally {
+      this.processing.delete(msg.from);
+    }
+  }
+
+  /** Lee el QR del e-CF si la foto lo trae (exacto, sin IA); si no se puede, se lee con IA. */
+  private async scanFromQr(buffer: Buffer): Promise<ScanResult | null> {
+    try {
+      const text = await decodeQrFromImage(buffer);
+      if (!text) return null;
+      const scan = await this.invoices.fromQr(text);
+      const f = scan.fields;
+      // Un QR a medias (p. ej. la DGII no respondió y falta el nombre del emisor) no sirve: se usa la IA.
+      return f.ncf && f.supplierRnc && f.supplierName && f.invoiceDate && f.baseAmount > 0 ? scan : null;
+    } catch (err) {
+      this.logger.log(`El QR de la foto no se pudo usar, se lee con IA: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
+  private async processFile(msg: InboundMessage, user: User): Promise<void> {
     const mime = (msg.mime ?? '').toLowerCase();
     if (!msg.mediaId || !(SCAN_MIME_TYPES as readonly string[]).includes(mime)) {
       await this.whatsapp.sendText(msg.from, 'Solo puedo leer fotos (JPG, PNG, WEBP) o PDF de la factura.');
@@ -141,13 +186,16 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
       return;
     }
 
-    let scan: ScanResult;
-    try {
-      scan = await this.invoices.scan(media.buffer, media.mime);
-    } catch (err) {
-      this.logger.warn(`No se pudo leer una factura enviada por WhatsApp: ${(err as Error).message}`);
-      await this.whatsapp.sendText(msg.from, 'No pude leer esa imagen. Envíala de nuevo, de frente y con buena luz.');
-      return;
+    // Primero el QR del e-CF: es exacto, más rápido y no gasta IA. Sin QR (o papel B01…), se lee con IA.
+    let scan: ScanResult | null = media.mime === 'application/pdf' ? null : await this.scanFromQr(media.buffer);
+    if (!scan) {
+      try {
+        scan = await this.invoices.scan(media.buffer, media.mime);
+      } catch (err) {
+        this.logger.warn(`No se pudo leer una factura enviada por WhatsApp: ${(err as Error).message}`);
+        await this.whatsapp.sendText(msg.from, 'No pude leer esa imagen. Envíala de nuevo, de frente y con buena luz.');
+        return;
+      }
     }
 
     const f = scan.fields;
@@ -181,14 +229,17 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
     const f = scan.fields;
     const total = scan.totalAmount ?? f.baseAmount + f.itbis + f.isc + f.tip + f.otherTax;
     const tipo = f.expenseType ? EXPENSE_TYPES_606[f.expenseType] : null;
+    const fromQr = scan.source === 'qr';
     const lines = [
-      'Leí esta factura:',
+      fromQr ? 'Leí el código QR de esta factura:' : 'Leí esta factura:',
       `• Emisor: ${f.supplierName} (RNC ${f.supplierRnc})`,
       `• NCF: ${f.ncf}`,
       `• Fecha: ${f.invoiceDate!.split('-').reverse().join('/')}`,
       `• Total: ${DOP.format(total)}${f.itbis > 0 ? ` (ITBIS ${DOP.format(f.itbis)})` : ''}`,
       `• Tipo de gasto: ${tipo ?? `${EXPENSE_TYPES_606[DEFAULT_EXPENSE_TYPE]} (no pude deducirlo, revísalo en el ERP)`}`,
     ];
+    if (fromQr && scan.estadoDgii) lines.push(`• Estado en la DGII: ${scan.estadoDgii}`);
+    if (fromQr) lines.push('ℹ️ El QR no trae el desglose de propina ni ISC: si la factura los lleva, ajústalo en el ERP.');
     if (scan.confidence === 'low') lines.push('⚠️ La lectura tiene poca confianza: revisa los datos antes de confirmar.');
     for (const w of scan.warnings.slice(0, 3)) lines.push(`⚠️ ${w}`);
     return lines.join('\n');

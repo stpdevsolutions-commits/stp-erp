@@ -1,0 +1,33 @@
+import sharp from 'sharp';
+import { decodeQrFromImage } from './qr-image';
+
+// QR de un e-CF (ConsultaTimbre) con código de seguridad "a+bCdE", generado una vez y guardado aquí.
+const QR_PNG = Buffer.from(
+  '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',
+  'base64',
+);
+const URL_ESPERADA =
+  'https://ecf.dgii.gov.do/ecf/ConsultaTimbre?RncEmisor=101756373&RncComprador=130991873&ENCF=E310000064463&FechaEmision=23-09-2026&MontoTotal=30481.76&FechaFirma=23-09-2026%2010:15:00&CodigoSeguridad=a%2BbCdE';
+
+describe('decodeQrFromImage', () => {
+  it('lee un QR suelto', async () => {
+    expect(await decodeQrFromImage(QR_PNG)).toBe(URL_ESPERADA);
+  });
+
+  it('lo lee aunque sea pequeño dentro de una foto grande, como en una factura', async () => {
+    const foto = await sharp({ create: { width: 3000, height: 4000, channels: 3, background: '#f4f1ea' } })
+      .composite([{ input: QR_PNG, left: 2200, top: 3000 }])
+      .jpeg()
+      .toBuffer();
+    expect(await decodeQrFromImage(foto)).toBe(URL_ESPERADA);
+  });
+
+  it('una foto sin QR devuelve null', async () => {
+    const blanca = await sharp({ create: { width: 800, height: 600, channels: 3, background: '#ffffff' } }).png().toBuffer();
+    expect(await decodeQrFromImage(blanca)).toBeNull();
+  });
+
+  it('un archivo que no es imagen devuelve null sin lanzar', async () => {
+    expect(await decodeQrFromImage(Buffer.from('%PDF-1.7 no soy una imagen'))).toBeNull();
+  });
+});

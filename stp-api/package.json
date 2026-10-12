@@ -45,6 +45,7 @@
     "class-validator": "^0.15.1",
     "exceljs": "^4.4.0",
     "ioredis": "^5.11.1",
+    "jsqr": "^1.4.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
