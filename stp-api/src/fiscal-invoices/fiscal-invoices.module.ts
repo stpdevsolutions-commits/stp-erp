@@ -9,10 +9,13 @@ import { SettingsModule } from '../settings/settings.module';
 import { ExpensesModule } from '../expenses/expenses.module';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { Expense } from '../expenses/entities/expense.entity';
+import { User } from '../users/entities/user.entity';
+import { Project } from '../projects/entities/project.entity';
+import { WhatsappInvoiceFlowService } from './whatsapp-invoice-flow.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([FiscalInvoice, Supplier, Expense]), DgiiModule, SettingsModule, ExpensesModule],
-  providers: [FiscalInvoicesService, InvoiceScanService],
+  imports: [TypeOrmModule.forFeature([FiscalInvoice, Supplier, Expense, User, Project]), DgiiModule, SettingsModule, ExpensesModule],
+  providers: [FiscalInvoicesService, InvoiceScanService, WhatsappInvoiceFlowService],
   controllers: [FiscalInvoicesController],
   exports: [FiscalInvoicesService],
 })

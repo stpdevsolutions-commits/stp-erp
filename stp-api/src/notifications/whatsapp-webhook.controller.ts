@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { WhatsappInboxService, parseInboundMessages } from './whatsapp-inbox.service';
 
 /**
  * Webhook público de WhatsApp Cloud API (Meta). Expuesto SOLO en
@@ -19,7 +20,10 @@ import { createHmac, timingSafeEqual } from 'crypto';
 export class WhatsappWebhookController {
   private readonly logger = new Logger(WhatsappWebhookController.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly inbox: WhatsappInboxService,
+  ) {}
 
   /** Verificación inicial que hace Meta al configurar la URL del webhook. */
   @Get()
@@ -58,6 +62,14 @@ export class WhatsappWebhookController {
       }
     }
     this.logger.log(`Webhook de WhatsApp recibido: ${JSON.stringify(body)}`);
+
+    // Procesar un mensaje REGISTRA datos (facturas): solo si la firma de Meta está verificada.
+    // Sin WHATSAPP_APP_SECRET cualquiera que conozca la URL podría hacerse pasar por un usuario.
+    const messages = parseInboundMessages(body);
+    if (messages.length > 0) {
+      if (secret) void this.inbox.dispatch(messages);
+      else this.logger.warn('Mensajes entrantes ignorados: falta WHATSAPP_APP_SECRET para verificar la firma de Meta');
+    }
     return { received: true };
   }
 

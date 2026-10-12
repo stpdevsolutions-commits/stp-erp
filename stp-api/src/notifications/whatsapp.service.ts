@@ -69,6 +69,110 @@ export class WhatsappService {
     ]);
   }
 
+  get enabled(): boolean {
+    return !!this.accessToken && !!this.phoneNumberId;
+  }
+
+  /** Texto libre. Solo llega si el destinatario escribió en las últimas 24 h (regla de Meta). */
+  async sendText(rawPhone: string, text: string): Promise<void> {
+    await this.sendFree(rawPhone, { type: 'text', text: { body: text.slice(0, 4000), preview_url: false } });
+  }
+
+  /** Hasta 3 botones de respuesta (título de máx. 20 caracteres). */
+  async sendButtons(rawPhone: string, body: string, buttons: { id: string; title: string }[]): Promise<void> {
+    await this.sendFree(rawPhone, {
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: body.slice(0, 1024) },
+        action: {
+          buttons: buttons.slice(0, 3).map((b) => ({ type: 'reply', reply: { id: b.id, title: b.title.slice(0, 20) } })),
+        },
+      },
+    });
+  }
+
+  /** Lista desplegable: hasta 10 filas en total (título de máx. 24 caracteres, descripción de 72). */
+  async sendList(
+    rawPhone: string,
+    body: string,
+    buttonText: string,
+    rows: { id: string; title: string; description?: string }[],
+  ): Promise<void> {
+    await this.sendFree(rawPhone, {
+      type: 'interactive',
+      interactive: {
+        type: 'list',
+        body: { text: body.slice(0, 1024) },
+        action: {
+          button: buttonText.slice(0, 20),
+          sections: [
+            {
+              title: 'Opciones',
+              rows: rows.slice(0, 10).map((r) => ({
+                id: r.id,
+                title: r.title.slice(0, 24),
+                ...(r.description ? { description: r.description.slice(0, 72) } : {}),
+              })),
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  /**
+   * Descarga una foto o PDF que mandó un usuario. Meta da primero la dirección (que caduca a los
+   * 5 minutos) y luego se baja con el mismo token. `null` si falla o pesa más de `maxBytes`.
+   */
+  async downloadMedia(mediaId: string, maxBytes: number): Promise<{ buffer: Buffer; mime: string } | null> {
+    if (!this.accessToken) return null;
+    try {
+      const auth = { Authorization: `Bearer ${this.accessToken}` };
+      const metaRes = await fetch(
+        `https://graph.facebook.com/${WhatsappService.GRAPH_API_VERSION}/${encodeURIComponent(mediaId)}`,
+        { headers: auth, signal: AbortSignal.timeout(15_000) },
+      );
+      if (!metaRes.ok) {
+        this.logger.error(`Meta respondió ${metaRes.status} al pedir el media ${mediaId}`);
+        return null;
+      }
+      const meta = (await metaRes.json()) as { url?: string; mime_type?: string; file_size?: number };
+      if (!meta.url || !isMetaMediaUrl(meta.url)) return null;
+      if (meta.file_size && meta.file_size > maxBytes) return null;
+
+      const fileRes = await fetch(meta.url, { headers: auth, signal: AbortSignal.timeout(30_000) });
+      if (!fileRes.ok) return null;
+      const buffer = Buffer.from(await fileRes.arrayBuffer());
+      if (buffer.length > maxBytes) return null;
+      return { buffer, mime: meta.mime_type ?? fileRes.headers.get('content-type') ?? 'application/octet-stream' };
+    } catch (err) {
+      this.logger.error(`No se pudo descargar el media ${mediaId}: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
+  /** Envío de mensaje libre (no plantilla). Nunca lanza: solo registra el fallo. */
+  private async sendFree(rawPhone: string, payload: Record<string, unknown>): Promise<void> {
+    if (!this.accessToken || !this.phoneNumberId) return;
+    const to = normalizePhone(rawPhone);
+    if (!to) return;
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/${WhatsappService.GRAPH_API_VERSION}/${this.phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.accessToken}` },
+          body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to, ...payload }),
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      if (!res.ok) this.logger.error(`WhatsApp respondió ${res.status} al contestar a ${to}: ${await res.text()}`);
+    } catch (err) {
+      this.logger.error(`Fallo contestando por WhatsApp a ${to}: ${(err as Error).message}`);
+    }
+  }
+
   /** Manda una plantilla aprobada con parámetros posicionales en el body ({{1}}, {{2}}, ...). */
   private async sendTemplate(
     rawPhone: string,
@@ -121,6 +225,16 @@ export class WhatsappService {
   }
 }
 
+/** Solo se descarga de los servidores de Meta: la dirección viene de su respuesta, pero no se confía a ciegas. */
+function isMetaMediaUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' && /(^|\.)(fbsbx\.com|whatsapp\.net|fbcdn\.net|facebook\.com)$/i.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Aplana un texto para que sirva como parámetro de plantilla de WhatsApp:
  * Meta rechaza el envío completo si un parámetro trae salto de línea, tab, o
@@ -145,7 +259,7 @@ function formatDate(iso: string): string {
  * exige la API de WhatsApp (número completo con código de país, sin "+").
  * Devuelve null si el resultado no parece un número real.
  */
-function normalizePhone(raw: string): string | null {
+export function normalizePhone(raw: string): string | null {
   const digits = raw.replace(/\D/g, '');
   if (!digits) return null;
   const withCountry = digits.length === 10 ? `1${digits}` : digits;
