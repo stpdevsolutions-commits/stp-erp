@@ -31,9 +31,11 @@ const UNREADABLE =
  * Lee una factura (foto o PDF) con un modelo de IA y devuelve lo que "cree" haber leído,
  * SIN confiar en ello: `normalizeScan` lo contrasta con las reglas fiscales después.
  *
- * Proveedor: Claude si hay `ANTHROPIC_API_KEY`, si no Gemini (`GEMINI_API_KEY`, que el ERP
- * ya usa para importar precios). `INVOICE_SCAN_PROVIDER` fuerza uno. La clave y el modelo
- * se cambian por entorno, sin tocar código.
+ * Proveedor preferido: Claude si hay `ANTHROPIC_API_KEY`, si no Gemini (`GEMINI_API_KEY`, que el
+ * ERP ya usa para importar precios). `INVOICE_SCAN_PROVIDER` elige cuál va primero. Si hay clave
+ * de los dos y el preferido falla (cuota agotada, saldo, caída), se prueba con el otro; en la
+ * lectura siguiente se vuelve a empezar por el preferido, así que regresa solo cuando se recupera.
+ * La clave y el modelo se cambian por entorno, sin tocar código.
  */
 @Injectable()
 export class InvoiceScanService {
@@ -54,21 +56,41 @@ export class InvoiceScanService {
     return null;
   }
 
+  /** Proveedores en orden de intento: el preferido y, si tiene clave, el otro como respaldo. */
+  providers(): ScanProvider[] {
+    const primary = this.provider();
+    if (!primary) return [];
+    const other: ScanProvider = primary === 'claude' ? 'gemini' : 'claude';
+    const hasKey = this.config.get<string>(other === 'claude' ? 'ANTHROPIC_API_KEY' : 'GEMINI_API_KEY');
+    return hasKey ? [primary, other] : [primary];
+  }
+
   async read(buffer: Buffer, mimeType: string): Promise<{ raw: RawScan; provider: ScanProvider }> {
-    const provider = this.provider();
-    if (!provider) {
+    const order = this.providers();
+    if (order.length === 0) {
       throw new ServiceUnavailableException(
         'El escaneo con IA no está configurado en el servidor (falta la clave del modelo). Registra la factura a mano.',
       );
     }
-    const text = provider === 'claude' ? await this.callClaude(buffer, mimeType) : await this.callGemini(buffer, mimeType);
 
-    try {
-      return { raw: JSON.parse(extractJsonObject(text)) as RawScan, provider };
-    } catch {
-      this.logger.error(`Respuesta no parseable (${provider}): ${text.slice(0, 400)}`);
-      throw new UnprocessableEntityException(UNREADABLE);
+    let firstError: unknown;
+    for (const [i, provider] of order.entries()) {
+      try {
+        const text =
+          provider === 'claude' ? await this.callClaude(buffer, mimeType) : await this.callGemini(buffer, mimeType);
+        try {
+          return { raw: JSON.parse(extractJsonObject(text)) as RawScan, provider };
+        } catch {
+          this.logger.error(`Respuesta no parseable (${provider}): ${text.slice(0, 400)}`);
+          throw new UnprocessableEntityException(UNREADABLE);
+        }
+      } catch (err) {
+        // Al usuario le llega el error del preferido; el del respaldo solo queda en el log.
+        firstError ??= err;
+        if (i < order.length - 1) this.logger.warn(`${provider} falló; se prueba con ${order[i + 1]}`);
+      }
     }
+    throw firstError;
   }
 
   private async callGemini(buffer: Buffer, mimeType: string): Promise<string> {

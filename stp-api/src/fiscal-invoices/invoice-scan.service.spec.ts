@@ -35,6 +35,61 @@ describe('InvoiceScanService', () => {
     await expect(svc.read(PNG, 'image/png')).rejects.toThrow('Registra la factura a mano');
   });
 
+  describe('respaldo entre proveedores', () => {
+    const original = global.fetch;
+    afterEach(() => {
+      global.fetch = original;
+    });
+    const both = { ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g', INVOICE_SCAN_PROVIDER: 'gemini' };
+    const claudeOk = () =>
+      jest.fn(async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ content: [{ type: 'text', text: '{"ncf":"B0100000012"}' }] }) }) as any);
+
+    it('el orden: el preferido primero y el otro de respaldo (solo si tiene clave)', () => {
+      expect(new InvoiceScanService(config(both)).providers()).toEqual(['gemini', 'claude']);
+      expect(new InvoiceScanService(config({ ...both, INVOICE_SCAN_PROVIDER: 'claude' })).providers()).toEqual(['claude', 'gemini']);
+      expect(new InvoiceScanService(config({ GEMINI_API_KEY: 'g' })).providers()).toEqual(['gemini']);
+      expect(new InvoiceScanService(config({})).providers()).toEqual([]);
+    });
+
+    it('si el preferido responde, el respaldo ni se llama', async () => {
+      const fetchMock = claudeOk();
+      global.fetch = fetchMock as any;
+      const svc = new InvoiceScanService(config(both));
+      jest.spyOn(svc as any, 'callGemini').mockResolvedValue('{"ncf":"B0100000099"}');
+      const { raw, provider } = await svc.read(PNG, 'image/png');
+      expect(provider).toBe('gemini');
+      expect(raw).toEqual({ ncf: 'B0100000099' });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('si el preferido falla (cuota, caída), usa el otro', async () => {
+      global.fetch = claudeOk() as any;
+      const svc = new InvoiceScanService(config(both));
+      jest.spyOn(svc as any, 'callGemini').mockRejectedValue(new ServiceUnavailableException('cuota'));
+      const { provider } = await svc.read(PNG, 'image/png');
+      expect(provider).toBe('claude');
+    });
+
+    it('en la lectura siguiente vuelve a intentar con el preferido', async () => {
+      global.fetch = claudeOk() as any;
+      const svc = new InvoiceScanService(config(both));
+      const gemini = jest
+        .spyOn(svc as any, 'callGemini')
+        .mockRejectedValueOnce(new ServiceUnavailableException('cuota'))
+        .mockResolvedValueOnce('{"ncf":"B0100000012"}');
+      expect((await svc.read(PNG, 'image/png')).provider).toBe('claude');
+      expect((await svc.read(PNG, 'image/png')).provider).toBe('gemini');
+      expect(gemini).toHaveBeenCalledTimes(2);
+    });
+
+    it('si fallan los dos, el error es el del preferido', async () => {
+      global.fetch = jest.fn(async () => ({ ok: false, status: 500, text: async () => 'x' }) as any) as any;
+      const svc = new InvoiceScanService(config(both));
+      jest.spyOn(svc as any, 'callGemini').mockRejectedValue(new ServiceUnavailableException('límite de Gemini'));
+      await expect(svc.read(PNG, 'image/png')).rejects.toThrow('límite de Gemini');
+    });
+  });
+
   describe('Claude (la petición exacta; sin clave real no se puede probar en vivo)', () => {
     const original = global.fetch;
     afterEach(() => {
