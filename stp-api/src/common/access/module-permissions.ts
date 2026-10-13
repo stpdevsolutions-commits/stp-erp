@@ -36,7 +36,8 @@ export type ModuleKey =
   | 'reportes'
   | 'colaboradores'
   | 'configuracion'
-  | 'facturas';
+  | 'facturas'
+  | 'mensajes';
 
 /**
  * 'contribute' (ERP-109): ve y crea, pero no administra/borra lo de otros —
@@ -69,6 +70,8 @@ export const MODULE_PERMISSIONS: Record<UserRole, Record<ModuleKey, PermissionLe
     proveedores: 'manage', inventario: 'manage', pagos: 'manage', gastos: 'manage',
     nomina: 'manage', reportes: 'manage', colaboradores: 'manage', configuracion: 'manage',
     facturas: 'manage',
+    // Bandeja de WhatsApp y CRM ligero (ERP-57).
+    mensajes: 'manage',
   },
   [UserRole.MANAGER]: {
     clientes: 'manage', cotizaciones: 'manage', proyectos: 'manage', cronograma: 'manage',
@@ -77,6 +80,8 @@ export const MODULE_PERMISSIONS: Record<UserRole, Record<ModuleKey, PermissionLe
     nomina: 'none', reportes: 'view', colaboradores: 'view', configuracion: 'none',
     // Facturas fiscales (606): datos tributarios de la empresa, no de un proyecto.
     facturas: 'none',
+    // Bandeja de WhatsApp y CRM ligero (ERP-57).
+    mensajes: 'manage',
   },
   [UserRole.FINANZA]: {
     clientes: 'view', cotizaciones: 'manage', proyectos: 'view', cronograma: 'none',
@@ -84,6 +89,8 @@ export const MODULE_PERMISSIONS: Record<UserRole, Record<ModuleKey, PermissionLe
     proveedores: 'view', inventario: 'none', pagos: 'manage', gastos: 'manage',
     nomina: 'manage', reportes: 'view', colaboradores: 'view', configuracion: 'none',
     facturas: 'manage',
+    // Bandeja de WhatsApp y CRM ligero (ERP-57).
+    mensajes: 'none',
   },
   [UserRole.USER]: {
     // 'view'/'manage' aqui solo habilita el modulo -- que registros ve
@@ -95,6 +102,8 @@ export const MODULE_PERMISSIONS: Record<UserRole, Record<ModuleKey, PermissionLe
     proveedores: 'none', inventario: 'view', pagos: 'none', gastos: 'none',
     nomina: 'none', reportes: 'none', colaboradores: 'none', configuracion: 'none',
     facturas: 'none',
+    // Bandeja de WhatsApp y CRM ligero (ERP-57).
+    mensajes: 'none',
   },
 };
 

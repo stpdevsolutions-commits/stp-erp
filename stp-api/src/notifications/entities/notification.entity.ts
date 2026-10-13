@@ -15,6 +15,7 @@ export enum NotificationType {
   QUOTE_REJECTED = 'quote_rejected',
   PAYMENT_RECEIVED = 'payment_received',
   PAYMENT_OVERDUE = 'payment_overdue',
+  MESSAGE_RECEIVED = 'message_received',
 }
 
 /**

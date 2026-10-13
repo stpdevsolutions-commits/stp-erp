@@ -33,6 +33,22 @@ export class WhatsappInboxService {
     this.handler = handler;
   }
 
+  /** Quien guarda TODO el cuerpo del webhook (mensajes y estados) para la bandeja del ERP-57. */
+  private rawListener?: (body: unknown) => Promise<void>;
+
+  registerRaw(listener: (body: unknown) => Promise<void>): void {
+    this.rawListener = listener;
+  }
+
+  async dispatchRaw(body: unknown): Promise<void> {
+    if (!this.rawListener) return;
+    try {
+      await this.rawListener(body);
+    } catch (err) {
+      this.logger.error(`Fallo guardando el webhook en la bandeja: ${(err as Error).message}`);
+    }
+  }
+
   async dispatch(messages: InboundMessage[]): Promise<void> {
     if (!this.handler) return;
     const now = Date.now();

@@ -152,6 +152,95 @@ export class WhatsappService {
     }
   }
 
+  /**
+   * Quien quiera guardar lo que sale (la bandeja de mensajes del ERP-57) se registra aquí y recibe
+   * cada mensaje libre enviado con éxito, incluidas las respuestas automáticas del flujo de facturas.
+   */
+  setOutboundRecorder(recorder: OutboundRecorder): void {
+    this.recorder = recorder;
+  }
+
+  private recorder?: OutboundRecorder;
+
+  /** Texto libre que devuelve el id de Meta y LANZA si falla: lo usa la bandeja, que debe mostrar el error. */
+  async sendTextTracked(rawPhone: string, text: string): Promise<{ wamid: string }> {
+    return this.postTracked(rawPhone, { type: 'text', text: { body: text.slice(0, 4000), preview_url: false } });
+  }
+
+  /** Plantilla aprobada (con botones de respuesta rápida si los tiene) que devuelve el id y lanza si falla. */
+  async sendTemplateTracked(
+    rawPhone: string,
+    templateName: string,
+    languageCode: string,
+    bodyParams: string[],
+  ): Promise<{ wamid: string }> {
+    return this.postTracked(rawPhone, {
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+        components: [
+          { type: 'body', parameters: bodyParams.map((text) => ({ type: 'text', text: sanitizeTemplateParam(text) })) },
+        ],
+      },
+    });
+  }
+
+  /**
+   * Sube una foto o PDF a Meta y lo envía (imagen con pie, o documento con nombre). Solo vale dentro
+   * de la ventana de 24 h, como el texto libre. Lanza si Meta lo rechaza.
+   */
+  async sendMediaTracked(
+    rawPhone: string,
+    m: { buffer: Buffer; mime: string; filename: string; caption?: string },
+  ): Promise<{ wamid: string }> {
+    if (!this.accessToken || !this.phoneNumberId) throw new Error('WhatsApp no está configurado en el servidor');
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('type', m.mime);
+    form.append('file', new Blob([new Uint8Array(m.buffer)], { type: m.mime }), m.filename);
+    const up = await fetch(`https://graph.facebook.com/${WhatsappService.GRAPH_API_VERSION}/${this.phoneNumberId}/media`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.accessToken}` },
+      body: form,
+      signal: AbortSignal.timeout(30_000),
+    });
+    const upJson = (await up.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+    if (!up.ok || !upJson.id) throw new Error(upJson.error?.message ?? `No se pudo subir el archivo (HTTP ${up.status})`);
+    const caption = m.caption?.trim() || undefined;
+    return this.postTracked(
+      rawPhone,
+      m.mime.startsWith('image/')
+        ? { type: 'image', image: { id: upJson.id, ...(caption ? { caption } : {}) } }
+        : { type: 'document', document: { id: upJson.id, filename: m.filename, ...(caption ? { caption } : {}) } },
+    );
+  }
+
+  private async postTracked(rawPhone: string, payload: Record<string, unknown>): Promise<{ wamid: string }> {
+    if (!this.accessToken || !this.phoneNumberId) throw new Error('WhatsApp no está configurado en el servidor');
+    const to = normalizePhone(rawPhone);
+    if (!to) throw new Error('Número de teléfono inválido');
+    const res = await fetch(
+      `https://graph.facebook.com/${WhatsappService.GRAPH_API_VERSION}/${this.phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.accessToken}` },
+        body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to, ...payload }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    const json = (await res.json().catch(() => ({}))) as {
+      messages?: { id?: string }[];
+      error?: { message?: string; error_data?: { details?: string } };
+    };
+    if (!res.ok || !json.messages?.[0]?.id) {
+      const detail = json.error?.error_data?.details ?? json.error?.message ?? `HTTP ${res.status}`;
+      this.logger.error(`WhatsApp respondió ${res.status} a ${to}: ${detail}`);
+      throw new Error(detail);
+    }
+    return { wamid: json.messages[0].id };
+  }
+
   /** Envío de mensaje libre (no plantilla). Nunca lanza: solo registra el fallo. */
   private async sendFree(rawPhone: string, payload: Record<string, unknown>): Promise<void> {
     if (!this.accessToken || !this.phoneNumberId) return;
@@ -167,7 +256,16 @@ export class WhatsappService {
           signal: AbortSignal.timeout(15_000),
         },
       );
-      if (!res.ok) this.logger.error(`WhatsApp respondió ${res.status} al contestar a ${to}: ${await res.text()}`);
+      if (!res.ok) {
+        this.logger.error(`WhatsApp respondió ${res.status} al contestar a ${to}: ${await res.text()}`);
+        return;
+      }
+      if (this.recorder) {
+        const json = (await res.json().catch(() => ({}))) as { messages?: { id?: string }[] };
+        await this.recorder({ to, wamid: json.messages?.[0]?.id, payload }).catch((e: Error) =>
+          this.logger.error(`No se pudo registrar el mensaje saliente: ${e.message}`),
+        );
+      }
     } catch (err) {
       this.logger.error(`Fallo contestando por WhatsApp a ${to}: ${(err as Error).message}`);
     }
@@ -224,6 +322,9 @@ export class WhatsappService {
     }
   }
 }
+
+/** Lo que el servicio entrega a quien registre los mensajes salientes: destinatario, id de Meta y el cuerpo enviado. */
+export type OutboundRecorder = (m: { to: string; wamid?: string; payload: Record<string, unknown> }) => Promise<void>;
 
 /** Solo se descarga de los servidores de Meta: la dirección viene de su respuesta, pero no se confía a ciegas. */
 function isMetaMediaUrl(raw: string): boolean {

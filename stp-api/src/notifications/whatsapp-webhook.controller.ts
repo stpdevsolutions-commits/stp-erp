@@ -63,6 +63,9 @@ export class WhatsappWebhookController {
     }
     this.logger.log(`Webhook de WhatsApp recibido: ${JSON.stringify(body)}`);
 
+    // La bandeja del ERP-57 guarda mensajes y estados: igual que abajo, solo con la firma de Meta verificada.
+    if (secret) void this.inbox.dispatchRaw(body);
+
     // Procesar un mensaje REGISTRA datos (facturas): solo si la firma de Meta está verificada.
     // Sin WHATSAPP_APP_SECRET cualquiera que conozca la URL podría hacerse pasar por un usuario.
     const messages = parseInboundMessages(body);

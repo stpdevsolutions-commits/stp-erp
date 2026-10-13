@@ -19,6 +19,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from '@/components/ui/sidebar'
+import { useMensajesPendientes } from '@/lib/use-mensajes-pendientes'
 import { ROLE_LABELS, getPageTitle, isNavActive, visibleGroups } from '@/lib/nav'
 
 // Se reexporta para no romper a quien ya lo importaba desde aquí.
@@ -43,6 +44,7 @@ export function AppSidebar({
     ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
     : ''
   const grupos = visibleGroups(role, modules)
+  const mensajesPendientes = useMensajesPendientes(grupos.some((g) => g.items.some((i) => i.module === 'mensajes')))
 
   // En móvil el menú es un panel superpuesto: al elegir una sección debe cerrarse solo.
   function closeOnMobile() {
@@ -91,6 +93,14 @@ export function AppSidebar({
                     >
                       <item.icon className="size-4" />
                       <span>{item.label}</span>
+                      {item.module === 'mensajes' && mensajesPendientes > 0 && (
+                        <span
+                          className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[0.7rem] font-semibold tabular-nums text-primary-foreground"
+                          aria-label={`${mensajesPendientes} conversaciones esperan respuesta`}
+                        >
+                          {mensajesPendientes}
+                        </span>
+                      )}
                     </SidebarMenuButton>
                     {/* Las subentradas solo aparecen dentro del módulo: fuera de él
                         ocuparían sitio sin aportar contexto. */}

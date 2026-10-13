@@ -21,6 +21,7 @@ import {
   FileCheck,
   ReceiptText,
   HandCoins,
+  MessageSquare,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -75,6 +76,7 @@ export const NAV: NavGroup[] = [
   {
     label: 'Ventas',
     items: [
+      { href: '/dashboard/mensajes', module: 'mensajes', label: 'Mensajes', description: 'WhatsApp de STP: conversaciones y seguimiento de clientes potenciales', icon: MessageSquare },
       { href: '/dashboard/clientes', module: 'clientes', label: 'Clientes', description: 'Fichas, contactos y accesos por cliente', icon: Users },
       { href: '/dashboard/cotizaciones', module: 'cotizaciones', label: 'Cotizaciones', description: 'Presupuestos con partidas y PDF', icon: FileText },
       { href: '/dashboard/facturas/emitidas', module: 'facturas', label: 'Facturas emitidas', description: 'Comprobantes fiscales emitidos a clientes', icon: FileCheck },
