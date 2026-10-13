@@ -122,6 +122,21 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
     const last = this.autoReplied.get(from) ?? 0;
     if (Date.now() - last < AUTOREPLY_EVERY_MS) return;
     this.autoReplied.set(from, Date.now());
+    // El control en memoria se pierde con cada reinicio (cada despliegue repetía el acuse en plena conversación):
+    // la bandeja guarda todo lo que sale, así que si ya le escribimos un humano, o este acuse en las últimas 24 h,
+    // no se repite.
+    try {
+      const phone = normalizePhone(from);
+      const rows: unknown[] = await this.users.manager.query(
+        `SELECT 1 FROM wa_messages m JOIN wa_contacts c ON c.id = m."contactId"
+         WHERE c.phone = $1 AND m.direction = 'out'
+           AND (m."sentById" IS NOT NULL OR m."sentAt" > now() - interval '24 hours') LIMIT 1`,
+        [phone],
+      );
+      if (rows.length > 0) return;
+    } catch {
+      /* si la consulta falla, se mantiene el comportamiento anterior (acuse con control en memoria) */
+    }
     const text =
       this.config.get<string>('WHATSAPP_AUTOREPLY_TEXT') ??
       'Gracias por comunicarte con Soluciones Técnicas Profesionales (STP). Recibimos tu mensaje y un miembro de nuestro equipo se pondrá en contacto contigo lo antes posible.';
