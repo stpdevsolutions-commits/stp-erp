@@ -161,6 +161,16 @@ http://gw.stpsoluciones.com {
 		reverse_proxy stp-tickets-web:3000
 	}
 
+	# AppFlowy Cloud — notas/documentación (Notion autoalojado). Solo VPN/LAN.
+	# Su nginx interno ya enruta /api, /gotrue, /ws, /minio-api y la web.
+	@notas {
+		host notas.stpsoluciones.com
+		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
+	}
+	handle @notas {
+		reverse_proxy appflowy-nginx:80
+	}
+
 	# Fantasy NBA — asistente personal de Pedro (no es de STP), su liga de
 	# ESPN. Un solo contenedor sirve API + dashboard estático.
 	@fantasy {

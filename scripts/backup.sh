@@ -123,6 +123,7 @@ dump_volume() {
 log "Backup de volúmenes Docker..."
 step "volumen vaultwarden" guardar "$BACKUP_DIR/vaultwarden-data.tar.gz" dump_volume stp_vaultwarden-data
 step "volumen caddy"       guardar "$BACKUP_DIR/caddy-certs.tar.gz"      dump_volume stp_caddy-data
+step "volumen appflowy (archivos)" guardar "$BACKUP_DIR/appflowy-files.tar.gz" dump_volume appflowy_minio_data
 step "config de Nextcloud" guardar "$BACKUP_DIR/nextcloud-config.tar.gz" \
   docker exec stp-nextcloud tar czf - -C /var/www/html config
 
