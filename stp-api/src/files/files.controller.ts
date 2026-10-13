@@ -76,7 +76,10 @@ export class FilesController {
     file: Express.Multer.File,
     @CurrentUser() user: any,
   ) {
-    if (!projectId) throw new BadRequestException('projectId es requerido');
+    if (!projectId) {
+      this.filesService.discardUpload(file);
+      throw new BadRequestException('projectId es requerido');
+    }
     return this.filesService.saveProjectPhotoForFicha(file, projectId, user.id);
   }
 

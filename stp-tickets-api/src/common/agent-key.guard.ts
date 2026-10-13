@@ -5,6 +5,15 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHash, timingSafeEqual } from 'crypto';
+
+/** Comparación en tiempo constante (SHA-256 de ambos lados iguala longitudes). */
+function safeEqual(a: unknown, b: string): boolean {
+  if (typeof a !== 'string') return false;
+  const ha = createHash('sha256').update(a).digest();
+  const hb = createHash('sha256').update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
 
 /**
  * Secreto compartido máquina-a-máquina (no es una cuenta de usuario) — mismo
@@ -20,7 +29,7 @@ export class AgentKeyGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const key = request.headers['x-agent-key'];
     const expected = this.config.get<string>('TICKETS_AGENT_KEY');
-    if (!expected || key !== expected) {
+    if (!expected || !safeEqual(key, expected)) {
       throw new UnauthorizedException('x-agent-key inválida o ausente');
     }
     return true;

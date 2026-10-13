@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertCircle, ArrowLeft, Check, CheckCheck, FileText, Info, Paperclip, Send } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { AlertCircle, ArrowLeft, Check, CheckCheck, Clock, FileText, Info, Paperclip, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from '@/lib/toast'
@@ -12,6 +12,7 @@ import {
   formatHour,
   formatPhone,
   mFetch,
+  reloadOnceForSession,
   sameDay,
   windowLeft,
   type WaAgent,
@@ -21,7 +22,33 @@ import {
 import { PanelLead } from './panel-lead'
 import { PlantillaDialog } from './plantilla-dialog'
 
-const POLL_MS = 3000
+const POLL_MS = 5000
+/** Mensajes por página; si el servidor devuelve una página llena, puede haber más atrás. */
+const PAGE = 200
+/** Una petición que no responde en este tiempo se aborta para que el polling siga. */
+const REQUEST_TIMEOUT_MS = 15_000
+
+/** Borrador por conversación: sobrevive a cambiar de chat y a una recarga por sesión vencida. */
+const draftKey = (id: string) => `stp-msg-draft-${id}`
+function readDraft(id: string): string {
+  try {
+    return sessionStorage.getItem(draftKey(id)) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+const signature = (rows: WaMessageView[]) => rows.map((m) => `${m.id}:${m.status}:${m.hasMedia ? 1 : 0}`).join('|')
+
+/** Mezcla la página más reciente con lo ya cargado (incluidos los mensajes anteriores); si nada cambió devuelve `prev` tal cual. */
+function mergeLatest(prev: WaMessageView[], rows: WaMessageView[]): WaMessageView[] {
+  if (rows.length === 0) return prev
+  const ids = new Set(rows.map((r) => r.id))
+  const first = Date.parse(rows[0].sentAt)
+  const older = prev.filter((m) => !ids.has(m.id) && Date.parse(m.sentAt) <= first)
+  const merged = older.length ? [...older, ...rows] : rows
+  return signature(merged) === signature(prev) ? prev : merged
+}
 
 interface Props {
   contact: WaContactView
@@ -35,6 +62,7 @@ function Estado({ m }: { m: WaMessageView }) {
   if (m.status === 'failed') {
     return <AlertCircle className="size-3.5 text-destructive" aria-label={`No se entregó: ${m.error ?? ''}`} />
   }
+  if (m.status === 'sending') return <Clock className="size-3.5" aria-label="Enviando" />
   if (m.status === 'read') return <CheckCheck className="size-3.5 text-sky-500" aria-label="Leído" />
   if (m.status === 'delivered') return <CheckCheck className="size-3.5" aria-label="Entregado" />
   return <Check className="size-3.5" aria-label="Enviado" />
@@ -85,7 +113,7 @@ function Texto({ text }: { text: string }) {
 
 export function Hilo({ contact, agents, onChanged, onBack }: Props) {
   const [messages, setMessages] = useState<WaMessageView[]>([])
-  const [text, setText] = useState('')
+  const [text, setText] = useState(() => readDraft(contact.id))
   const [sending, setSending] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const [ficha, setFicha] = useState(false)
@@ -95,23 +123,100 @@ export function Hilo({ contact, agents, onChanged, onBack }: Props) {
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const markedFor = useRef<number>(-1)
+  const inflight = useRef<AbortController | null>(null)
+  const exhausted = useRef(false)
+  const restoreFrom = useRef<number | null>(null)
+  const [canLoadMore, setCanLoadMore] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
 
-  const loadThread = useCallback(async () => {
-    try {
-      const rows = await mFetch<WaMessageView[]>(`/contacts/${contact.id}/messages?limit=200`)
-      setMessages(rows)
-    } catch {
-      /* el siguiente ciclo reintenta */
-    }
-  }, [contact.id])
+  /** Pide la página más reciente. Una sola petición a la vez: el polling se salta el ciclo si hay una en vuelo; `force` la reemplaza. */
+  const loadThread = useCallback(
+    async (force = false) => {
+      if (inflight.current) {
+        if (!force) return
+        inflight.current.abort()
+      }
+      const ctl = new AbortController()
+      inflight.current = ctl
+      const timer = setTimeout(() => ctl.abort(), REQUEST_TIMEOUT_MS)
+      try {
+        const rows = await mFetch<WaMessageView[]>(`/contacts/${contact.id}/messages?limit=${PAGE}`, { signal: ctl.signal })
+        if (inflight.current !== ctl) return // Una respuesta vieja no pisa a una más nueva.
+        setMessages((prev) => mergeLatest(prev, rows))
+        if (rows.length < PAGE) setCanLoadMore(false)
+        else if (!exhausted.current) setCanLoadMore(true)
+      } catch {
+        /* el siguiente ciclo reintenta */
+      } finally {
+        clearTimeout(timer)
+        if (inflight.current === ctl) inflight.current = null
+      }
+    },
+    [contact.id],
+  )
 
   useEffect(() => {
     void loadThread()
     const id = setInterval(() => {
       if (document.visibilityState === 'visible') void loadThread()
     }, POLL_MS)
-    return () => clearInterval(id)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void loadThread()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+      inflight.current?.abort()
+      inflight.current = null
+    }
   }, [loadThread])
+
+  // Guarda el borrador: un cambio de conversación o una recarga no pierde lo escrito.
+  useEffect(() => {
+    try {
+      if (text) sessionStorage.setItem(draftKey(contact.id), text)
+      else sessionStorage.removeItem(draftKey(contact.id))
+    } catch {
+      /* sin sessionStorage no hay borrador */
+    }
+  }, [text, contact.id])
+
+  const loadOlder = async () => {
+    const first = messages[0]
+    if (!first || loadingOlder) return
+    setLoadingOlder(true)
+    try {
+      const rows = await mFetch<WaMessageView[]>(
+        `/contacts/${contact.id}/messages?limit=${PAGE}&before=${encodeURIComponent(first.sentAt)}`,
+      )
+      if (rows.length < PAGE) {
+        exhausted.current = true
+        setCanLoadMore(false)
+      }
+      if (rows.length) {
+        const el = scroller.current
+        restoreFrom.current = el ? el.scrollHeight - el.scrollTop : null // Para que la vista no salte al agregar arriba.
+        stick.current = false
+        setMessages((prev) => {
+          const ids = new Set(prev.map((m) => m.id))
+          return [...rows.filter((r) => !ids.has(r.id)), ...prev]
+        })
+      }
+    } catch (e) {
+      toast.error('No se pudieron cargar los anteriores', (e as Error).message)
+    } finally {
+      setLoadingOlder(false)
+    }
+  }
+
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (el && restoreFrom.current !== null) {
+      el.scrollTop = el.scrollHeight - restoreFrom.current
+      restoreFrom.current = null
+    }
+  }, [messages])
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000)
@@ -146,7 +251,7 @@ export function Hilo({ contact, agents, onChanged, onBack }: Props) {
       await mFetch(`/contacts/${contact.id}/messages`, { method: 'POST', body: JSON.stringify({ text: body }) })
       setText('')
       stick.current = true
-      await loadThread()
+      await loadThread(true)
       onChanged()
     } catch (e) {
       toast.error('No se pudo enviar', (e as Error).message)
@@ -168,6 +273,11 @@ export function Hilo({ contact, agents, onChanged, onBack }: Props) {
       form.append('file', file)
       if (text.trim()) form.append('caption', text.trim())
       const res = await fetch(`/api/messaging/contacts/${contact.id}/attachments`, { method: 'POST', body: form })
+      if (res.status === 401) {
+        // Sesión vencida: el texto escrito queda guardado como borrador y se recupera tras la recarga.
+        reloadOnceForSession()
+        throw new Error('Sesión expirada: tu texto se conserva, vuelve a intentarlo.')
+      }
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { message?: string | string[] }
         throw new Error(Array.isArray(err.message) ? err.message.join(', ') : (err.message ?? 'Error al enviar'))
@@ -175,7 +285,7 @@ export function Hilo({ contact, agents, onChanged, onBack }: Props) {
       toast.done(id, 'Archivo enviado')
       setText('')
       stick.current = true
-      await loadThread()
+      await loadThread(true)
       onChanged()
     } catch (e) {
       toast.fail(id, (e as Error).message)
@@ -223,6 +333,13 @@ export function Hilo({ contact, agents, onChanged, onBack }: Props) {
 
         {/* Mensajes */}
         <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 space-y-1 overflow-y-auto bg-muted/30 px-3 py-4">
+          {canLoadMore && messages.length > 0 && (
+            <div className="flex justify-center pb-2">
+              <Button variant="outline" size="sm" onClick={() => void loadOlder()} disabled={loadingOlder}>
+                {loadingOlder ? 'Cargando…' : 'Cargar anteriores'}
+              </Button>
+            </div>
+          )}
           {messages.length === 0 && <p className="text-center text-sm text-muted-foreground">Sin mensajes todavía.</p>}
           {messages.map((m, i) => {
             const out = m.direction === 'out'
@@ -341,7 +458,7 @@ export function Hilo({ contact, agents, onChanged, onBack }: Props) {
         contact={contact}
         onSent={() => {
           stick.current = true
-          void loadThread()
+          void loadThread(true)
           onChanged()
         }}
       />

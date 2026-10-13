@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Header, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Header, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { QuotesService, QuoteDecisionResult } from './quotes.service';
@@ -16,19 +16,35 @@ import { QuoteStatus } from './entities/quote.entity';
 export class QuotesPublicController {
   constructor(private readonly quotesService: QuotesService) {}
 
+  /**
+   * Enlace del correo: solo MUESTRA la confirmación. Cambiar el estado con un GET dejaba que los escáneres de
+   * enlaces aprobaran o rechazaran la cotización sin que el cliente hiciera nada (abren los dos enlaces).
+   */
   @Get('decision')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Header('Content-Type', 'text/html; charset=utf-8')
+  @Header('Content-Security-Policy', "frame-ancestors 'none'; form-action 'self'")
+  @Header('Cache-Control', 'no-store')
+  async preview(@Query('token') token: string, @Query('action') action: string): Promise<string> {
+    return renderDecisionPage(await this.quotesService.previewDecision(token ?? '', action ?? ''));
+  }
+
+  /** Botón "Confirmar" de la página anterior: aquí sí se decide. */
+  @Post('decision')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @Header('Content-Security-Policy', "frame-ancestors 'none'")
+  @Header('Cache-Control', 'no-store')
   async decision(
-    @Query('token') token: string,
-    @Query('action') action: string,
+    @Body('token') token: string,
+    @Body('action') action: string,
     @Req() req: Request,
   ): Promise<string> {
     // Detrás de Caddy: la IP real del cliente llega en X-Forwarded-For.
     const forwarded = (req.headers['x-forwarded-for'] as string | undefined)
       ?.split(',')[0]
       ?.trim();
-    const result = await this.quotesService.decide(token ?? '', action ?? '', {
+    const result = await this.quotesService.decide(String(token ?? ''), String(action ?? ''), {
       ip: forwarded || req.ip,
       userAgent: req.headers['user-agent'],
     });
@@ -74,8 +90,27 @@ function page(opts: {
 </html>`;
 }
 
+const esc = (v: string): string =>
+  v.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+
 function renderDecisionPage(result: QuoteDecisionResult): string {
   switch (result.kind) {
+    case 'confirm': {
+      const approve = result.action === 'approve';
+      const btn = approve ? '#157B52' : '#b91c1c';
+      return page({
+        emoji: approve ? '✅' : '🚫',
+        color: btn,
+        heading: approve ? 'Confirmar aprobación' : 'Confirmar rechazo',
+        body: `¿Desea ${approve ? 'aprobar' : 'rechazar'} la cotización <strong>${esc(result.quoteNumber)}</strong>?<br><br>
+<form method="POST" action="decision" style="margin:0">
+  <input type="hidden" name="token" value="${esc(result.token)}" />
+  <input type="hidden" name="action" value="${result.action}" />
+  <button type="submit" style="background:${btn};color:#fff;border:0;border-radius:8px;padding:12px 28px;font-size:16px;font-weight:700;cursor:pointer">${approve ? 'Sí, aprobar' : 'Sí, rechazar'}</button>
+</form>`,
+      });
+    }
+
     case 'success':
       return result.status === QuoteStatus.APPROVED
         ? page({

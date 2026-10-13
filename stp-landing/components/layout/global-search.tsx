@@ -66,13 +66,24 @@ export function GlobalSearch({
     // Con menos de 2 letras no se busca; el menú tampoco se muestra
     // (showDropdown), así que no hace falta limpiar estado aquí.
     if (term.length < 2) return
+    // Cada cambio de texto cancela la petición anterior (cleanup): una respuesta lenta
+    // de "ab" ya no puede pisar los resultados de "abc".
+    const controller = new AbortController()
     const timeout = setTimeout(() => {
-      fetch(`/api/search?q=${encodeURIComponent(term)}`)
+      fetch(`/api/search?q=${encodeURIComponent(term)}`, { signal: controller.signal })
         .then((res) => (res.ok ? res.json() : null))
-        .then((data) => setResults(data))
-        .finally(() => setLoading(false))
+        .then((data) => {
+          if (!controller.signal.aborted) setResults(data)
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false)
+        })
     }, 300)
-    return () => clearTimeout(timeout)
+    return () => {
+      clearTimeout(timeout)
+      controller.abort()
+    }
   }, [query])
 
   function handleSelect(href: string) {

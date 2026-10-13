@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsNumber, IsString, IsObject } from 'class-validator';
+import { IsEnum, IsOptional, IsNumber, IsString, IsObject, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { FichaStatus } from '../entities/ficha.entity';
 import { FichaElectricaData } from '../types/ficha-electrica.types';
@@ -32,5 +32,6 @@ export class UpdateFichaDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(200000)
   signature?: string;
 }

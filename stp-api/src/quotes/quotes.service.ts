@@ -11,7 +11,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, EntityManager } from 'typeorm';
 import { join, relative } from 'path';
 import { mkdirSync, statSync, existsSync, unlink } from 'fs';
 import { Quote, QuoteStatus, IndirectCost, QuoteRevisionSummary } from './entities/quote.entity';
@@ -156,6 +156,7 @@ export type QuoteDecisionResult =
   | { kind: 'success'; status: QuoteStatus.APPROVED | QuoteStatus.REJECTED; quoteNumber: string }
   | { kind: 'already'; status: QuoteStatus.APPROVED | QuoteStatus.REJECTED; quoteNumber: string }
   | { kind: 'not-sent'; quoteNumber: string }
+  | { kind: 'confirm'; action: 'approve' | 'reject'; quoteNumber: string; token: string }
   | { kind: 'invalid' };
 
 const QUOTES_SORTABLE: Record<string, string> = { number: 'quote.number', title: 'quote.title', status: 'quote.status', total: 'quote.total', validUntil: 'quote.validUntil', createdAt: 'quote.createdAt' };
@@ -256,58 +257,85 @@ export class QuotesService implements OnModuleInit {
     };
   }
 
+  /** Valida el token del enlace y devuelve la cotización a decidir, o el resultado que corresponda si no se puede. */
+  private async resolveDecision(
+    token: string,
+    action: string,
+  ): Promise<{ quote: Quote } | { result: QuoteDecisionResult }> {
+    if (action !== 'approve' && action !== 'reject') return { result: { kind: 'invalid' } };
+
+    let payload: { sub?: string; type?: string };
+    try {
+      payload = this.jwtService.verify<{ sub?: string; type?: string }>(token);
+    } catch {
+      return { result: { kind: 'invalid' } };
+    }
+    if (payload.type !== 'quote-decision' || !payload.sub) return { result: { kind: 'invalid' } };
+
+    const quote = await this.quotesRepository.findOne({
+      where: { id: payload.sub },
+      relations: { client: true },
+    });
+    if (!quote) return { result: { kind: 'invalid' } };
+
+    // Ya decidida previamente → idempotente, no cambia nada.
+    if (quote.status === QuoteStatus.APPROVED || quote.status === QuoteStatus.REJECTED) {
+      return { result: { kind: 'already', status: quote.status, quoteNumber: quote.number } };
+    }
+    // Reemplazada por una revisión posterior, o no enviada: el enlace ya no decide sobre este documento.
+    if (quote.supersededById || quote.status !== QuoteStatus.SENT) {
+      return { result: { kind: 'not-sent', quoteNumber: quote.number } };
+    }
+    return { quote };
+  }
+
   /**
-   * Procesa la decisión del cliente (aprobar/rechazar) desde el enlace del correo.
-   * Público e idempotente. Devuelve un resultado tipado que el controlador
-   * traduce a HTML con branding STP.
+   * Paso 1 del enlace del correo (GET): NO cambia nada. Los escáneres de enlaces (antivirus, previsualizadores
+   * de correo y WhatsApp) abren los dos enlaces —aprobar y rechazar— y antes decidían la cotización solos.
+   * Devuelve la página de confirmación, que decide con un POST.
+   */
+  async previewDecision(token: string, action: string): Promise<QuoteDecisionResult> {
+    const r = await this.resolveDecision(token, action);
+    if ('result' in r) return r.result;
+    return { kind: 'confirm', action: action as 'approve' | 'reject', quoteNumber: r.quote.number, token };
+  }
+
+  /**
+   * Paso 2 (POST desde el botón de confirmar): aplica la decisión. La actualización es condicional
+   * (`status = sent`), así que un doble clic o dos aperturas a la vez no pueden aprobar y rechazar a la vez.
    */
   async decide(
     token: string,
     action: string,
     meta?: { ip?: string; userAgent?: string },
   ): Promise<QuoteDecisionResult> {
-    if (action !== 'approve' && action !== 'reject') {
-      return { kind: 'invalid' };
-    }
-
-    let payload: { sub?: string; type?: string };
-    try {
-      payload = this.jwtService.verify<{ sub?: string; type?: string }>(token);
-    } catch {
-      return { kind: 'invalid' };
-    }
-    if (payload.type !== 'quote-decision' || !payload.sub) {
-      return { kind: 'invalid' };
-    }
-
-    const quote = await this.quotesRepository.findOne({
-      where: { id: payload.sub },
-      relations: { client: true },
-    });
-    if (!quote) return { kind: 'invalid' };
-
-    // Ya decidida previamente → idempotente, no cambia nada.
-    if (quote.status === QuoteStatus.APPROVED || quote.status === QuoteStatus.REJECTED) {
-      return { kind: 'already', status: quote.status, quoteNumber: quote.number };
-    }
-
-    // Reemplazada por una revisión posterior: el enlace del correo viejo ya no
-    // decide sobre este documento histórico.
-    if (quote.supersededById) {
-      return { kind: 'not-sent', quoteNumber: quote.number };
-    }
-
-    // Solo se puede decidir sobre cotizaciones enviadas.
-    if (quote.status !== QuoteStatus.SENT) {
-      return { kind: 'not-sent', quoteNumber: quote.number };
-    }
+    const r = await this.resolveDecision(token, action);
+    if ('result' in r) return r.result;
+    const quote = r.quote;
 
     const newStatus = action === 'approve' ? QuoteStatus.APPROVED : QuoteStatus.REJECTED;
+    const decidedAt = new Date();
+    const upd = await this.quotesRepository
+      .createQueryBuilder()
+      .update(Quote)
+      .set({
+        status: newStatus,
+        decidedAt,
+        ...(meta?.ip ? { decisionIp: meta.ip.slice(0, 64) } : {}),
+        ...(meta?.userAgent ? { decisionUserAgent: meta.userAgent.slice(0, 512) } : {}),
+      })
+      .where('id = :id AND status = :sent AND "supersededById" IS NULL', { id: quote.id, sent: QuoteStatus.SENT })
+      .execute();
+    if (!upd.affected) {
+      // Otra petición decidió justo antes: se informa lo que quedó, sin pisarlo ni notificar de nuevo.
+      const fresh = await this.quotesRepository.findOne({ where: { id: quote.id } });
+      if (fresh && (fresh.status === QuoteStatus.APPROVED || fresh.status === QuoteStatus.REJECTED)) {
+        return { kind: 'already', status: fresh.status, quoteNumber: fresh.number };
+      }
+      return { kind: 'not-sent', quoteNumber: quote.number };
+    }
     quote.status = newStatus;
-    quote.decidedAt = new Date();
-    if (meta?.ip) quote.decisionIp = meta.ip.slice(0, 64);
-    if (meta?.userAgent) quote.decisionUserAgent = meta.userAgent.slice(0, 512);
-    await this.quotesRepository.save(quote);
+    quote.decidedAt = decidedAt;
 
     if (newStatus === QuoteStatus.APPROVED) {
       this.notifySafe('quote-approved', () =>
@@ -601,24 +629,30 @@ export class QuotesService implements OnModuleInit {
       target.sentAt = new Date();
       target.reminderCount = 0;
     }
-    await this.quotesRepository.save(target);
+    // El árbol nuevo se valida ANTES de abrir la transacción (un ACU que ya no existe,
+    // límites excedidos): si no pasa, la cotización queda intacta.
+    const validatedTree =
+      itemsDto !== undefined && itemsDto.length > 0 ? await this.prepareTree(itemsDto) : null;
 
-    if (itemsDto !== undefined) {
-      // Se reemplaza el árbol entero. Validar ANTES de borrar el actual: si el árbol
-      // nuevo no pasa (un ACU que ya no existe, límites excedidos), la cotización se
-      // queda con sus partidas de siempre en vez de terminar vacía. El borrado, cuando
-      // sí se llega a él, va de hojas a raíz para no depender del CASCADE.
-      const validatedTree = itemsDto.length > 0 ? await this.prepareTree(itemsDto) : null;
-      await this.itemsRepository.delete({ quoteId: id });
-      if (validatedTree) await this.persistChildren(id, null, validatedTree);
-      await this.recalculate(id);
-    } else if (
-      dto.taxRate !== undefined ||
-      dto.discount !== undefined ||
-      dto.indirectCosts !== undefined
-    ) {
-      await this.recalculate(id);
-    }
+    // Una sola transacción: cabecera + borrado de partidas + reinserción + totales. Si
+    // algo falla a medias (p. ej. un INSERT), todo se revierte y la cotización conserva
+    // sus partidas de siempre en vez de quedar vacía.
+    await this.quotesRepository.manager.transaction(async (em) => {
+      await em.getRepository(Quote).save(target);
+
+      if (itemsDto !== undefined) {
+        // Se reemplaza el árbol entero.
+        await em.getRepository(QuoteItem).delete({ quoteId: id });
+        if (validatedTree) await this.persistChildren(id, null, validatedTree, 0, em);
+        await this.recalculate(id, em);
+      } else if (
+        dto.taxRate !== undefined ||
+        dto.discount !== undefined ||
+        dto.indirectCosts !== undefined
+      ) {
+        await this.recalculate(id, em);
+      }
+    });
 
     const updated = await this.findOne(id);
 
@@ -1250,15 +1284,17 @@ export class QuotesService implements OnModuleInit {
     parentId: string | null,
     nodes: QuoteNode[],
     startOrder = 0,
+    em?: EntityManager,
   ): Promise<void> {
     if (nodes.length === 0) return;
+    const itemsRepo = em ? em.getRepository(QuoteItem) : this.itemsRepository;
     // Los hermanos de un mismo nivel comparten un `parentId` ya conocido (el del
     // padre, insertado antes) — se guardan en una sola llamada en vez de un INSERT
     // secuencial por fila. Un árbol de 200 líneas hacía 200 viajes a la base; ahora
     // son tantos como niveles de profundidad tiene el árbol, no líneas totales.
-    const rows = await this.itemsRepository.save(
+    const rows = await itemsRepo.save(
       nodes.map((node, index) =>
-        this.itemsRepository.create({
+        itemsRepo.create({
           quoteId,
           parentId: parentId ?? undefined,
           kind: node.kind,
@@ -1275,7 +1311,7 @@ export class QuotesService implements OnModuleInit {
     );
     for (const [index, node] of nodes.entries()) {
       if (node.children.length > 0) {
-        await this.persistChildren(quoteId, rows[index].id, node.children);
+        await this.persistChildren(quoteId, rows[index].id, node.children, 0, em);
       }
     }
   }
@@ -1322,8 +1358,9 @@ export class QuotesService implements OnModuleInit {
    * subtotal de la cotización, que suma SOLO las hojas (sumar también los grupos
    * contaría cada línea dos veces).
    */
-  private async recomputeTreeTotals(quoteId: string): Promise<number> {
-    const rows = await this.itemsRepository.findBy({ quoteId });
+  private async recomputeTreeTotals(quoteId: string, em?: EntityManager): Promise<number> {
+    const itemsRepo = em ? em.getRepository(QuoteItem) : this.itemsRepository;
+    const rows = await itemsRepo.findBy({ quoteId });
     if (rows.length === 0) return 0;
 
     const tree = rowsToTree(rows);
@@ -1352,16 +1389,17 @@ export class QuotesService implements OnModuleInit {
     const dirty = flattenTree(tree)
       .filter((n) => n.children.length > 0)
       .map((n) => n.row);
-    if (dirty.length > 0) await this.itemsRepository.save(dirty);
+    if (dirty.length > 0) await itemsRepo.save(dirty);
 
     return leafSubtotal;
   }
 
-  private async recalculate(quoteId: string): Promise<void> {
-    const quote = await this.quotesRepository.findOneBy({ id: quoteId });
+  private async recalculate(quoteId: string, em?: EntityManager): Promise<void> {
+    const quotesRepo = em ? em.getRepository(Quote) : this.quotesRepository;
+    const quote = await quotesRepo.findOneBy({ id: quoteId });
     if (!quote) return;
 
-    const subtotal = await this.recomputeTreeTotals(quoteId);
+    const subtotal = await this.recomputeTreeTotals(quoteId, em);
     const base = Math.max(0, this.round2(subtotal - Number(quote.discount ?? 0)));
 
     if (Array.isArray(quote.indirectCosts)) {
@@ -1378,7 +1416,7 @@ export class QuotesService implements OnModuleInit {
       quote.taxAmount = taxAmount;
       quote.total = this.round2(base + taxAmount);
     }
-    await this.quotesRepository.save(quote);
+    await quotesRepo.save(quote);
   }
 
   /**

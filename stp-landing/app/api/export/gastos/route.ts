@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { fetchWithSession, isSessionFailure } from '@/lib/session-fetch'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 export async function GET(req: NextRequest) {
-  const store = await cookies()
-  const token = store.get('stp-token')?.value
-  if (!token) return new NextResponse('Unauthorized', { status: 401 })
-
   const params = req.nextUrl.searchParams.toString()
-  const res = await fetch(`${API_URL}/expenses/export/xlsx${params ? `?${params}` : ''}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const res = await fetchWithSession((token) =>
+    fetch(`${API_URL}/expenses/export/xlsx${params ? `?${params}` : ''}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  )
+  if (isSessionFailure(res)) return res
   if (!res.ok) return new NextResponse('Error al exportar', { status: res.status })
 
   const buffer = await res.arrayBuffer()

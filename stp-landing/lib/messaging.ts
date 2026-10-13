@@ -60,10 +60,34 @@ export interface WaAgent {
   role: string
 }
 
+export interface ContactsPage {
+  data: WaContactView[]
+  total: number
+}
+
 export interface MessagingSummary {
   queue: number
   mine: number
   waiting: number
+}
+
+const RELOAD_KEY = 'stp-msg-session-reload-at'
+const RELOAD_EVERY_MS = 60_000
+
+/**
+ * Sesión vencida: recarga la página (el proxy de sesión renueva el token o manda al login), pero UNA sola
+ * vez por minuto. Si el 401 no es de sesión, recargar en bucle no arregla nada. Devuelve si recargó.
+ */
+export function reloadOnceForSession(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0)
+    if (Date.now() - last < RELOAD_EVERY_MS) return false
+    sessionStorage.setItem(RELOAD_KEY, String(Date.now()))
+  } catch {
+    return false // Sin sessionStorage no hay forma de limitar las recargas: mejor no recargar.
+  }
+  window.location.reload()
+  return true
 }
 
 /** Llamada al proxy autenticado /api/messaging. Lanza con el mensaje del servidor si falla. */
@@ -75,8 +99,8 @@ export async function mFetch<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (res.status === 401) {
     // Sesión vencida: recargar pasa por el proxy de sesión, que renueva el token o manda al login.
-    window.location.reload()
-    throw new Error('Sesión expirada')
+    reloadOnceForSession()
+    throw new Error('Sesión expirada: vuelve a iniciar sesión si el problema sigue.')
   }
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as { message?: string | string[] }

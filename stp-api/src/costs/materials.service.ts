@@ -16,6 +16,7 @@ import { QueryMaterialsDto } from './dto/query-materials.dto';
 import { loadForUpdate } from '../common/load-for-update';
 import { normalizeMaterialName, summarizePrices, PriceSummary } from './price-selection';
 import { escapeLike } from '../common/like-escape';
+import { saveWithUniqueCode } from '../common/save-with-unique-code';
 
 export type MaterialWithSummary = Material & { priceSummary?: PriceSummary };
 
@@ -44,24 +45,16 @@ export class MaterialsService {
     const normalizedName = normalizeMaterialName(dto.name);
     await this.assertNotDuplicate(normalizedName, dto.brand);
 
-    const material = this.materialsRepository.create({
-      ...dto,
-      normalizedName,
-      code: await this.generateCode(),
-    });
-    try {
-      return await this.materialsRepository.save(material);
-    } catch (err) {
-      // `generateCode` es MAX+1 sin bloqueo: dos creaciones a la vez pueden calcular
-      // el mismo código. Antes esto llegaba al cliente como un 500 genérico de
-      // violación de UNIQUE; ahora se dice qué pasó y que reintentar alcanza.
-      if ((err as { code?: string })?.code === '23505') {
-        throw new ConflictException(
-          'Dos materiales se crearon casi al mismo tiempo y chocaron de código; intenta de nuevo',
-        );
-      }
-      throw err;
-    }
+    // `generateCode` es MAX+1 sin bloqueo: dos creaciones a la vez pueden calcular el
+    // mismo código; se recalcula y reintenta ante el UNIQUE.
+    return saveWithUniqueCode(
+      () => this.generateCode(),
+      (code) =>
+        this.materialsRepository.save(
+          this.materialsRepository.create({ ...dto, normalizedName, code }),
+        ),
+      { label: 'el material' },
+    );
   }
 
   async findAll(query: QueryMaterialsDto) {
@@ -170,6 +163,39 @@ export class MaterialsService {
     }
 
     await this.materialsRepository.remove(material);
+  }
+
+  /**
+   * Catálogo para técnicos: solo materiales activos y SOLO datos no sensibles
+   * (sin precios, notas ni especificaciones internas).
+   */
+  async findCatalog(query: QueryMaterialsDto) {
+    const { search, categoryId, page = 1, limit = 20 } = query;
+
+    const qb = this.materialsRepository
+      .createQueryBuilder('m')
+      .leftJoin('m.unit', 'unit')
+      .leftJoin('m.category', 'category')
+      .select(['m.id', 'm.code', 'm.name', 'unit.code', 'unit.name', 'category.id', 'category.name'])
+      .where('m.isActive = true');
+
+    if (categoryId) qb.andWhere('m.categoryId = :categoryId', { categoryId });
+    if (search) {
+      const term = `%${escapeLike(search)}%`;
+      const normalized = `%${escapeLike(normalizeMaterialName(search))}%`;
+      qb.andWhere(`(m.name ILIKE :term OR m.normalizedName ILIKE :normalized OR m.code ILIKE :term)`, {
+        term,
+        normalized,
+      });
+    }
+
+    const [data, total] = await qb
+      .orderBy('m.name', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total, page, limit };
   }
 
   /** Candidatos a duplicado de un nombre, para revisar antes de crear. */

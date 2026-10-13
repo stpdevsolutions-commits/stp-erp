@@ -1,5 +1,6 @@
-import { parseWebhook, previewOf } from './whatsapp-parse';
-import { isWorkingHours } from './messaging.service';
+import { isNewerThan, parseWebhook, previewOf, summarizeWebhook } from './whatsapp-parse';
+import { isWorkingHours, MessagingService } from './messaging.service';
+import { ConflictException } from '@nestjs/common';
 import { WA_TEMPLATES } from './wa-templates';
 
 const wrap = (value: unknown) => ({ entry: [{ changes: [{ value }] }] });
@@ -90,5 +91,97 @@ describe('plantillas', () => {
       const text = t.render(t.params.map((_, i) => `P${i + 1}`));
       for (let i = 1; i <= t.params.length; i++) expect(text).toContain(`P${i}`);
     }
+  });
+});
+
+describe('summarizeWebhook', () => {
+  it('cuenta mensajes y estados sin exponer textos ni teléfonos', () => {
+    const out = summarizeWebhook(
+      wrap({
+        messages: [{ id: 'w1', from: '18094208567', type: 'text', text: { body: 'Mi cédula es 001-0000000-1' } }, { id: 'w2', from: '18094208567', type: 'image' }],
+        statuses: [{ id: 'a', status: 'delivered', recipient_id: '18094208567' }],
+      }),
+    );
+    expect(out).toBe('mensajes=2 [text,image] estados=1 [delivered]');
+    expect(out).not.toContain('8094208567');
+    expect(out).not.toContain('cédula');
+  });
+
+  it('un tipo con texto libre se muestra como ?', () => {
+    expect(summarizeWebhook(wrap({ messages: [{ type: 'Hola 809 555 1234' }] }))).toBe('mensajes=1 [?] estados=0');
+  });
+
+  it('cuerpos raros no rompen', () => {
+    expect(summarizeWebhook(null)).toBe('mensajes=0 estados=0');
+    expect(summarizeWebhook({ entry: [null, { changes: 'x' }, { changes: [null] }] })).toBe('mensajes=0 estados=0');
+  });
+});
+
+describe('isNewerThan', () => {
+  it('un mensaje más viejo no hace retroceder la última actividad', () => {
+    const last = new Date('2026-10-13T12:00:00Z');
+    expect(isNewerThan(last, new Date('2026-10-13T11:59:59Z'))).toBe(false);
+    expect(isNewerThan(last, new Date('2026-10-13T12:00:00Z'))).toBe(false);
+    expect(isNewerThan(last, new Date('2026-10-13T12:00:01Z'))).toBe(true);
+    expect(isNewerThan(null, last)).toBe(true);
+  });
+});
+
+describe('envío saliente', () => {
+  const contact = { id: 'c1', phone: '18094208567', lastInboundAt: new Date(), assignedToId: 'u1', stage: 'qualifying' };
+  const build = (sendTextTracked: jest.Mock) => {
+    const saved: Record<string, unknown>[] = [];
+    const messages = {
+      create: (x: Record<string, unknown>) => x,
+      save: jest.fn(async (x: Record<string, unknown>) => {
+        const row = { id: `m${saved.length + 1}`, sentAt: new Date(), ...x };
+        saved.push(row);
+        return row;
+      }),
+      update: jest.fn(async () => undefined),
+      findOne: jest.fn(async () => ({ id: 'm1', status: 'sent' })),
+    };
+    const contacts = { findOne: jest.fn(async () => contact), update: jest.fn(async () => undefined) };
+    const svc = new MessagingService(
+      contacts as never,
+      messages as never,
+      {} as never,
+      {} as never,
+      { sendTextTracked } as never,
+      { registerRaw: jest.fn() } as never,
+      {} as never,
+      { get: () => undefined } as never,
+    );
+    return { svc, messages, saved };
+  };
+
+  it('guarda el mensaje como "sending" antes de enviarlo a Meta', async () => {
+    let statusAtSend: unknown;
+    const send = jest.fn();
+    const { svc, messages, saved } = build(send);
+    send.mockImplementation(async () => {
+      statusAtSend = saved[0]?.status;
+      return { wamid: 'wamid.X' };
+    });
+    await svc.sendText('u1', 'c1', 'Hola');
+    expect(statusAtSend).toBe('sending');
+    expect(messages.update).toHaveBeenCalledWith('m1', { waId: 'wamid.X', status: 'sent' });
+  });
+
+  it('si Meta rechaza, el mensaje queda como fallido', async () => {
+    const { svc, messages } = build(jest.fn(async () => { throw new Error('boom'); }));
+    await expect(svc.sendText('u1', 'c1', 'Hola')).rejects.toThrow('boom');
+    expect(messages.update).toHaveBeenCalledWith('m1', { status: 'failed', error: 'boom' });
+  });
+
+  it('rechaza el mismo texto del mismo usuario repetido de inmediato, pero permite reintentar tras un fallo', async () => {
+    const ok = build(jest.fn(async () => ({ wamid: 'w1' })));
+    await ok.svc.sendText('u1', 'c1', 'Hola');
+    await expect(ok.svc.sendText('u1', 'c1', 'Hola')).rejects.toBeInstanceOf(ConflictException);
+    await expect(ok.svc.sendText('u2', 'c1', 'Hola')).resolves.toBeDefined();
+
+    const bad = build(jest.fn().mockRejectedValueOnce(new Error('x')).mockResolvedValue({ wamid: 'w2' }));
+    await expect(bad.svc.sendText('u1', 'c1', 'Hola')).rejects.toThrow();
+    await expect(bad.svc.sendText('u1', 'c1', 'Hola')).resolves.toBeDefined();
   });
 });

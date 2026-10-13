@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { fetchWithSession, isSessionFailure } from '@/lib/session-fetch'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 /** Excel del Formato 606: pasa la sesión y los filtros al API y devuelve el archivo. */
 export async function GET(req: NextRequest) {
-  const store = await cookies()
-  const token = store.get('stp-token')?.value
-  if (!token) return new NextResponse('Unauthorized', { status: 401 })
-
   const params = req.nextUrl.searchParams.toString()
-  const res = await fetch(`${API_URL}/fiscal-invoices/export/606${params ? `?${params}` : ''}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const res = await fetchWithSession((token) =>
+    fetch(`${API_URL}/fiscal-invoices/export/606${params ? `?${params}` : ''}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  )
+  if (isSessionFailure(res)) return res
   if (!res.ok) {
     // El API explica el motivo (p. ej. "acota el período"): se le pasa al usuario.
     const detail = await res.json().catch(() => null)

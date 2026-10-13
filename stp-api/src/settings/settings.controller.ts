@@ -16,18 +16,19 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { createReadStream, existsSync, mkdirSync } from 'fs';
-import { join, extname } from 'path';
+import { join } from 'path';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
-import { getUploadRoot } from '../files/files.utils';
+import { getUploadRoot, detectImageType } from '../files/files.utils';
 import type { CompanyData } from '../common/company';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { UpdateTermsDto } from './dto/update-terms.dto';
 
 const ALLOWED_IMAGE_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const IMAGE_UPLOAD_OPTS = { limits: { fileSize: 5 * 1024 * 1024 } };
 
 @Controller('settings')
 export class SettingsController {
@@ -36,14 +37,18 @@ export class SettingsController {
   @Post('logo')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', IMAGE_UPLOAD_OPTS))
   async uploadLogo(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded');
     if (!ALLOWED_IMAGE_MIMETYPES.includes(file.mimetype)) {
       throw new BadRequestException('Only JPEG, PNG, and WEBP images are allowed');
     }
-
-    const ext = extname(file.originalname).toLowerCase() || `.${file.mimetype.split('/')[1]}`;
+    // Tipo real por magic bytes; la extensión y el mimetype guardados salen de aquí
+    const detected = detectImageType(file.buffer);
+    if (!detected || !ALLOWED_IMAGE_MIMETYPES.includes(detected.mime)) {
+      throw new BadRequestException('El contenido del archivo no es una imagen JPEG, PNG o WEBP válida');
+    }
+    const ext = detected.ext;
     const brandDir = join(getUploadRoot(), 'brand');
     mkdirSync(brandDir, { recursive: true });
 
@@ -56,7 +61,7 @@ export class SettingsController {
     writeFileSync(destPath, file.buffer);
 
     await this.settingsService.set('logo_path', relativePath);
-    await this.settingsService.set('logo_mimetype', file.mimetype);
+    await this.settingsService.set('logo_mimetype', detected.mime);
 
     return { ok: true };
   }
@@ -81,7 +86,7 @@ export class SettingsController {
   @Post('hero')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', IMAGE_UPLOAD_OPTS))
   async uploadHero(
     @UploadedFile() file: Express.Multer.File,
     @Body('caption') caption?: string,
@@ -90,8 +95,12 @@ export class SettingsController {
     if (!ALLOWED_IMAGE_MIMETYPES.includes(file.mimetype)) {
       throw new BadRequestException('Only JPEG, PNG, and WEBP images are allowed');
     }
-
-    const ext = extname(file.originalname).toLowerCase() || `.${file.mimetype.split('/')[1]}`;
+    // Tipo real por magic bytes; la extensión y el mimetype guardados salen de aquí
+    const detected = detectImageType(file.buffer);
+    if (!detected || !ALLOWED_IMAGE_MIMETYPES.includes(detected.mime)) {
+      throw new BadRequestException('El contenido del archivo no es una imagen JPEG, PNG o WEBP válida');
+    }
+    const ext = detected.ext;
     const brandDir = join(getUploadRoot(), 'brand');
     mkdirSync(brandDir, { recursive: true });
 
@@ -100,7 +109,7 @@ export class SettingsController {
     writeFileSync(join(brandDir, destFilename), file.buffer);
 
     await this.settingsService.set('hero_path', `brand/${destFilename}`);
-    await this.settingsService.set('hero_mimetype', file.mimetype);
+    await this.settingsService.set('hero_mimetype', detected.mime);
     await this.settingsService.set('hero_caption', (caption ?? '').trim().slice(0, 120));
     // Cambia en cada subida para que el navegador no sirva la imagen anterior en caché
     await this.settingsService.set('hero_version', String(Date.now()));

@@ -15,8 +15,8 @@ export enum MessageDirection {
   OUT = 'out',
 }
 
-/** Estados de un mensaje saliente según los avisos de Meta, más 'received' para los entrantes. */
-export type MessageStatus = 'received' | 'sent' | 'delivered' | 'read' | 'failed';
+/** Estados de un mensaje saliente según los avisos de Meta, más 'received' para los entrantes y 'sending' mientras se envía a Meta. */
+export type MessageStatus = 'received' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 @Entity('wa_messages')
 @Index('IDX_wa_messages_contact_sentAt', ['contactId', 'sentAt'])

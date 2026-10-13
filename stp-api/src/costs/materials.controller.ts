@@ -54,6 +54,17 @@ export class MaterialsController {
   }
 
   /**
+   * Catálogo SIN precios para la app de técnicos (rol `user`, costos = none).
+   * Solo id, código, nombre, unidad y categoría; con búsqueda y límite (máx. 100).
+   * Se declara antes de `:id` por la misma razón que `similar`.
+   */
+  @Get('catalog')
+  @RequireModule('fichas', 'contribute')
+  findCatalog(@Query() query: QueryMaterialsDto) {
+    return this.materialsService.findCatalog(query);
+  }
+
+  /**
    * Se declara ANTES de `:id` a propósito: Nest resuelve por orden de declaración y
    * `@Get(':id')` capturaría "similar" (mismo patrón que quotes-public.controller).
    */

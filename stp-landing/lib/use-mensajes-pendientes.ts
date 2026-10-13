@@ -1,16 +1,30 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
+
+/** Evento con el que la bandeja avisa al menú de su conteo de "esperan respuesta" (así el menú no consulta aparte). */
+export const MENSAJES_WAITING_EVENT = 'stp:mensajes-waiting'
 
 /**
  * Conversaciones de WhatsApp que esperan respuesta, para el contador del menú. Solo consulta si el
- * rol ve el módulo; un fallo (sin permiso, API caída) deja el contador en 0 sin molestar.
+ * rol ve el módulo; un fallo (sin permiso, API caída) deja el contador en 0 sin molestar. Dentro de la
+ * pantalla de mensajes no consulta: la bandeja ya hace su propio polling y le pasa el conteo.
  */
 export function useMensajesPendientes(enabled: boolean): number {
   const [waiting, setWaiting] = useState(0)
+  const inMensajes = (usePathname() ?? '').startsWith('/dashboard/mensajes')
 
   useEffect(() => {
     if (!enabled) return
+    if (inMensajes) {
+      const onWaiting = (e: Event) => {
+        const n = (e as CustomEvent<number>).detail
+        if (typeof n === 'number') setWaiting(n)
+      }
+      window.addEventListener(MENSAJES_WAITING_EVENT, onWaiting)
+      return () => window.removeEventListener(MENSAJES_WAITING_EVENT, onWaiting)
+    }
     let cancelled = false
     const load = async () => {
       if (document.visibilityState !== 'visible') return
@@ -29,7 +43,7 @@ export function useMensajesPendientes(enabled: boolean): number {
       cancelled = true
       clearInterval(id)
     }
-  }, [enabled])
+  }, [enabled, inMensajes])
 
   return waiting
 }

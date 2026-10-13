@@ -16,6 +16,16 @@ import { z } from 'zod';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import net from 'node:net';
+import { uuidSchema, pathId, bearerOk, wrapUntrusted, truncate, WRITE_WARNING } from './safety.js';
+
+// SEGURIDAD (HRM-11): el contenido de correos y tickets es NO CONFIABLE (puede
+// traer prompt injection). Se envuelve con wrapUntrusted() y las herramientas
+// de escritura/encender_pc advierten que solo se usan por petición explícita
+// del usuario. Del lado de Hermes haría falta (no soportado hoy por este
+// servidor): (1) confirmación humana ("approval") para las herramientas de
+// escritura y encender_pc, (2) no permitir llamadas de escritura en el mismo
+// turno en que se leyó un correo/ticket sin confirmar, (3) allowlist por cron
+// (el resumen diario solo necesita herramientas de lectura).
 
 const PORT = process.env.PORT || 3005;
 const MCP_AUTH_TOKEN = process.env.MCP_AUTH_TOKEN;
@@ -194,7 +204,7 @@ function buildServer() {
     {
       description: 'Lista tickets de STP (bugs/cambios/mejoras/nuevos desarrollos), con filtros opcionales.',
       inputSchema: {
-        projectId: z.string().optional().describe('UUID del proyecto (usar list_projects para obtenerlo)'),
+        projectId: uuidSchema.optional().describe('UUID del proyecto (usar list_projects para obtenerlo)'),
         status: z.enum(['pending', 'in_progress', 'review', 'done', 'cancelled']).optional(),
         // TIX-7: faltaba 'desarrollo' aquí -- Zod rechazaba la llamada antes
         // de que llegara a la API cuando se pedía ese tipo por chat, y el
@@ -208,7 +218,7 @@ function buildServer() {
         Object.entries({ projectId, status, type, priority }).filter(([, v]) => v),
       ).toString();
       const tickets = await ticketsFetch(`/tickets${qs ? `?${qs}` : ''}`);
-      return { content: [{ type: 'text', text: JSON.stringify(tickets) }] };
+      return { content: [{ type: 'text', text: wrapUntrusted(JSON.stringify(tickets), 'tickets') }] };
     },
   );
 
@@ -216,11 +226,11 @@ function buildServer() {
     'create_ticket',
     {
       description:
-        'Crea un ticket nuevo en STP Tickets (bug, cambio, mejora o nuevo desarrollo) para un proyecto. Usa list_projects primero si no tienes el projectId. Para un sistema/proyecto que todavía no existe en la lista, usa type "desarrollo" y omite projectId.',
+        'Crea un ticket nuevo en STP Tickets (bug, cambio, mejora o nuevo desarrollo) para un proyecto. Usa list_projects primero si no tienes el projectId. Para un sistema/proyecto que todavía no existe en la lista, usa type "desarrollo" y omite projectId.' + WRITE_WARNING,
       inputSchema: {
         // Opcional desde TIX-5: un ticket "desarrollo" puede reportar un
         // sistema que aún no existe como proyecto.
-        projectId: z.string().optional().describe('UUID del proyecto (omitir si es un sistema nuevo que no existe todavía)'),
+        projectId: uuidSchema.optional().describe('UUID del proyecto (omitir si es un sistema nuevo que no existe todavía)'),
         title: z.string().min(2).max(200),
         description: z.string().optional(),
         type: z.enum(['bug', 'mejora', 'cambio', 'desarrollo']),
@@ -234,25 +244,25 @@ function buildServer() {
         method: 'POST',
         body: JSON.stringify(args),
       });
-      return { content: [{ type: 'text', text: JSON.stringify(ticket) }] };
+      return { content: [{ type: 'text', text: wrapUntrusted(JSON.stringify(ticket), 'ticket') }] };
     },
   );
 
   server.registerTool(
     'update_ticket_status',
     {
-      description: 'Cambia el estado de un ticket existente (por número, ej. el #12).',
+      description: 'Cambia el estado de un ticket existente (por número, ej. el #12).' + WRITE_WARNING,
       inputSchema: {
-        ticketId: z.string().describe('UUID del ticket (usar list_tickets para encontrarlo por número)'),
+        ticketId: uuidSchema.describe('UUID del ticket (usar list_tickets para encontrarlo por número)'),
         status: z.enum(['pending', 'in_progress', 'review', 'done', 'cancelled']),
       },
     },
     async ({ ticketId, status }) => {
-      const ticket = await ticketsFetch(`/tickets/${ticketId}`, {
+      const ticket = await ticketsFetch(`/tickets/${pathId(ticketId)}`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       });
-      return { content: [{ type: 'text', text: JSON.stringify(ticket) }] };
+      return { content: [{ type: 'text', text: wrapUntrusted(JSON.stringify(ticket), 'ticket') }] };
     },
   );
 
@@ -333,7 +343,7 @@ function buildServer() {
       inputSchema: {
         search: z.string().optional(),
         status: z.enum(['draft', 'sent', 'approved', 'rejected', 'expired']).optional(),
-        clientId: z.string().optional().describe('UUID del cliente (usar list_clients para obtenerlo)'),
+        clientId: uuidSchema.optional().describe('UUID del cliente (usar list_clients para obtenerlo)'),
       },
     },
     async ({ search, status, clientId }) => {
@@ -350,11 +360,11 @@ function buildServer() {
     {
       description: 'Detalle completo de una cotización por su ID (items, totales, cliente). Solo lectura.',
       inputSchema: {
-        quoteId: z.string().describe('UUID de la cotización (usar list_quotes para encontrarla)'),
+        quoteId: uuidSchema.describe('UUID de la cotización (usar list_quotes para encontrarla)'),
       },
     },
     async ({ quoteId }) => {
-      const quote = await erpFetch(`/quotes/${quoteId}`);
+      const quote = await erpFetch(`/quotes/${pathId(quoteId)}`);
       return { content: [{ type: 'text', text: JSON.stringify(quote) }] };
     },
   );
@@ -380,7 +390,7 @@ function buildServer() {
   server.registerTool(
     'add_task_midia',
     {
-      description: 'Agrega una tarea a "Mi Día" (la app personal de tareas de Pedro).',
+      description: 'Agrega una tarea a "Mi Día" (la app personal de tareas de Pedro).' + WRITE_WARNING,
       inputSchema: {
         title: z.string().min(1),
         description: z.string().optional(),
@@ -398,7 +408,7 @@ function buildServer() {
   server.registerTool(
     'add_note_midia',
     {
-      description: 'Agrega una nota a "Mi Día" (la app personal de notas de Pedro).',
+      description: 'Agrega una nota a "Mi Día" (la app personal de notas de Pedro).' + WRITE_WARNING,
       inputSchema: {
         title: z.string().min(1),
         content: z.string().optional(),
@@ -457,7 +467,7 @@ function buildServer() {
         }
         return out.reverse();
       });
-      return { content: [{ type: 'text', text: JSON.stringify(rows) }] };
+      return { content: [{ type: 'text', text: wrapUntrusted(JSON.stringify(rows), 'asuntos y remitentes de correo') }] };
     },
   );
 
@@ -477,12 +487,12 @@ function buildServer() {
         return {
           from: parsed.from?.text || '',
           to: parsed.to?.text || '',
-          subject: parsed.subject || '',
+          subject: collapse(parsed.subject || '', 300),
           date: parsed.date,
-          body: collapse(parsed.text || (parsed.html || '').replace(/<[^>]+>/g, ' '), 6000),
+          body: truncate(collapse(parsed.text || (parsed.html || '').replace(/<[^>]+>/g, ' '), 100000), 6000),
         };
       });
-      return { content: [{ type: 'text', text: JSON.stringify(data) }] };
+      return { content: [{ type: 'text', text: wrapUntrusted(JSON.stringify(data), 'correo electrónico') }] };
     },
   );
 
@@ -502,7 +512,7 @@ function buildServer() {
     'encender_pc',
     {
       description:
-        'Enciende la computadora de Pedro (PC de escritorio en su casa) con Wake-on-LAN. Úsala cuando Pedro pida prender/encender su PC o computadora. Espera hasta ~45 s a que responda.',
+        'Enciende la computadora de Pedro (PC de escritorio en su casa) con Wake-on-LAN. Úsala cuando Pedro pida prender/encender su PC o computadora. Espera hasta ~45 s a que responda.' + WRITE_WARNING,
       inputSchema: {},
     },
     async () => {
@@ -543,7 +553,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 // stateless (no hay sesión de larga duración que mantener en memoria).
 app.post('/mcp', async (req, res) => {
   const auth = req.headers['authorization'];
-  if (auth !== `Bearer ${MCP_AUTH_TOKEN}`) {
+  if (!bearerOk(auth, MCP_AUTH_TOKEN)) {
     res.status(401).json({ error: 'unauthorized' });
     return;
   }

@@ -53,18 +53,24 @@ export class AuthService {
       this.config.get<string>('GOOGLE_CLIENT_ID'),
       this.config.get<string>('GOOGLE_ANDROID_CLIENT_ID'),
     ].filter((id): id is string => !!id);
-    if (allowedAudiences.length > 0) {
-      const tokenInfoRes = await fetch(
-        `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`,
-      );
-      if (!tokenInfoRes.ok) throw new UnauthorizedException('Token de Google inválido');
-      const tokenInfo = (await tokenInfoRes.json()) as { aud?: string };
-      if (!tokenInfo.aud || !allowedAudiences.includes(tokenInfo.aud)) {
-        throw new UnauthorizedException('Token de Google no emitido para esta aplicación');
-      }
+    // Sin ninguna audiencia configurada se RECHAZA: antes se saltaba la comprobación y servía el token de
+    // Google de cualquier otra aplicación.
+    if (allowedAudiences.length === 0) {
+      this.logger.error('Login con Google rechazado: faltan GOOGLE_CLIENT_ID/GOOGLE_ANDROID_CLIENT_ID');
+      throw new UnauthorizedException('El acceso con Google no está configurado');
+    }
+    const tokenInfoRes = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`,
+    );
+    if (!tokenInfoRes.ok) throw new UnauthorizedException('Token de Google inválido');
+    const tokenInfo = (await tokenInfoRes.json()) as { aud?: string };
+    if (!tokenInfo.aud || !allowedAudiences.includes(tokenInfo.aud)) {
+      throw new UnauthorizedException('Token de Google no emitido para esta aplicación');
     }
 
-    const res = await fetch(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${accessToken}`);
+    const res = await fetch(
+      `https://www.googleapis.com/oauth2/v1/userinfo?access_token=${encodeURIComponent(accessToken)}`,
+    );
     if (!res.ok) throw new UnauthorizedException('Token de Google inválido');
     const info = (await res.json()) as {
       email?: string;
@@ -182,8 +188,10 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
     if (!user || !user.isActive) return;
 
+    // `pv` (huella de la clave actual) hace el enlace de UN SOLO USO: al cambiar la clave la huella cambia y
+    // el mismo enlace ya no sirve.
     const token = this.jwtService.sign(
-      { sub: user.id, type: 'password-reset' },
+      { sub: user.id, type: 'password-reset', pv: this.passwordFingerprint(user.password) },
       { expiresIn: '1h' },
     );
     const appUrl = this.config.get<string>('APP_URL') ?? 'https://erp.stpsoluciones.com';
@@ -199,13 +207,17 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    let payload: { sub: string; type: string };
+    let payload: { sub: string; type: string; pv?: string };
     try {
-      payload = this.jwtService.verify(token) as { sub: string; type: string };
+      payload = this.jwtService.verify(token) as { sub: string; type: string; pv?: string };
     } catch {
       throw new UnauthorizedException('Token inválido o expirado');
     }
     if (payload.type !== 'password-reset') throw new UnauthorizedException('Token inválido');
+    const user = await this.usersService.findByIdOptional(payload.sub);
+    if (!user || !user.isActive || !payload.pv || payload.pv !== this.passwordFingerprint(user.password)) {
+      throw new UnauthorizedException('Token inválido o ya utilizado');
+    }
     await this.usersService.updatePassword(payload.sub, newPassword);
   }
 
@@ -243,6 +255,10 @@ export class AuthService {
     });
     await this.refreshTokenRepo.save(rt);
     return raw;
+  }
+
+  private passwordFingerprint(passwordHash: string): string {
+    return createHash('sha256').update(passwordHash).digest('hex').slice(0, 16);
   }
 
   private hashToken(raw: string): string {

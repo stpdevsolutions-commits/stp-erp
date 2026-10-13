@@ -111,8 +111,8 @@ export class MessagingController {
 
   @Patch('contacts/:id')
   @RequireModule('mensajes', 'manage')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateContactDto) {
-    return this.service.update(id, dto);
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateContactDto, @CurrentUser() user: AuthUser) {
+    return this.service.update(id, dto, user.id);
   }
 
   /** Adjunto de un mensaje (foto, PDF, nota de voz) ya guardado en el servidor. */

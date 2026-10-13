@@ -3,7 +3,6 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
@@ -16,6 +15,7 @@ import { UpdateFichaDto } from './dto/update-ficha.dto';
 import { QueryFichasDto } from './dto/query-fichas.dto';
 import { loadForUpdate } from '../common/load-for-update';
 import { auditLog } from '../common/audit-log';
+import { saveWithUniqueCode } from '../common/save-with-unique-code';
 
 @Injectable()
 export class FichasService {
@@ -30,29 +30,22 @@ export class FichasService {
     const project = await this.projectsRepo.findOne({ where: { id: dto.projectId } });
     if (!project) throw new NotFoundException('Proyecto no encontrado');
 
-    const code = await this.generateCode();
-
-    const ficha = this.fichasRepo.create({
-      ...dto,
-      code,
-      technicianId: currentUser.id,
-      data: dto.data ?? {},
-      photos: dto.photos ?? [],
-    });
-
-    try {
-      return await this.fichasRepo.save(ficha);
-    } catch (err) {
-      // `generateCode` es MAX+1 sin bloqueo: dos técnicos enviando una ficha casi al
-      // mismo tiempo pueden calcular el mismo código. Antes esto llegaba como un 500
-      // genérico de violación de UNIQUE; ahora se dice qué pasó y que reintentar alcanza.
-      if ((err as { code?: string })?.code === '23505') {
-        throw new ConflictException(
-          'Dos fichas se crearon casi al mismo tiempo y chocaron de código; intenta de nuevo',
-        );
-      }
-      throw err;
-    }
+    // `generateCode` es MAX+1 sin bloqueo: dos técnicos enviando una ficha casi al mismo
+    // tiempo pueden calcular el mismo código; se recalcula y reintenta ante el UNIQUE.
+    return saveWithUniqueCode(
+      () => this.generateCode(),
+      (code) =>
+        this.fichasRepo.save(
+          this.fichasRepo.create({
+            ...dto,
+            code,
+            technicianId: currentUser.id,
+            data: dto.data ?? {},
+            photos: dto.photos ?? [],
+          }),
+        ),
+      { label: 'la ficha' },
+    );
   }
 
   async findAll(query: QueryFichasDto, currentUser: User): Promise<Ficha[]> {

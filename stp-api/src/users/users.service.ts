@@ -8,12 +8,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole } from './entities/user.entity';
+import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { auditLog } from '../common/audit-log';
 
 @Injectable()
 export class UsersService {
   constructor(
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokens: Repository<RefreshToken>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
   ) {}
@@ -107,13 +110,23 @@ export class UsersService {
       });
     }
     Object.assign(user, defined);
-    return this.usersRepository.save(user);
+    const saved = await this.usersRepository.save(user);
+    // Cambiar la clave, desactivar la cuenta o cambiar su rol cierra las sesiones abiertas: sin esto un
+    // refresh token robado seguía valiendo 30 días aunque la víctima ya hubiera cambiado la contraseña.
+    if (dto.password || dto.isActive === false || dto.role !== undefined) await this.revokeSessions(id);
+    return saved;
+  }
+
+  /** Revoca todos los refresh tokens del usuario (cierra sus sesiones; el access token vence en 1 h). */
+  async revokeSessions(userId: string): Promise<void> {
+    await this.refreshTokens.update({ userId, revoked: false }, { revoked: true });
   }
 
   async updatePassword(id: string, newPassword: string): Promise<void> {
     const user = await this.findById(id);
     user.password = await bcrypt.hash(newPassword, 10);
     await this.usersRepository.save(user);
+    await this.revokeSessions(id);
   }
 
   async remove(id: string, requesterId?: string): Promise<void> {

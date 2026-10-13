@@ -8,7 +8,31 @@ function esc(s: unknown): string {
   return String(s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+const SIGNATURE_STROKE_RE = /^[ML0-9.,\- ]+$/;
+const MAX_SIGNATURE_STROKES = 200;
+const MAX_STROKE_LENGTH = 20000;
+
+/**
+ * La firma llega como trazos SVG separados por `|`. Se interpolan en
+ * `<path d="...">`, así que solo se aceptan trazos con comandos M/L y números;
+ * el resto se descarta (evita XSS almacenado) y se limita número y tamaño.
+ */
+export function sanitizeSignaturePaths(signature: unknown): string[] {
+  if (typeof signature !== 'string') return [];
+  const out: string[] = [];
+  for (const raw of signature.split('|')) {
+    const stroke = raw.trim();
+    if (!stroke || stroke.length > MAX_STROKE_LENGTH) continue;
+    if (!SIGNATURE_STROKE_RE.test(stroke)) continue;
+    out.push(stroke);
+    if (out.length >= MAX_SIGNATURE_STROKES) break;
+  }
+  return out;
 }
 
 function bool(v: unknown): string {
@@ -242,7 +266,7 @@ function levantamientoHtml(d: Record<string, unknown>): string {
   if (puntosElectricos.length) {
     const filas = puntosElectricos.map((p) => `
       <tr>
-        <td>${CATEGORIA_PUNTO_LABEL[p.categoria as string] ?? esc(p.categoria)}</td>
+        <td>${esc(CATEGORIA_PUNTO_LABEL[p.categoria as string] ?? p.categoria)}</td>
         <td>${esc(p.tipo)}</td>
         <td>${esc(p.cantidad)}</td>
         <td>${esc(p.ubicacion)}</td>
@@ -287,7 +311,7 @@ function levantamientoHtml(d: Record<string, unknown>): string {
         <td>${esc(i.descripcion)}</td>
         <td>${esc(i.ubicacion)}</td>
         <td>${esc(i.cantidad)} ${esc(i.unidad)}</td>
-        <td>${estadoLabel[i.estado as string] ?? esc(i.estado)}</td>
+        <td>${esc(estadoLabel[i.estado as string] ?? i.estado)}</td>
         <td>${esc(i.observaciones)}</td>
       </tr>`).join('');
     html += section(`Inventario (${items.length} ítems)`, `
@@ -458,7 +482,7 @@ export function generateFichaPdfHtml(ficha: Ficha): string {
   const projectName = (ficha.project as unknown as { name?: string })?.name ?? '—';
   const tech = ficha.technician as unknown as { firstName?: string; lastName?: string } | undefined;
   const techName = tech ? `${tech.firstName ?? ''} ${tech.lastName ?? ''}`.trim() : '—';
-  const d = ficha.data as Record<string, unknown>;
+  const d = (ficha.data ?? {}) as Record<string, unknown>;
 
   let bodyContent: string;
   switch (ficha.type) {
@@ -481,12 +505,13 @@ export function generateFichaPdfHtml(ficha: Ficha): string {
       bodyContent = evaluacionHtml(d);
       break;
     default:
-      bodyContent = section('Datos', `<pre style="font-size:12px;white-space:pre-wrap;">${JSON.stringify(d, null, 2)}</pre>`);
+      bodyContent = section('Datos', `<pre style="font-size:12px;white-space:pre-wrap;">${esc(JSON.stringify(d, null, 2))}</pre>`);
   }
 
-  const signatureSection = ficha.signature
+  const signaturePaths = sanitizeSignaturePaths(ficha.signature);
+  const signatureSection = signaturePaths.length
     ? section('Firma del técnico', `<div class="sig-container"><svg width="300" height="120" xmlns="http://www.w3.org/2000/svg">${
-        (ficha.signature as string).split('|').map((path) =>
+        signaturePaths.map((path) =>
           `<path d="${path}" stroke="#1565C0" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
         ).join('')
       }</svg></div>`)
@@ -525,11 +550,11 @@ export function generateFichaPdfHtml(ficha: Ficha): string {
 </head>
 <body>
 <div class="header">
-  <h1>Ficha Técnica ${typeLabel[ficha.type]}</h1>
+  <h1>Ficha Técnica ${esc(typeLabel[ficha.type])}</h1>
   <p>${esc(ficha.code)} &nbsp;|&nbsp; ${esc(projectName)}</p>
   <p>Técnico: ${esc(techName)} &nbsp;|&nbsp; ${new Date(ficha.createdAt).toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-  <span class="badge">${statusLabel[ficha.status] ?? ficha.status}</span>
-  ${ficha.latitude ? `<p style="margin-top:6px;font-size:11px;opacity:0.75;">📍 ${ficha.latitude}, ${ficha.longitude}</p>` : ''}
+  <span class="badge">${esc(statusLabel[ficha.status] ?? ficha.status)}</span>
+  ${ficha.latitude ? `<p style="margin-top:6px;font-size:11px;opacity:0.75;">📍 ${esc(ficha.latitude)}, ${esc(ficha.longitude)}</p>` : ''}
 </div>
 
 ${bodyContent}

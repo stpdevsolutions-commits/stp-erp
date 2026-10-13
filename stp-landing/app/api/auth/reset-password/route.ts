@@ -3,12 +3,24 @@ import { forwardedForHeader } from '@/lib/client-ip'
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://stp-api:3001'
 
 export async function POST(request: Request) {
-  const body = await request.json()
-  const res = await fetch(`${API_URL}/auth/reset-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...forwardedForHeader(request) },
-    body: JSON.stringify(body),
-  })
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return Response.json({ message: 'Solicitud inválida' }, { status: 400 })
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...forwardedForHeader(request) },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000),
+    })
+  } catch {
+    return Response.json({ message: 'El servicio no está disponible por ahora. Intenta de nuevo.' }, { status: 503 })
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as { message?: string }
     return Response.json({ message: err.message ?? 'Token inválido o expirado' }, { status: res.status })

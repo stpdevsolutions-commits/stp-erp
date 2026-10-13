@@ -26,35 +26,46 @@ export class FilesService {
     projectId: string | null,
     uploadedById: string,
   ): Promise<FileUpload> {
-    // P-1: validate project belongs to client before persisting
-    if (projectId) {
-      await this.projectsService.assertProjectBelongsToClient(projectId, clientId);
+    try {
+      // P-1: validate project belongs to client before persisting
+      if (projectId) {
+        await this.projectsService.assertProjectBelongsToClient(projectId, clientId);
+      }
+
+      // P-2: validate magic bytes match declared MIME type
+      if (!validateFileMagicBytes(file.path, file.mimetype)) {
+        throw new BadRequestException(
+          'File content does not match declared type. Only PDF, JPG, PNG, and WEBP are accepted.',
+        );
+      }
+
+      const root = getUploadRoot();
+      const relativePath = relative(root, file.path);
+
+      const record = this.repo.create({
+        originalName: file.originalname,
+        filename: file.filename,
+        path: relativePath,
+        mimetype: file.mimetype,
+        size: file.size,
+        context,
+        clientId,
+        projectId: projectId ?? undefined,
+        uploadedById,
+      });
+
+      return await this.repo.save(record);
+    } catch (err) {
+      // El archivo ya está en disco (multer): no dejarlo huérfano.
+      this.discardUpload(file);
+      throw err;
     }
+  }
 
-    // P-2: validate magic bytes match declared MIME type
-    if (!validateFileMagicBytes(file.path, file.mimetype)) {
-      unlink(file.path, () => undefined);
-      throw new BadRequestException(
-        'File content does not match declared type. Only PDF, JPG, PNG, and WEBP are accepted.',
-      );
-    }
-
-    const root = getUploadRoot();
-    const relativePath = relative(root, file.path);
-
-    const record = this.repo.create({
-      originalName: file.originalname,
-      filename: file.filename,
-      path: relativePath,
-      mimetype: file.mimetype,
-      size: file.size,
-      context,
-      clientId,
-      projectId: projectId ?? undefined,
-      uploadedById,
-    });
-
-    return this.repo.save(record);
+  /** Borra de disco un archivo subido por multer cuya validación posterior falló. */
+  discardUpload(file?: Express.Multer.File): void {
+    if (!file?.path) return;
+    unlink(file.path, () => undefined);
   }
 
   /**
@@ -121,7 +132,13 @@ export class FilesService {
     projectId: string,
     uploadedById: string,
   ): Promise<{ id: string; url: string }> {
-    const project = await this.projectsService.findOne(projectId);
+    let project: Awaited<ReturnType<ProjectsService['findOne']>>;
+    try {
+      project = await this.projectsService.findOne(projectId);
+    } catch (err) {
+      this.discardUpload(file);
+      throw err;
+    }
     const saved = await this.saveRecord(file, FileContext.PROJECT_PHOTOS, project.clientId, projectId, uploadedById);
     return { id: saved.id, url: `/files/${saved.id}/download` };
   }

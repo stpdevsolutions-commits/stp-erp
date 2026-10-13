@@ -40,6 +40,21 @@ function translateAuthError(message?: string | string[]): string {
   return text || 'Error al iniciar sesión'
 }
 
+/**
+ * El parámetro ?error= llega por URL (lo puede escribir cualquiera), así que NO se
+ * pinta tal cual: solo se muestran textos de esta lista. Las claves son los códigos
+ * propios (proxy.ts) y los mensajes exactos que redirige el API en el login con
+ * Google (stp-api/src/auth). Cualquier otro valor cae en un mensaje genérico.
+ */
+const LOGIN_ERROR_MESSAGES: Record<string, string> = {
+  inactive: 'Tu sesión se cerró por inactividad. Inicia sesión de nuevo.',
+  'No autorizado para acceder con esa cuenta de Google':
+    'Esa cuenta de Google no está autorizada para acceder.',
+  'El inicio de sesión con Google no está disponible por ahora.':
+    'El inicio de sesión con Google no está disponible por ahora.',
+}
+const GENERIC_LOGIN_ERROR = 'No se pudo iniciar sesión. Intenta de nuevo.'
+
 export default function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
@@ -52,9 +67,10 @@ export default function LoginPage() {
   // Se lee en un efecto (no con useSearchParams) para no tener que envolver la
   // página en <Suspense>; es un solo render extra, solo cuando hay error.
   useEffect(() => {
-    const error = new URLSearchParams(window.location.search).get('error')
+    const code = new URLSearchParams(window.location.search).get('error')
+    const message = code ? LOGIN_ERROR_MESSAGES[code] ?? GENERIC_LOGIN_ERROR : null
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (error) setServerError(error)
+    if (message) setServerError(message)
   }, [])
 
   const {
@@ -80,8 +96,15 @@ export default function LoginPage() {
       })
 
       if (!res.ok) {
-        const err = await res.json()
-        setServerError(translateAuthError(err.message))
+        // El cuerpo puede no ser JSON (502/503 de un proxy, API caída).
+        const err = await res.json().catch(() => null)
+        setServerError(
+          err?.message
+            ? translateAuthError(err.message)
+            : res.status >= 500
+              ? 'El servicio no está disponible por ahora. Intenta de nuevo en unos segundos.'
+              : 'Error al iniciar sesión',
+        )
         return
       }
 

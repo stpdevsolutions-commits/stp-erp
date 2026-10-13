@@ -11,11 +11,13 @@ import {
   contactTitle,
   formatListTime,
   mFetch,
+  type ContactsPage,
   type MessagingSummary,
   type WaAgent,
   type WaContactView,
 } from '@/lib/messaging'
 import { STAGE_LABELS } from '@/lib/messaging'
+import { MENSAJES_WAITING_EVENT } from '@/lib/use-mensajes-pendientes'
 import { Hilo } from './hilo'
 import { Tablero } from './tablero'
 
@@ -30,6 +32,7 @@ export function Bandeja() {
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
   const [contacts, setContacts] = useState<WaContactView[]>([])
+  const [total, setTotal] = useState(0)
   const [summary, setSummary] = useState<MessagingSummary | null>(null)
   const [agents, setAgents] = useState<WaAgent[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(params.get('c'))
@@ -50,12 +53,15 @@ export function Bandeja() {
       const q = new URLSearchParams({ filter })
       if (debounced) q.set('search', debounced)
       const [list, sum] = await Promise.all([
-        mFetch<{ data: WaContactView[] }>(`/contacts?${q}`),
+        mFetch<ContactsPage>(`/contacts?${q}`),
         mFetch<MessagingSummary>('/summary'),
       ])
       if (mine !== seq.current) return
       setContacts(list.data)
+      setTotal(list.total ?? list.data.length)
       setSummary(sum)
+      // El menú lateral no consulta aparte mientras esta pantalla está abierta: le pasamos el conteo.
+      window.dispatchEvent(new CustomEvent(MENSAJES_WAITING_EVENT, { detail: sum.waiting }))
       setError(null)
     } catch (e) {
       if (mine === seq.current) setError((e as Error).message)
@@ -209,6 +215,11 @@ export function Bandeja() {
                 </li>
               ))}
             </ul>
+          )}
+          {!error && loaded && total > contacts.length && (
+            <p className="border-t px-3 py-3 text-center text-xs text-muted-foreground">
+              Hay más conversaciones ({total - contacts.length} sin mostrar): afina la búsqueda.
+            </p>
           )}
         </div>
       </aside>

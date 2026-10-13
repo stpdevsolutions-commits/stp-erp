@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsIn,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -41,7 +42,7 @@ export class QueryContactsDto {
 export class QueryMessagesDto {
   /** Trae los mensajes anteriores a esta fecha ISO (para cargar más historial). */
   @IsOptional()
-  @IsString()
+  @IsISO8601()
   before?: string;
 
   @IsOptional()

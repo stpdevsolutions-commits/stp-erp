@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Query, Body, Req, Res, Logger, HttpStatus, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Query, Body, Req, Res, Logger, HttpStatus, ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { WhatsappInboxService, parseInboundMessages } from './whatsapp-inbox.service';
+import { summarizeWebhook } from '../messaging/whatsapp-parse';
 
 /**
  * Webhook público de WhatsApp Cloud API (Meta). Expuesto SOLO en
@@ -38,7 +39,7 @@ export class WhatsappWebhookController {
       res.status(HttpStatus.OK).send(challenge);
       return;
     }
-    this.logger.warn(`Verificación de webhook rechazada (token="${token}")`);
+    this.logger.warn('Verificación de webhook rechazada (modo o token no coinciden)');
     res.status(HttpStatus.FORBIDDEN).send('Forbidden');
   }
 
@@ -48,12 +49,17 @@ export class WhatsappWebhookController {
    * Verifica `X-Hub-Signature-256` contra WHATSAPP_APP_SECRET cuando está
    * configurado — sin esto, cualquiera que conozca la URL pública puede
    * mandar payloads arbitrarios que terminan en los logs. Si el secreto NO
-   * está configurado todavía, se acepta sin verificar (igual que antes) para
-   * no tumbar el webhook mientras se agrega la variable de entorno.
+   * está configurado: en producción se rechaza con 503 (no se acepta nada sin
+   * firma); fuera de producción se acepta para poder probar en local.
    */
   @Post()
   receive(@Req() req: RawBodyRequest<Request>, @Body() body: unknown) {
     const secret = this.config.get<string>('WHATSAPP_APP_SECRET');
+    const isProd = (this.config.get<string>('NODE_ENV') ?? process.env.NODE_ENV) === 'production';
+    if (!secret && isProd) {
+      this.logger.error('Webhook de WhatsApp rechazado: falta WHATSAPP_APP_SECRET en producción');
+      throw new ServiceUnavailableException('Webhook no configurado');
+    }
     if (secret) {
       const signature = req.headers['x-hub-signature-256'];
       if (!this.isValidSignature(req.rawBody, signature, secret)) {
@@ -61,7 +67,8 @@ export class WhatsappWebhookController {
         throw new ForbiddenException('Invalid signature');
       }
     }
-    this.logger.log(`Webhook de WhatsApp recibido: ${JSON.stringify(body)}`);
+    // Solo un resumen: ni textos de clientes ni teléfonos en los logs de Docker.
+    this.logger.log(`Webhook de WhatsApp recibido: ${summarizeWebhook(body)}`);
 
     // La bandeja del ERP-57 guarda mensajes y estados: igual que abajo, solo con la firma de Meta verificada.
     if (secret) void this.inbox.dispatchRaw(body);

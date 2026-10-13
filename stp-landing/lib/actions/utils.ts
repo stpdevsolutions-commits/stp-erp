@@ -19,7 +19,21 @@ export async function authFetch(path: string, init?: RequestInit): Promise<Respo
     ...(init?.headers ?? {}),
   }
 
-  const res = await fetch(`${API_URL}${path}`, { ...init, headers: fetchHeaders })
+  // Las subidas (FormData) llevan fotos de varios MB: más margen que una consulta normal.
+  const timeoutMs = isFormData ? 120_000 : 30_000
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: fetchHeaders,
+      signal: init?.signal ?? AbortSignal.timeout(timeoutMs),
+    })
+  } catch (e) {
+    if (e instanceof Error && e.name === 'TimeoutError') {
+      throw new Error('El servidor tardó demasiado en responder. Intenta de nuevo.')
+    }
+    throw e
+  }
 
   if (res.status === 401) {
     const domain = process.env.COOKIE_DOMAIN

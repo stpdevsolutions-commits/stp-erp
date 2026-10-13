@@ -24,10 +24,13 @@ export class OpenRegistrationGuard implements CanActivate {
     if (!token) throw new ForbiddenException('Registration requires ADMIN authentication');
 
     try {
-      const payload = this.jwtService.verify<{ role: string }>(token, {
+      const payload = this.jwtService.verify<{ sub?: string; type?: string }>(token, {
         secret: this.configService.getOrThrow('JWT_SECRET'),
       });
-      if (payload.role !== UserRole.ADMIN) {
+      // El rol y el estado se leen de la BASE DE DATOS, no del JWT: un admin degradado o desactivado conservaba
+      // la capacidad de crear usuarios mientras su token no venciera.
+      const user = payload.sub && !payload.type ? await this.usersService.findByIdOptional(payload.sub) : null;
+      if (!user || !user.isActive || user.role !== UserRole.ADMIN) {
         throw new ForbiddenException('Only admins can register new users');
       }
       return true;

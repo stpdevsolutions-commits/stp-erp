@@ -20,7 +20,20 @@ const DEFAULT_PROJECTS = [
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors({ origin: '*' });
+  // CORS: lista de orígenes en CORS_ORIGINS (separados por coma). Si no está
+  // definida se mantiene el comportamiento anterior ('*') con un aviso.
+  const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (corsOrigins.length > 0) {
+    app.enableCors({ origin: corsOrigins });
+  } else {
+    console.warn(
+      'AVISO: CORS_ORIGINS no definida; CORS abierto a cualquier origen (*). Define CORS_ORIGINS=https://tickets.stpsoluciones.com,... para restringirlo.',
+    );
+    app.enableCors({ origin: '*' });
+  }
   app.setGlobalPrefix('api', { exclude: ['health'] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 

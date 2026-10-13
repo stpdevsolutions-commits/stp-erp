@@ -37,7 +37,7 @@ export class Expense {
    * ERP-34. Solo lo ven y registran admin/finanza: el manager está acotado a sus
    * proyectos (ERP-108) y un gasto sin proyecto nunca entra en su alcance.
    */
-  @ManyToOne(() => Project, { nullable: true, onDelete: 'CASCADE', eager: false })
+  @ManyToOne(() => Project, { nullable: true, onDelete: 'RESTRICT', eager: false })
   @JoinColumn({ name: 'projectId' })
   project: Project | null;
 

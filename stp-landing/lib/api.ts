@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
+const API_TIMEOUT_MS = 30_000
+
 export class UnauthorizedError extends Error {
   constructor() {
     super('Sesión expirada')
@@ -51,11 +53,23 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...(init?.headers ?? {}),
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers,
-    cache: 'no-store',
-  })
+  // Sin timeout, una API colgada deja la página de Next esperando indefinidamente.
+  // fetch() lanza TimeoutError (no es el 401 ni un redirect), así que se traduce a
+  // un mensaje claro; el resto de errores de red se propagan como siempre.
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers,
+      cache: 'no-store',
+      signal: init?.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
+    })
+  } catch (e) {
+    if (e instanceof Error && e.name === 'TimeoutError') {
+      throw new Error('El servidor tardó demasiado en responder. Intenta de nuevo.')
+    }
+    throw e
+  }
 
   if (res.status === 401) throw new UnauthorizedError()
 

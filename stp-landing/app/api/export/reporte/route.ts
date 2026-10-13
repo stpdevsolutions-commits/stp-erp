@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { fetchWithSession, isSessionFailure, isUuid } from '@/lib/session-fetch'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -17,21 +17,17 @@ const RUTAS: Record<string, (id: string | null) => string | null> = {
   gastos: () => '/reports/expenses/export',
   fichas: () => '/reports/fichas/export',
   nomina: () => '/reports/payroll/export',
-  proyecto: (id) => (id ? `/reports/projects/${id}/export` : null),
-  cliente: (id) => (id ? `/reports/clients/${id}/export` : null),
+  proyecto: (id) => (isUuid(id) ? `/reports/projects/${id}/export` : null),
+  cliente: (id) => (isUuid(id) ? `/reports/clients/${id}/export` : null),
 }
 
 export async function GET(req: NextRequest) {
-  const store = await cookies()
-  const token = store.get('stp-token')?.value
-  if (!token) return new NextResponse('Unauthorized', { status: 401 })
-
   const sp = req.nextUrl.searchParams
   const tipo = sp.get('tipo') ?? ''
   const formato = sp.get('format') === 'pdf' ? 'pdf' : 'xlsx'
   const id = sp.get('id')
 
-  const ruta = RUTAS[tipo]?.(id)
+  const ruta = Object.prototype.hasOwnProperty.call(RUTAS, tipo) ? RUTAS[tipo](id) : null
   if (!ruta) return new NextResponse('Reporte no válido', { status: 400 })
 
   const params = new URLSearchParams({ format: formato })
@@ -40,10 +36,13 @@ export async function GET(req: NextRequest) {
     if (valor) params.set(clave, valor)
   }
 
-  const res = await fetch(`${API_URL}${ruta}?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: 'no-store',
-  })
+  const res = await fetchWithSession((token) =>
+    fetch(`${API_URL}${ruta}?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    }),
+  )
+  if (isSessionFailure(res)) return res
   if (!res.ok) return new NextResponse('Error al exportar', { status: res.status })
 
   const buffer = await res.arrayBuffer()

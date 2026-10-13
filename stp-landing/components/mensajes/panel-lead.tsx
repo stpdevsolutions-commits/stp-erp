@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,8 +22,37 @@ export function PanelLead({ contact, agents, onChanged }: Props) {
   const [name, setName] = useState(contact.name ?? '')
   const [service, setService] = useState(contact.service ?? '')
   const [notes, setNotes] = useState(contact.notes ?? '')
+  // Campos con cambios sin guardar: mientras lo estén, lo que llega del servidor no los pisa.
+  const dirty = useRef({ name: false, service: false, notes: false })
+  const nameEl = useRef<HTMLInputElement>(null)
+  const serviceEl = useRef<HTMLInputElement>(null)
+  const notesEl = useRef<HTMLTextAreaElement>(null)
+  const latest = useRef({ id: contact.id, name, service, notes, saved: contact })
   const [clientQuery, setClientQuery] = useState('')
   const [clientHits, setClientHits] = useState<{ id: string; name: string; phone: string | null }[]>([])
+
+  useEffect(() => {
+    latest.current = { id: contact.id, name, service, notes, saved: contact }
+  })
+
+  // Otro agente editó la ficha: se refleja aquí, salvo en el campo donde se está escribiendo o que está sin guardar.
+  useEffect(() => {
+    if (!dirty.current.name && document.activeElement !== nameEl.current) setName(contact.name ?? '')
+    if (!dirty.current.service && document.activeElement !== serviceEl.current) setService(contact.service ?? '')
+    if (!dirty.current.notes && document.activeElement !== notesEl.current) setNotes(contact.notes ?? '')
+  }, [contact.name, contact.service, contact.notes])
+
+  // Al cambiar de conversación (el panel se desmonta) no se pierde lo escrito sin salir del campo.
+  useEffect(() => {
+    return () => {
+      const { id, name, service, notes, saved } = latest.current
+      const body: Record<string, string> = {}
+      if (dirty.current.name && name.trim() !== (saved.name ?? '')) body.name = name.trim()
+      if (dirty.current.service && service.trim() !== (saved.service ?? '')) body.service = service.trim()
+      if (dirty.current.notes && notes !== (saved.notes ?? '')) body.notes = notes
+      if (Object.keys(body).length) mFetch(`/contacts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }).catch(() => {})
+    }
+  }, [])
 
   useEffect(() => {
     const q = clientQuery.trim()
@@ -42,6 +71,7 @@ export function PanelLead({ contact, agents, onChanged }: Props) {
   const patch = async (body: Record<string, unknown>, okMsg?: string) => {
     try {
       await mFetch(`/contacts/${contact.id}`, { method: 'PATCH', body: JSON.stringify(body) })
+      for (const k of ['name', 'service', 'notes'] as const) if (k in body) dirty.current[k] = false
       if (okMsg) toast.success(okMsg)
       onChanged()
     } catch (e) {
@@ -62,10 +92,17 @@ export function PanelLead({ contact, agents, onChanged }: Props) {
         <Label htmlFor="lead-name">Nombre</Label>
         <Input
           id="lead-name"
+          ref={nameEl}
           value={name}
           placeholder="Sin nombre"
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => name.trim() !== (contact.name ?? '') && name.trim() && patch({ name: name.trim() })}
+          onChange={(e) => {
+            dirty.current.name = true
+            setName(e.target.value)
+          }}
+          onBlur={() => {
+            if (name.trim() !== (contact.name ?? '')) void patch({ name: name.trim() })
+            else dirty.current.name = false
+          }}
         />
       </div>
 
@@ -106,10 +143,17 @@ export function PanelLead({ contact, agents, onChanged }: Props) {
         <Label htmlFor="lead-service">Servicio de interés</Label>
         <Input
           id="lead-service"
+          ref={serviceEl}
           value={service}
           placeholder="Presión constante, cámaras…"
-          onChange={(e) => setService(e.target.value)}
-          onBlur={() => service.trim() !== (contact.service ?? '') && patch({ service: service.trim() })}
+          onChange={(e) => {
+            dirty.current.service = true
+            setService(e.target.value)
+          }}
+          onBlur={() => {
+            if (service.trim() !== (contact.service ?? '')) void patch({ service: service.trim() })
+            else dirty.current.service = false
+          }}
         />
       </div>
 
@@ -161,10 +205,17 @@ export function PanelLead({ contact, agents, onChanged }: Props) {
         <Label htmlFor="lead-notes">Notas internas</Label>
         <textarea
           id="lead-notes"
+          ref={notesEl}
           rows={6}
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={() => notes !== (contact.notes ?? '') && patch({ notes })}
+          onChange={(e) => {
+            dirty.current.notes = true
+            setNotes(e.target.value)
+          }}
+          onBlur={() => {
+            if (notes !== (contact.notes ?? '')) void patch({ notes })
+            else dirty.current.notes = false
+          }}
           placeholder="Lo que conviene recordar de este cliente potencial"
           className="w-full resize-y rounded-lg border bg-background px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         />

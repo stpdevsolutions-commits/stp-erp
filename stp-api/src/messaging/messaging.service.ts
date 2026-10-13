@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -10,7 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { WaContact, LeadStage } from './entities/wa-contact.entity';
@@ -23,6 +24,7 @@ import { AppNotificationsService } from '../notifications/app-notifications.serv
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { hasModuleAccess } from '../common/access/module-permissions';
 import { escapeLike } from '../common/like-escape';
+import { auditLog } from '../common/audit-log';
 import { parseWebhook, previewOf, ParsedInbound, ParsedStatus } from './whatsapp-parse';
 import { WA_TEMPLATES } from './wa-templates';
 import { QueryContactsDto, QueryMessagesDto, UpdateContactDto } from './dto/messaging.dto';
@@ -39,6 +41,13 @@ const ALERT_EVERY_MS = 10 * 60 * 1000;
 /** Tiempo sin atender (en horario laboral) antes de recordarlo por Telegram. */
 const ESCALATE_AFTER_MS = 30 * 60 * 1000;
 const MAX_MEDIA_BYTES = 16 * 1024 * 1024;
+/** Un mensaje idéntico (mismo usuario, contacto y contenido) dentro de este lapso se toma por doble clic. */
+const DUPLICATE_WINDOW_MS = 5_000;
+/** Las listas de teléfonos de personal y clientes se recuerdan este tiempo en vez de recargarse por cada mensaje. */
+const PHONE_CACHE_TTL_MS = 60_000;
+/** Avisos de estado que llegaron antes de que se guardara el id del mensaje: se recuerdan unos minutos. */
+const ORPHAN_TTL_MS = 5 * 60_000;
+const ORPHAN_MAX = 500;
 const STATUS_RANK: Record<string, number> = { sent: 1, delivered: 2, read: 3 };
 
 const EXT_BY_MIME: Record<string, string> = {
@@ -85,6 +94,9 @@ export class MessagingService implements OnModuleInit {
   private readonly telegramToken?: string;
   private readonly telegramChat?: string;
   private readonly erpUrl: string;
+  private readonly recentSends = new Map<string, number>();
+  private readonly orphanStatuses = new Map<string, { status: string; error?: string; at: number }>();
+  private readonly phoneCache = new Map<string, { at: number; value: Promise<unknown> }>();
 
   constructor(
     @InjectRepository(WaContact) private readonly contacts: Repository<WaContact>,
@@ -96,7 +108,7 @@ export class MessagingService implements OnModuleInit {
     private readonly appNotifications: AppNotificationsService,
     config: ConfigService,
   ) {
-    this.telegramToken = config.get<string>('HERMES_TELEGRAM_BOT_TOKEN');
+    this.telegramToken = config.get<string>('MESSAGING_TELEGRAM_BOT_TOKEN') || config.get<string>('HERMES_TELEGRAM_BOT_TOKEN');
     this.telegramChat = config.get<string>('TELEGRAM_CHAT_ID');
     this.erpUrl = config.get<string>('ERP_PUBLIC_URL') ?? 'https://erp.stpsoluciones.com';
   }
@@ -108,7 +120,7 @@ export class MessagingService implements OnModuleInit {
       const contact = await this.contacts.findOne({ where: { phone: to } });
       if (!contact) return; // Solo se registran las conversaciones con leads, no los avisos a colaboradores.
       const body = outboundBody(payload);
-      await this.messages.save(
+      const saved = await this.messages.save(
         this.messages.create({
           contactId: contact.id,
           waId: wamid,
@@ -118,6 +130,7 @@ export class MessagingService implements OnModuleInit {
           status: 'sent',
         }),
       );
+      await this.applyOrphan(saved.id, wamid);
       await this.contacts.update(contact.id, { lastMessageAt: new Date(), lastMessagePreview: previewOf('text', body) });
     });
   }
@@ -192,14 +205,17 @@ export class MessagingService implements OnModuleInit {
     await this.contacts
       .createQueryBuilder()
       .update(WaContact)
+      // Los webhooks llegan desordenados: un mensaje más viejo suma al contador pero no hace retroceder
+      // la última actividad, la vista previa ni la marca de "espera respuesta".
       .set({
-        lastInboundAt: m.sentAt,
-        lastMessageAt: m.sentAt,
-        lastMessagePreview: preview,
-        awaitingReply: true,
+        lastInboundAt: () => 'GREATEST("lastInboundAt", :t)',
+        lastMessageAt: () => 'GREATEST("lastMessageAt", :t)',
+        lastMessagePreview: () => 'CASE WHEN "lastMessageAt" IS NULL OR "lastMessageAt" <= :t THEN :p ELSE "lastMessagePreview" END',
+        awaitingReply: () => 'CASE WHEN "lastMessageAt" IS NULL OR "lastMessageAt" <= :t THEN true ELSE "awaitingReply" END',
         unreadCount: () => '"unreadCount" + 1',
       })
       .where('id = :id', { id: contact.id })
+      .setParameters({ t: m.sentAt, p: preview })
       .execute();
 
     await this.alertInbound(contact, m.profileName ?? contact.name, phone, preview, isNew);
@@ -207,14 +223,42 @@ export class MessagingService implements OnModuleInit {
 
   private async applyStatus(s: ParsedStatus): Promise<void> {
     const msg = await this.messages.findOne({ where: { waId: s.waId } });
-    if (!msg || msg.direction !== MessageDirection.OUT) return;
-    if (s.status === 'failed') {
-      await this.messages.update(msg.id, { status: 'failed', error: s.error ?? 'Meta no pudo entregar el mensaje' });
+    if (!msg) {
+      this.rememberOrphan(s);
       return;
     }
-    if ((STATUS_RANK[s.status] ?? 0) > (STATUS_RANK[msg.status] ?? 0)) {
-      await this.messages.update(msg.id, { status: s.status });
+    if (msg.direction !== MessageDirection.OUT) return;
+    await this.applyStatusTo(msg, s.status, s.error);
+  }
+
+  private async applyStatusTo(msg: WaMessage, status: string, error?: string): Promise<void> {
+    if (status === 'failed') {
+      await this.messages.update(msg.id, { status: 'failed', error: error ?? 'Meta no pudo entregar el mensaje' });
+      return;
     }
+    if ((STATUS_RANK[status] ?? 0) > (STATUS_RANK[msg.status] ?? 0)) {
+      await this.messages.update(msg.id, { status });
+    }
+  }
+
+  /** Guarda un aviso de estado cuyo mensaje aún no existe (el envío a Meta todavía no terminó de registrarse). */
+  private rememberOrphan(s: ParsedStatus): void {
+    const now = Date.now();
+    for (const [k, v] of this.orphanStatuses) if (now - v.at > ORPHAN_TTL_MS) this.orphanStatuses.delete(k);
+    if (this.orphanStatuses.size >= ORPHAN_MAX) return;
+    const prev = this.orphanStatuses.get(s.waId);
+    const better = s.status === 'failed' || (STATUS_RANK[s.status] ?? 0) > (STATUS_RANK[prev?.status ?? ''] ?? 0);
+    if (!prev || better) this.orphanStatuses.set(s.waId, { status: s.status, error: s.error, at: now });
+  }
+
+  /** Aplica al mensaje recién guardado el aviso de estado que llegó antes que su id. */
+  private async applyOrphan(messageId: string, waId: string | undefined): Promise<void> {
+    if (!waId) return;
+    const o = this.orphanStatuses.get(waId);
+    if (!o) return;
+    this.orphanStatuses.delete(waId);
+    const msg = await this.messages.findOne({ where: { id: messageId } });
+    if (msg) await this.applyStatusTo(msg, o.status, o.error);
   }
 
   /** Baja el adjunto de Meta y lo guarda en disco: la dirección que da Meta caduca a los pocos minutos. */
@@ -417,13 +461,13 @@ export class MessagingService implements OnModuleInit {
     if (!c.lastInboundAt || Date.now() - c.lastInboundAt.getTime() > WINDOW_MS) {
       throw new BadRequestException('Pasaron más de 24 h desde el último mensaje del cliente: envía una plantilla.');
     }
-    let wamid: string;
-    try {
-      ({ wamid } = await this.whatsapp.sendTextTracked(c.phone, text));
-    } catch (err) {
-      throw new BadGatewayException(`WhatsApp no aceptó el mensaje: ${(err as Error).message}`);
-    }
-    return this.afterHumanSend(c, userId, { waId: wamid, type: 'text', body: text });
+    return this.sendOutbound(
+      c,
+      userId,
+      { type: 'text', body: text },
+      async () => (await this.whatsapp.sendTextTracked(c.phone, text)).wamid,
+      'WhatsApp no aceptó el mensaje',
+    );
   }
 
   async sendTemplate(userId: string, id: string, name: string, params: string[]) {
@@ -434,34 +478,67 @@ export class MessagingService implements OnModuleInit {
     if (clean.length !== tpl.params.length || clean.some((p) => !p)) {
       throw new BadRequestException(`La plantilla necesita ${tpl.params.length} datos, todos con texto`);
     }
-    let wamid: string;
-    try {
-      ({ wamid } = await this.whatsapp.sendTemplateTracked(c.phone, tpl.name, 'es', clean));
-    } catch (err) {
-      throw new BadGatewayException(`WhatsApp no aceptó la plantilla: ${(err as Error).message}`);
-    }
-    return this.afterHumanSend(c, userId, { waId: wamid, type: 'template', body: tpl.render(clean), templateName: tpl.name });
+    return this.sendOutbound(
+      c,
+      userId,
+      { type: 'template', body: tpl.render(clean), templateName: tpl.name },
+      async () => (await this.whatsapp.sendTemplateTracked(c.phone, tpl.name, 'es', clean)).wamid,
+      'WhatsApp no aceptó la plantilla',
+    );
   }
 
-  private async afterHumanSend(
+  /**
+   * Envía un mensaje de una persona del equipo. El mensaje se guarda ANTES de salir hacia Meta, con estado
+   * 'sending': así el aviso de entregado/leído (que puede llegar antes de que Meta termine de responder)
+   * siempre encuentra su fila, y un fallo o un corte del servidor deja rastro en vez de un envío sin registro.
+   */
+  private async sendOutbound(
     c: WaContact,
     userId: string,
-    m: { waId: string; type: string; body: string; templateName?: string; filename?: string },
+    m: { type: string; body: string; templateName?: string; filename?: string; mediaPath?: string; mime?: string },
+    send: () => Promise<string>,
+    failLabel: string,
+    dedupeExtra = '',
   ) {
-    const saved = await this.messages.save(
-      this.messages.create({
-        contactId: c.id,
-        waId: m.waId,
-        direction: MessageDirection.OUT,
-        type: m.type,
-        body: m.body,
-        templateName: m.templateName,
-        filename: m.filename,
-        status: 'sent',
-        sentById: userId,
-      }),
-    );
-    await this.contacts.update(c.id, {
+    const key = [userId, c.id, m.type, m.templateName ?? '', m.filename ?? '', dedupeExtra, m.body].join('|');
+    this.claimSend(key);
+    let saved: WaMessage;
+    try {
+      saved = await this.messages.save(
+        this.messages.create({
+          contactId: c.id,
+          direction: MessageDirection.OUT,
+          type: m.type,
+          body: m.body,
+          templateName: m.templateName,
+          filename: m.filename,
+          mediaPath: m.mediaPath,
+          mime: m.mime,
+          status: 'sending',
+          sentById: userId,
+        }),
+      );
+    } catch (err) {
+      this.recentSends.delete(key);
+      throw err;
+    }
+
+    let wamid: string;
+    try {
+      wamid = await send();
+    } catch (err) {
+      const reason = (err as Error).message;
+      this.recentSends.delete(key); // Falló: se puede reintentar enseguida.
+      await this.messages
+        .update(saved.id, { status: 'failed', error: reason.slice(0, 500) })
+        .catch((e: Error) => this.logger.error(`No se pudo marcar como fallido el mensaje ${saved.id}: ${e.message}`));
+      throw new BadGatewayException(`${failLabel}: ${reason}`);
+    }
+
+    await this.messages.update(saved.id, { waId: wamid, status: 'sent' });
+    await this.applyOrphan(saved.id, wamid);
+
+    const patch: Partial<WaContact> = {
       lastMessageAt: saved.sentAt,
       lastMessagePreview: previewOf(m.type, m.body),
       awaitingReply: false,
@@ -470,8 +547,23 @@ export class MessagingService implements OnModuleInit {
       // Quien contesta se queda con la conversación si nadie la había tomado.
       assignedToId: c.assignedToId ?? userId,
       stage: c.stage === LeadStage.NEW ? LeadStage.QUALIFYING : c.stage,
-    });
-    return { id: saved.id, sentAt: saved.sentAt, status: saved.status };
+    };
+    await this.contacts.update(c.id, patch);
+    if (!c.assignedToId) auditLog(userId, 'whatsapp.auto-assign', { contactId: c.id });
+    if (patch.stage !== c.stage) auditLog(userId, 'whatsapp.stage', { contactId: c.id, from: c.stage, to: patch.stage });
+
+    const row = await this.messages.findOne({ where: { id: saved.id }, select: { id: true, sentAt: true, status: true } });
+    return { id: saved.id, sentAt: saved.sentAt, status: row?.status ?? 'sent' };
+  }
+
+  /** Rechaza un envío idéntico (mismo usuario, contacto y contenido) repetido dentro de 5 s. */
+  private claimSend(key: string): void {
+    const now = Date.now();
+    for (const [k, at] of this.recentSends) if (now - at > DUPLICATE_WINDOW_MS) this.recentSends.delete(k);
+    if (this.recentSends.has(key)) {
+      throw new ConflictException('Ese mismo mensaje se acaba de enviar. Espera unos segundos si de verdad quieres repetirlo.');
+    }
+    this.recentSends.set(key, now);
   }
 
   /** Foto o PDF desde la bandeja: se valida el contenido real (no solo el tipo declarado), se guarda y se envía. */
@@ -489,24 +581,29 @@ export class MessagingService implements OnModuleInit {
     const mime = sniffMime(file.buffer);
     if (!mime) throw new BadRequestException('Solo se pueden enviar fotos (JPG, PNG, WEBP) y PDF');
     const filename = path.basename(file.originalname).replace(/[^\w.\- ()]/g, '_').slice(0, 100) || `archivo${EXT_BY_MIME[mime]}`;
-    let wamid: string;
-    try {
-      ({ wamid } = await this.whatsapp.sendMediaTracked(c.phone, { buffer: file.buffer, mime, filename, caption }));
-    } catch (err) {
-      throw new BadGatewayException(`WhatsApp no aceptó el archivo: ${(err as Error).message}`);
-    }
+    const text = caption?.trim() ?? '';
+    // La huella del contenido entra en la clave anti-duplicados: dos fotos distintas con el mismo nombre no chocan.
+    const digest = createHash('sha1').update(file.buffer).digest('hex');
+
+    // El archivo se guarda en disco ANTES de enviarlo: el mensaje queda registrado con su adjunto aunque Meta falle.
     const rel = path.posix.join('whatsapp', c.id, `${randomUUID()}${EXT_BY_MIME[mime]}`);
     const abs = path.join(uploadRoot(), rel);
     await fs.mkdir(path.dirname(abs), { recursive: true });
     await fs.writeFile(abs, file.buffer);
-    const res = await this.afterHumanSend(c, userId, {
-      waId: wamid,
-      type: mime.startsWith('image/') ? 'image' : 'document',
-      body: caption?.trim() ?? '',
-      filename,
-    });
-    await this.messages.update(res.id, { mediaPath: rel, mime });
-    return res;
+    try {
+      return await this.sendOutbound(
+        c,
+        userId,
+        { type: mime.startsWith('image/') ? 'image' : 'document', body: text, filename, mediaPath: rel, mime },
+        async () => (await this.whatsapp.sendMediaTracked(c.phone, { buffer: file.buffer, mime, filename, caption })).wamid,
+        'WhatsApp no aceptó el archivo',
+        digest,
+      );
+    } catch (err) {
+      // Si fue un duplicado rechazado, ningún mensaje apunta al archivo recién escrito: se borra.
+      if (err instanceof ConflictException) await fs.rm(abs, { force: true }).catch(() => undefined);
+      throw err;
+    }
   }
 
   /** Búsqueda corta de clientes del ERP para enlazarlos a una conversación. */
@@ -524,15 +621,20 @@ export class MessagingService implements OnModuleInit {
   }
 
   async take(userId: string, id: string) {
-    await this.mustExist(id);
+    const before = await this.mustExist(id);
     await this.contacts.update(id, { assignedToId: userId });
+    auditLog(userId, 'whatsapp.take', { contactId: id, from: before.assignedToId ?? null, to: userId });
     return this.findOne(id);
   }
 
-  async update(id: string, dto: UpdateContactDto) {
-    await this.mustExist(id);
+  async update(id: string, dto: UpdateContactDto, actorId?: string) {
+    const before = await this.mustExist(id);
     const patch: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(dto as Record<string, unknown>)) if (v !== undefined) patch[k] = v;
+    // Un campo de texto vaciado se guarda como NULL: así la lista cae al teléfono en vez de mostrar un título en blanco.
+    for (const k of ['name', 'service', 'notes']) {
+      if (typeof patch[k] === 'string' && !(patch[k] as string).trim()) patch[k] = NULL;
+    }
     if (patch.assignedToId) {
       const u = await this.users.findOne({ where: { id: patch.assignedToId as string, isActive: true } });
       if (!u || !hasModuleAccess(u.role, 'mensajes', 'view')) throw new BadRequestException('Esa persona no tiene acceso a la bandeja');
@@ -541,6 +643,12 @@ export class MessagingService implements OnModuleInit {
       throw new BadRequestException('Cliente no encontrado');
     }
     if (Object.keys(patch).length) await this.contacts.update(id, patch);
+    if ('assignedToId' in patch && (patch.assignedToId ?? null) !== (before.assignedToId ?? null)) {
+      auditLog(actorId, 'whatsapp.reassign', { contactId: id, from: before.assignedToId ?? null, to: patch.assignedToId ?? null });
+    }
+    if ('stage' in patch && patch.stage !== before.stage) {
+      auditLog(actorId, 'whatsapp.stage', { contactId: id, from: before.stage, to: patch.stage });
+    }
     return this.findOne(id);
   }
 
@@ -552,22 +660,49 @@ export class MessagingService implements OnModuleInit {
     return c;
   }
 
+  /** Recuerda por 60 s lo que cuesta cargar (todos los usuarios/clientes) en vez de repetirlo por cada mensaje. */
+  private cached<T>(slot: string, load: () => Promise<T>): Promise<T> {
+    const hit = this.phoneCache.get(slot);
+    if (hit && Date.now() - hit.at < PHONE_CACHE_TTL_MS) return hit.value as Promise<T>;
+    const value = load();
+    this.phoneCache.set(slot, { at: Date.now(), value });
+    value.catch(() => {
+      if (this.phoneCache.get(slot)?.value === value) this.phoneCache.delete(slot);
+    });
+    return value;
+  }
+
   private async isStaff(phone: string): Promise<boolean> {
-    const users = await this.users.createQueryBuilder('u').where('u.isActive = true AND u.phone IS NOT NULL').getMany();
-    return users.some((u) => normalizePhone(u.phone) === phone);
+    const set = await this.cached('staffPhones', async () => {
+      const users = await this.users.createQueryBuilder('u').where('u.isActive = true AND u.phone IS NOT NULL').getMany();
+      const out = new Set<string>();
+      for (const u of users) {
+        const p = normalizePhone(u.phone);
+        if (p) out.add(p);
+      }
+      return out;
+    });
+    return set.has(phone);
   }
 
   /** Cliente del ERP cuyo teléfono (o el de su contacto) coincide con el número. */
   private async findClientId(phone: string): Promise<string | null> {
-    const rows = await this.clients
-      .createQueryBuilder('c')
-      .select(['c.id', 'c.phone', 'c.contactPhone'])
-      .where('c.phone IS NOT NULL OR c.contactPhone IS NOT NULL')
-      .getMany();
-    const hit = rows.find(
-      (c) => (c.phone && normalizePhone(c.phone) === phone) || (c.contactPhone && normalizePhone(c.contactPhone) === phone),
-    );
-    return hit?.id ?? null;
+    const map = await this.cached('clientPhones', async () => {
+      const rows = await this.clients
+        .createQueryBuilder('c')
+        .select(['c.id', 'c.phone', 'c.contactPhone'])
+        .where('c.phone IS NOT NULL OR c.contactPhone IS NOT NULL')
+        .getMany();
+      const out = new Map<string, string>();
+      for (const c of rows) {
+        for (const raw of [c.phone, c.contactPhone]) {
+          const p = raw ? normalizePhone(raw) : null;
+          if (p && !out.has(p)) out.set(p, c.id);
+        }
+      }
+      return out;
+    });
+    return map.get(phone) ?? null;
   }
 
   private toView(c: WaContact) {

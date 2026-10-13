@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository, FindOptionsWhere, EntityManager } from 'typeorm';
 import { CollaboratorLoan, CollaboratorLoanStatus } from './entities/collaborator-loan.entity';
 import { Collaborator } from '../collaborators/entities/collaborator.entity';
 import { CreateCollaboratorLoanDto } from './dto/create-collaborator-loan.dto';
@@ -68,21 +68,33 @@ export class CollaboratorLoansService {
    * Próximo préstamo activo con saldo del colaborador (FIFO por fecha de
    * creación). Usado por PayrollService al generar cada pago (ERP-91).
    */
-  async findActiveForCollaborator(collaboratorId: string): Promise<CollaboratorLoan | null> {
-    return this.loansRepository.findOne({
+  async findActiveForCollaborator(
+    collaboratorId: string,
+    manager?: EntityManager,
+  ): Promise<CollaboratorLoan | null> {
+    // Con `manager` (dentro de una transacción) la fila se bloquea (pessimistic_write):
+    // dos pagos simultáneos del mismo colaborador no pueden leer el mismo saldo y
+    // descontar dos veces sobre él.
+    const repo = manager ? manager.getRepository(CollaboratorLoan) : this.loansRepository;
+    return repo.findOne({
       where: { collaboratorId, status: CollaboratorLoanStatus.ACTIVE },
       order: { createdAt: 'ASC' },
+      ...(manager ? { lock: { mode: 'pessimistic_write' as const } } : {}),
     });
   }
 
   /** Aplica una cuota: descuenta del saldo y marca pagado si llega a cero. */
-  async applyInstallment(loan: CollaboratorLoan, amount: number): Promise<void> {
+  async applyInstallment(
+    loan: CollaboratorLoan,
+    amount: number,
+    manager?: EntityManager,
+  ): Promise<void> {
     loan.balance = Math.round((loan.balance - amount) * 100) / 100;
     if (loan.balance <= 0) {
       loan.balance = 0;
       loan.status = CollaboratorLoanStatus.PAID;
     }
-    await this.loansRepository.save(loan);
+    await (manager ? manager.getRepository(CollaboratorLoan) : this.loansRepository).save(loan);
   }
 
   /** Revierte una cuota (al borrar el pago de nómina que la aplicó). */

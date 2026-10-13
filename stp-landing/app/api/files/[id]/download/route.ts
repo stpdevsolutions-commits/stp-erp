@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { fetchWithSession, isSessionFailure, isUuid } from '@/lib/session-fetch'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -8,16 +8,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const store = await cookies()
-  const token = store.get('stp-token')?.value
+  if (!isUuid(id)) return new NextResponse('Archivo no válido', { status: 400 })
 
-  if (!token) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
-
-  const res = await fetch(`${API_URL}/files/${id}/download`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const res = await fetchWithSession((token) =>
+    fetch(`${API_URL}/files/${id}/download`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  )
+  if (isSessionFailure(res)) return res
 
   if (!res.ok) {
     return new NextResponse('Not found', { status: res.status })

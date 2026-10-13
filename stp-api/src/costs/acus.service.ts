@@ -16,6 +16,7 @@ import { UpdateAcuDto } from './dto/update-acu.dto';
 import { QueryAcusDto } from './dto/query-acus.dto';
 import { normalizeMaterialName, pickCurrentPrice } from './price-selection';
 import { escapeLike } from '../common/like-escape';
+import { saveWithUniqueCode } from '../common/save-with-unique-code';
 import {
   computeAcuCost,
   convertQuantity,
@@ -45,31 +46,25 @@ export class AcusService {
       throw new ConflictException(`Ya existe una partida con el nombre "${dto.name}"`);
     }
 
-    let acu: Acu;
-    try {
-      acu = await this.acusRepository.save(
-        this.acusRepository.create({
-          name: dto.name,
-          description: dto.description,
-          unitId: dto.unitId,
-          trade: dto.trade,
-          chapter: dto.chapter,
-          notes: dto.notes,
-          normalizedName,
-          code: await this.generateCode(),
-        }),
-      );
-    } catch (err) {
-      // `generateCode` es MAX+1 sin bloqueo: dos creaciones a la vez pueden calcular
-      // el mismo código. Antes esto llegaba al cliente como un 500 genérico de
-      // violación de UNIQUE; ahora se dice qué pasó y que reintentar alcanza.
-      if ((err as { code?: string })?.code === '23505') {
-        throw new ConflictException(
-          'Dos partidas se crearon casi al mismo tiempo y chocaron de código; intenta de nuevo',
-        );
-      }
-      throw err;
-    }
+    // `generateCode` es MAX+1 sin bloqueo: dos creaciones a la vez pueden calcular el
+    // mismo código; se recalcula y reintenta ante el UNIQUE.
+    const acu: Acu = await saveWithUniqueCode(
+      () => this.generateCode(),
+      (code) =>
+        this.acusRepository.save(
+          this.acusRepository.create({
+            name: dto.name,
+            description: dto.description,
+            unitId: dto.unitId,
+            trade: dto.trade,
+            chapter: dto.chapter,
+            notes: dto.notes,
+            normalizedName,
+            code,
+          }),
+        ),
+      { label: 'la partida' },
+    );
 
     for (const [i, item] of (dto.items ?? []).entries()) {
       await this.addItem(acu.id, { sortOrder: i, ...item });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { fetchWithSession } from '@/lib/session-fetch'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -8,17 +8,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
  * subruta (lista, unread-count, :id/read, read-all), ya que las cuatro solo
  * necesitan reenviar el método + adjuntar el token de la cookie.
  */
-async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
-  const store = await cookies()
-  const token = store.get('stp-token')?.value
-  if (!token) return new NextResponse('Unauthorized', { status: 401 })
-
+async function proxy(req: NextRequest, path: string[]): Promise<Response> {
   const url = `${API_URL}/notifications${path.length ? `/${path.join('/')}` : ''}${req.nextUrl.search}`
-  const res = await fetch(url, {
-    method: req.method,
-    headers: { Authorization: `Bearer ${token}` },
-    cache: 'no-store',
-  })
+  const res = await fetchWithSession((token) =>
+    fetch(url, {
+      method: req.method,
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    }),
+  )
+  // 401/503 de la sesión ya vienen como JSON claro desde fetchWithSession.
   const text = await res.text()
   return new NextResponse(text, {
     status: res.status,

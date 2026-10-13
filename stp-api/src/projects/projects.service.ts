@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -17,6 +18,8 @@ import { loadForUpdate } from '../common/load-for-update';
 import { AccessControlService } from '../common/access/access-control.service';
 import type { AccessSubject } from '../common/access/access-policy';
 import { escapeLike } from '../common/like-escape';
+import { saveWithUniqueCode } from '../common/save-with-unique-code';
+import { buildProjectDeleteBlockMessage, ProjectDeleteBlockers } from './project-delete-guard';
 
 const PROJECTS_SORTABLE: Record<string, string> = { code: 'project.code', name: 'project.name', status: 'project.status', budget: 'project.budget', startDate: 'project.startDate', createdAt: 'project.createdAt' };
 
@@ -40,9 +43,14 @@ export class ProjectsService {
     if (dto.supervisorId) await this.assertCollaboratorExists(dto.supervisorId);
     this.assertDates(dto.startDate, dto.endDate);
 
-    const code = await this.generateCode();
-    const project = this.projectsRepository.create({ ...dto, code, createdById });
-    return this.projectsRepository.save(project);
+    return saveWithUniqueCode(
+      () => this.generateCode(),
+      (code) =>
+        this.projectsRepository.save(
+          this.projectsRepository.create({ ...dto, code, createdById }),
+        ),
+      { label: 'el proyecto' },
+    );
   }
 
   async findAll(query: QueryProjectsDto, user?: AccessSubject) {
@@ -132,7 +140,31 @@ export class ProjectsService {
 
   async remove(id: string): Promise<void> {
     const project = await this.findOne(id);
+    // expenses.projectId es ON DELETE CASCADE: borrar el proyecto se llevaría los gastos
+    // (incluida la mano de obra de nómina). Se bloquea si hay registros financieros.
+    const blockers = await this.countDeleteBlockers(id);
+    const message = buildProjectDeleteBlockMessage(project.code, blockers);
+    if (message) throw new ConflictException(message);
     await this.projectsRepository.remove(project);
+  }
+
+  private async countDeleteBlockers(projectId: string): Promise<ProjectDeleteBlockers> {
+    const count = async (sql: string): Promise<number> => {
+      const rows: Array<{ n: string }> = await this.projectsRepository.query(sql, [projectId]);
+      return parseInt(rows[0]?.n ?? '0', 10) || 0;
+    };
+    const [expenses, payments, payrollEntries, salesInvoices, fiscalInvoices, fichas] =
+      await Promise.all([
+        count('SELECT COUNT(*) AS n FROM expenses WHERE "projectId" = $1'),
+        count('SELECT COUNT(*) AS n FROM payments WHERE "projectId" = $1'),
+        count('SELECT COUNT(*) AS n FROM payroll_entries WHERE "projectId" = $1'),
+        count('SELECT COUNT(*) AS n FROM sales_invoices WHERE "projectId" = $1'),
+        count(
+          'SELECT COUNT(*) AS n FROM fiscal_invoices fi JOIN expenses e ON e.id = fi."expenseId" WHERE e."projectId" = $1',
+        ),
+        count('SELECT COUNT(*) AS n FROM fichas WHERE "projectId" = $1'),
+      ]);
+    return { expenses, payments, payrollEntries, salesInvoices, fiscalInvoices, fichas };
   }
 
   private async generateCode(): Promise<string> {

@@ -153,3 +153,39 @@ export function previewOf(type: string, body?: string | null): string {
   };
   return labels[type] ?? 'Mensaje';
 }
+
+/**
+ * Resumen para el log de un cuerpo de webhook: solo cantidades y tipos, nunca textos ni números de
+ * teléfono (los logs de Docker no deben guardar lo que escriben los clientes).
+ */
+export function summarizeWebhook(body: unknown): string {
+  const types: string[] = [];
+  const statuses: string[] = [];
+  const entries = (body as { entry?: unknown[] } | null)?.entry;
+  if (Array.isArray(entries)) {
+    for (const entry of entries) {
+      const changes = (entry as { changes?: unknown[] } | null)?.changes;
+      if (!Array.isArray(changes)) continue;
+      for (const change of changes) {
+        const value = (change as { value?: { messages?: unknown[]; statuses?: unknown[] } } | null)?.value;
+        for (const m of Array.isArray(value?.messages) ? value.messages : []) {
+          types.push(safeTag((m as { type?: unknown } | null)?.type));
+        }
+        for (const s of Array.isArray(value?.statuses) ? value.statuses : []) {
+          statuses.push(safeTag((s as { status?: unknown } | null)?.status));
+        }
+      }
+    }
+  }
+  return `mensajes=${types.length}${types.length ? ` [${types.join(',')}]` : ''} estados=${statuses.length}${statuses.length ? ` [${statuses.join(',')}]` : ''}`;
+}
+
+/** Etiqueta corta y sin caracteres raros: lo que venga en un campo "type" no debe colar texto libre al log. */
+function safeTag(v: unknown): string {
+  return typeof v === 'string' && /^[a-z_]{1,20}$/.test(v) ? v : '?';
+}
+
+/** ¿`incoming` es más nuevo que `current`? (los avisos de Meta llegan desordenados). Sin fecha previa, sí. */
+export function isNewerThan(current: Date | null | undefined, incoming: Date): boolean {
+  return !current || current.getTime() < incoming.getTime();
+}

@@ -42,8 +42,18 @@ export function NotificationsBell() {
 
   useEffect(() => {
     refreshCount()
-    const interval = setInterval(refreshCount, POLL_MS)
-    return () => clearInterval(interval)
+    // Con la pestaña oculta no se sondea; al volver a verla se actualiza al instante.
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') refreshCount()
+    }, POLL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshCount()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [refreshCount])
 
   useEffect(() => {
@@ -90,6 +100,9 @@ export function NotificationsBell() {
       <button
         type="button"
         onClick={handleToggle}
+        aria-label={count > 0 ? `Notificaciones (${count} sin leer)` : 'Notificaciones'}
+        aria-expanded={open}
+        aria-haspopup="true"
         className="relative flex size-8 max-md:size-10 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <Bell className="size-4" />

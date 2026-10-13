@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { fetchWithSession, isSessionFailure } from '@/lib/session-fetch'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -17,10 +17,6 @@ const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 const TIPOS = ['interno', 'cliente'] as const
 
 export async function GET(req: NextRequest) {
-  const store = await cookies()
-  const token = store.get('stp-token')?.value
-  if (!token) return new NextResponse('Unauthorized', { status: 401 })
-
   const sp = req.nextUrl.searchParams
   const id = sp.get('id')
   const tipo = sp.get('tipo') ?? ''
@@ -30,10 +26,13 @@ export async function GET(req: NextRequest) {
   if (!(TIPOS as readonly string[]).includes(tipo))
     return new NextResponse('Tipo de informe no válido', { status: 400 })
 
-  const res = await fetch(
-    `${API_URL}/reports/projects/${id}/informe/${tipo}/export?format=${formato}`,
-    { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
+  const res = await fetchWithSession((token) =>
+    fetch(`${API_URL}/reports/projects/${id}/informe/${tipo}/export?format=${formato}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    }),
   )
+  if (isSessionFailure(res)) return res
   if (!res.ok) return new NextResponse('Error al exportar', { status: res.status })
 
   const buffer = await res.arrayBuffer()
