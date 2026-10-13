@@ -57,14 +57,14 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: [],
     status: "Esta tarjeta muestra solo el estado en vivo (git, servicios, alertas). La descripción, el estado y el historial del proyecto están en su página de AppFlowy.",
     recentWork: ["Ver el historial completo en AppFlowy (enlace de abajo)."],
-    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/0fa374cd-0afc-4c63-aa16-14879c0d1b8b" }, { label: "Web", url: "https://fiscord.app" }],
+    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/9e818c5f-e4f2-4cf7-bfd0-eb034319489b" }, { label: "Web", url: "https://fiscord.app" }],
   },
   "fiscord-sitio": {
     purpose: "Ficha retirada de Vigía el 2026-10-13: la documentación de este proyecto vive ahora en AppFlowy.",
     stack: [],
     status: "Esta tarjeta muestra solo el estado en vivo (git, servicios, alertas). La descripción, el estado y el historial del proyecto están en su página de AppFlowy.",
     recentWork: ["Ver el historial completo en AppFlowy (enlace de abajo)."],
-    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/0fa374cd-0afc-4c63-aa16-14879c0d1b8b" }, { label: "Sitio", url: "https://fiscord.lat" }],
+    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/9e818c5f-e4f2-4cf7-bfd0-eb034319489b" }, { label: "Sitio", url: "https://fiscord.lat" }],
   },
   "mi-om": {
     purpose: "Ficha retirada de Vigía el 2026-10-13: la documentación de este proyecto vive ahora en AppFlowy.",
@@ -85,7 +85,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: [],
     status: "Esta tarjeta muestra solo el estado en vivo (git, servicios, alertas). La descripción, el estado y el historial del proyecto están en su página de AppFlowy.",
     recentWork: ["Ver el historial completo en AppFlowy (enlace de abajo)."],
-    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/0fa374cd-0afc-4c63-aa16-14879c0d1b8b" }],
+    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/9e818c5f-e4f2-4cf7-bfd0-eb034319489b" }],
   },
   "hermes-agent": {
     purpose: "Ficha retirada de Vigía el 2026-10-13: la documentación de este proyecto vive ahora en AppFlowy.",
