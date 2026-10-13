@@ -92,6 +92,11 @@ guardar() {
   fi
 }
 
+# tar devuelve 1 ("file changed as we read it", sockets ignorados) cuando un archivo cambia
+# mientras se lee: el archivo generado es válido, así que eso no es un fallo. Solo >1 lo es.
+# Sin esto, `guardar` descartaba el archivo (Hermes escribe en ~/.hermes mientras se respalda).
+tar_tolerante() { tar "$@"; local rc=$?; [ "$rc" -le 1 ]; }
+
 log "Iniciando backup..."
 # Sin destino local no hay backup que valga: abortar antes de tocar nada más.
 # (/data es root:root — /data/backups debe existir y pertenecer a stp)
@@ -164,7 +169,7 @@ codigo_local() {
 }
 step "código local" guardar "$BACKUP_DIR/codigo-local.tar.gz" codigo_local
 step "datos de Hermes" guardar "$BACKUP_DIR/hermes-datos.tar.gz" \
-  tar czf - "${EXCL[@]}" --exclude='.hermes/bin' --exclude='.hermes/logs' --exclude='.hermes/home/.cache' \
+  tar_tolerante czf - "${EXCL[@]}" --exclude='.hermes/bin' --exclude='.hermes/logs' --exclude='.hermes/home/.cache' \
     -C "$HOME_DIR" .hermes
 
 # ── Secretos: cifrados ANTES de salir del disco ──────────────────────────────
