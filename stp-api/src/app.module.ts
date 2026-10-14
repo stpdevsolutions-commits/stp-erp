@@ -54,6 +54,8 @@ import { CostsModule } from './costs/costs.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { SearchModule } from './search/search.module';
 import { MessagingModule } from './messaging/messaging.module';
+import { PushModule } from './push/push.module';
+import { PushSubscription } from './push/entities/push-subscription.entity';
 import { WaContact } from './messaging/entities/wa-contact.entity';
 import { WaMessage } from './messaging/entities/wa-message.entity';
 import { Unit } from './costs/entities/unit.entity';
@@ -80,7 +82,7 @@ import { SalesInvoiceLine } from './sales-invoices/entities/sales-invoice-line.e
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry, CollaboratorLoan, ProjectReport, Notification, MaterialCalc, CalcMaterialLink, FiscalInvoice, SalesInvoice, SalesInvoiceLine, WaContact, WaMessage],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry, CollaboratorLoan, ProjectReport, Notification, MaterialCalc, CalcMaterialLink, FiscalInvoice, SalesInvoice, SalesInvoiceLine, WaContact, WaMessage, PushSubscription],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',
@@ -124,6 +126,7 @@ import { SalesInvoiceLine } from './sales-invoices/entities/sales-invoice-line.e
     PayrollModule,
     SearchModule,
     MessagingModule,
+    PushModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard },

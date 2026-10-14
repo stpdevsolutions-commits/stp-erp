@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
   OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
@@ -27,6 +28,7 @@ import { escapeLike } from '../common/like-escape';
 import { auditLog } from '../common/audit-log';
 import { parseWebhook, previewOf, ParsedInbound, ParsedStatus } from './whatsapp-parse';
 import { WA_TEMPLATES } from './wa-templates';
+import { PushService } from '../push/push.service';
 import { QueryContactsDto, QueryMessagesDto, UpdateContactDto } from './dto/messaging.dto';
 
 /** Se usa para dejar en NULL una columna que el tipo de la entidad no declara como anulable. */
@@ -104,6 +106,7 @@ export class MessagingService implements OnModuleInit {
     private readonly inbox: WhatsappInboxService,
     private readonly appNotifications: AppNotificationsService,
     config: ConfigService,
+    @Optional() private readonly push?: PushService,
   ) {
     this.telegramToken = config.get<string>('MESSAGING_TELEGRAM_BOT_TOKEN') || config.get<string>('HERMES_TELEGRAM_BOT_TOKEN');
     this.telegramChat = config.get<string>('TELEGRAM_CHAT_ID');
@@ -310,6 +313,12 @@ export class MessagingService implements OnModuleInit {
       );
     }
     this.telegram(`${title}\n${preview}\n${this.erpUrl}${link}`);
+    void this.pushInbox(contact.assignedToId, {
+      title: isNew ? `Nuevo contacto: ${name ?? 'WhatsApp'}` : `Mensaje de ${name ?? 'WhatsApp'}`,
+      body: preview,
+      url: link,
+      tag: `wa-${contact.id}`,
+    });
   }
 
   /** Recordatorio cada 5 min, solo en horario laboral: conversaciones sin atender hace más de 30 min. */
@@ -336,6 +345,12 @@ export class MessagingService implements OnModuleInit {
         this.telegram(
           `WhatsApp sin atender hace ${minutes} min: ${who}\n${c.lastMessagePreview ?? ''}\n${owner}\n${this.erpUrl}/dashboard/mensajes?c=${c.id}`,
         );
+        void this.pushInbox(c.assignedToId, {
+          title: `Sin responder hace ${minutes} min`,
+          body: `${c.name ?? 'Contacto'}: ${c.lastMessagePreview ?? ''}`,
+          url: `/dashboard/mensajes?c=${c.id}`,
+          tag: `wa-wait-${c.id}`,
+        });
         if (c.assignedToId) {
           await this.appNotifications.notifyUser(
             c.assignedToId,
@@ -348,6 +363,28 @@ export class MessagingService implements OnModuleInit {
       }
     } catch (err) {
       this.logger.error(`Fallo revisando conversaciones sin atender: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Web Push (ERP-58): al asignado o, si no hay, a todos con acceso a la bandeja (sin cuentas de servicio).
+   * El texto no lleva el teléfono. Nunca lanza ni se espera en la ruta crítica.
+   */
+  private async pushInbox(
+    assignedToId: string | null | undefined,
+    msg: { title: string; body: string; url: string; tag: string },
+  ): Promise<void> {
+    if (!this.push?.enabled) return;
+    try {
+      const users = await this.users.find({
+        where: assignedToId ? { id: assignedToId, isActive: true } : { isActive: true },
+      });
+      const ids = users
+        .filter((u) => hasModuleAccess(u.role, 'mensajes', 'view') && !SERVICE_ACCOUNTS.test(u.email))
+        .map((u) => u.id);
+      await this.push.notifyUsers(ids, { ...msg, body: msg.body.slice(0, 100) });
+    } catch (err) {
+      this.logger.error(`Push de la bandeja: ${(err as Error).message}`);
     }
   }
 

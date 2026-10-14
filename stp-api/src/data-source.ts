@@ -32,6 +32,7 @@ import { ProjectReport } from './reports/entities/project-report.entity';
 import { MaterialCalc } from './material-calcs/entities/material-calc.entity';
 import { WaContact } from './messaging/entities/wa-contact.entity';
 import { WaMessage } from './messaging/entities/wa-message.entity';
+import { PushSubscription } from './push/entities/push-subscription.entity';
 import { CalcMaterialLink } from './material-calcs/entities/calc-material-link.entity';
 
 dotenv.config();
@@ -46,7 +47,7 @@ export const AppDataSource = new DataSource({
     Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem,
     PayrollEntry, CollaboratorLoan, ProjectReport, Notification,
     MaterialCalc, CalcMaterialLink, FiscalInvoice,
-    WaContact, WaMessage,
+    WaContact, WaMessage, PushSubscription,
   ],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,

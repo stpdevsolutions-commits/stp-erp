@@ -20,6 +20,7 @@ import { STAGE_LABELS } from '@/lib/messaging'
 import { MENSAJES_WAITING_EVENT } from '@/lib/use-mensajes-pendientes'
 import { Hilo } from './hilo'
 import { Tablero } from './tablero'
+import { AvisosPush } from './avisos-push'
 
 type Filter = 'queue' | 'mine' | 'waiting' | 'all'
 
@@ -123,6 +124,7 @@ export function Bandeja() {
             {v}
           </button>
         ))}
+        <AvisosPush />
       </div>
       {view === 'tablero' ? (
         <div className="min-h-0 flex-1">
