@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { isUniqueViolation } from '../common/save-with-unique-code';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 import { SalesInvoice, SalesInvoiceKind, SalesInvoiceStatus } from './entities/sales-invoice.entity';
@@ -429,8 +430,10 @@ export class SalesInvoicesService {
         auditLog(userId, 'sales-invoice.created', { id: saved.id, number: saved.number, total: totals.total });
         return this.findOne(saved.id);
       } catch (err) {
-        const code = (err as { code?: string }).code;
-        if (code === '23505' && attempt < 3) continue; // otro usuario tomó el mismo número
+        if (isUniqueViolation(err)) {
+          if (attempt < 3) continue; // otro usuario tomó el mismo número
+          throw new ConflictException('No se pudo generar un número de factura único; intenta de nuevo');
+        }
         throw err;
       }
     }
@@ -735,7 +738,10 @@ export class SalesInvoicesService {
         auditLog(userId, 'sales-invoice.credit-note-created', { id: saved.id, number: saved.number, of: orig.number, total: totals.total, code });
         return this.findOne(saved.id);
       } catch (err) {
-        if ((err as { code?: string }).code === '23505' && attempt < 3) continue;
+        if (isUniqueViolation(err)) {
+          if (attempt < 3) continue;
+          throw new ConflictException('No se pudo generar un número de nota de crédito único; intenta de nuevo');
+        }
         throw err;
       }
     }
