@@ -6,8 +6,7 @@ import { rowsToTree, type QuoteTreeRow, type QuoteRowLike } from './quote-tree';
 import {
   drawDocumentHeader, CONTENT_Y,
   DARK_BLUE, TEAL, MID_GRAY, DARK_TEXT, BORDER_GRAY, LEFT, RIGHT, WIDTH,
-  textLine,
-} from '../common/pdf.header';
+  textLine, drawDigitalSignature, } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
 import { todayRD } from '../common/dates';
 import { formatRD } from '../common/money';
@@ -495,6 +494,7 @@ export function generateQuotePdf(quote: Quote, outputPath: string, company: Comp
       );
 
 
+    drawDigitalSignature(doc, quote.number, authorizedName);
     doc.end();
     stream.on('finish', resolve);
   });

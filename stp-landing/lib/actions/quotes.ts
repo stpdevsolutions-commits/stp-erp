@@ -197,3 +197,35 @@ export async function convertQuoteToProject(id: string): Promise<ActionResult & 
   revalidatePath('/dashboard')
   return { ok: true, projectId: project.id }
 }
+
+export interface ImportedQuoteNode {
+  kind: 'group' | 'item'
+  description: string
+  quantity?: number
+  unit?: string
+  unitPrice?: number
+  discountPct?: number
+  children?: ImportedQuoteNode[]
+}
+
+export interface QuoteExcelImport {
+  sheet: string
+  columns: Record<string, string>
+  nodes: ImportedQuoteNode[]
+  itemCount: number
+  groupCount: number
+  skipped: { row: number; text: string; reason: string }[]
+  warnings: string[]
+}
+
+/** Lee un Excel de cotización externa y devuelve sus partidas (no guarda nada). */
+export async function importQuoteExcel(
+  formData: FormData,
+): Promise<{ ok: boolean; error?: string; data?: QuoteExcelImport }> {
+  const res = await authFetch('/quotes/import-excel', { method: 'POST', body: formData })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    return { ok: false, error: apiError(err, 'No se pudo leer el Excel') }
+  }
+  return { ok: true, data: (await res.json()) as QuoteExcelImport }
+}

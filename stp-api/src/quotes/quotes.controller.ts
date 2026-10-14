@@ -13,7 +13,13 @@ import {
   HttpStatus,
   NotFoundException,
   Res,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { parseQuoteExcel } from './quote-excel-import';
 import type { Response } from 'express';
 import { QuotesService } from './quotes.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
@@ -86,6 +92,26 @@ export class QuotesController {
   @Post()
   create(@Body() dto: CreateQuoteDto, @CurrentUser() user: AuthUser) {
     return this.quotesService.create(dto, user.id);
+  }
+
+  /**
+   * Lee un Excel de cotización externa (de un proveedor o de un cliente) y devuelve las partidas
+   * que encontró, SIN guardar nada: el editor las muestra para revisarlas y se guardan con la
+   * cotización como cualquier otra partida.
+   */
+  @Post('import-excel')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  async importExcel(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Adjunta el archivo Excel (.xlsx)');
+    // Un .xlsx es un zip: debe empezar por "PK". Evita pasarle cualquier cosa al lector.
+    if (file.buffer.length < 4 || file.buffer[0] !== 0x50 || file.buffer[1] !== 0x4b) {
+      throw new BadRequestException('El archivo debe ser un Excel .xlsx (si es .xls, guárdalo como .xlsx)');
+    }
+    try {
+      return await parseQuoteExcel(file.buffer);
+    } catch (err) {
+      throw new BadRequestException((err as Error).message);
+    }
   }
 
   @Get()

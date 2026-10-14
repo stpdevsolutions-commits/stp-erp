@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
@@ -204,13 +204,32 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
     // Primero el QR del e-CF: es exacto, más rápido y no gasta IA. Sin QR (o papel B01…), se lee con IA.
     let scan: ScanResult | null = media.mime === 'application/pdf' ? null : await this.scanFromQr(media.buffer);
     if (!scan) {
-      try {
-        scan = await this.invoices.scan(media.buffer, media.mime);
-      } catch (err) {
-        this.logger.warn(`No se pudo leer una factura enviada por WhatsApp: ${(err as Error).message}`);
-        await this.whatsapp.sendText(msg.from, 'No pude leer esa imagen. Envíala de nuevo, de frente y con buena luz.');
-        return;
+      // Si el servicio de lectura está saturado (503/429) se reintenta solo, avisando una vez, en vez de
+      // pedirle a la persona que reenvíe la foto.
+      const MAX_TRIES = 4;
+      for (let attempt = 1; attempt <= MAX_TRIES && !scan; attempt++) {
+        try {
+          scan = await this.invoices.scan(media.buffer, media.mime);
+        } catch (err) {
+          const transient = err instanceof ServiceUnavailableException;
+          this.logger.warn(`No se pudo leer una factura enviada por WhatsApp (intento ${attempt}/${MAX_TRIES}): ${(err as Error).message}`);
+          if (transient && attempt < MAX_TRIES) {
+            if (attempt === 1) {
+              await this.whatsapp.sendText(msg.from, 'El servicio de lectura está saturado. Sigo intentando, no hace falta que reenvíes la foto.');
+            }
+            await new Promise((r) => setTimeout(r, 20_000 * attempt));
+            continue;
+          }
+          await this.whatsapp.sendText(
+            msg.from,
+            transient
+              ? 'El servicio de lectura sigue sin responder. Inténtalo de nuevo en unos minutos, o regístrala desde Escanear en el ERP.'
+              : 'No pude leer esa imagen. Envíala de nuevo, de frente y con buena luz.',
+          );
+          return;
+        }
       }
+      if (!scan) return;
     }
 
     const f = scan.fields;

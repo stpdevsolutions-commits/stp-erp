@@ -6,8 +6,7 @@ import { findLogoPath } from '../common/logo.utils';
 import {
   drawDocumentHeader, CONTENT_Y,
   DARK_BLUE, TEAL, MID_GRAY, DARK_TEXT, BORDER_GRAY, LEFT, RIGHT, WIDTH,
-  textLine, textHeight,
-} from '../common/pdf.header';
+  textLine, textHeight, drawDigitalSignature, } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
 import { formatDateRD, todayRD } from '../common/dates';
 import { formatRD } from '../common/money';
@@ -177,6 +176,7 @@ export function generateExpensePdf(expense: Expense, outputPath: string, company
         LEFT, y + 7, { width: WIDTH, align: 'center', lineBreak: false },
       );
 
+    drawDigitalSignature(doc, docNumber, (expense.createdBy && `${expense.createdBy.firstName} ${expense.createdBy.lastName}`));
     doc.end();
     stream.on('finish', resolve);
   });

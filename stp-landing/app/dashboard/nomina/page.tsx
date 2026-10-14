@@ -24,6 +24,7 @@ import { Paginacion } from '@/components/ui/paginacion'
 import { FiltrosNomina } from '@/components/nomina/filtros-nomina'
 import { NuevoPagoNominaDialog } from '@/components/nomina/nuevo-pago-nomina-dialog'
 import { PagoNominaActions } from '@/components/nomina/pago-nomina-actions'
+import { RetencionesDgii } from '@/components/nomina/retenciones-dgii'
 import { NuevoPrestamoDialog } from '@/components/nomina/nuevo-prestamo-dialog'
 import { PrestamoActions } from '@/components/nomina/prestamo-actions'
 
@@ -133,7 +134,10 @@ export default async function NominaPage({
             Pagos a colaboradores por período trabajado
           </p>
         </div>
-        <NuevoPagoNominaDialog collaborators={activos} projects={projects} />
+        <div className="flex flex-wrap gap-2">
+          <RetencionesDgii />
+          <NuevoPagoNominaDialog collaborators={activos} projects={projects} />
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">

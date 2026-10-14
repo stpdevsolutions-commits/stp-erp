@@ -9,6 +9,7 @@ import {
 import { findLogoPath } from '../common/logo.utils';
 import {
   drawDocumentHeader,
+  drawDigitalSignature,
   CONTENT_Y,
   DARK_BLUE,
   TEAL,
@@ -566,6 +567,7 @@ export async function docToPdf(doc: ExportDoc, company: CompanyData): Promise<Bu
         { width: WIDTH, align: 'center', lineBreak: false },
       );
 
+    drawDigitalSignature(pdf, `REPORTE ${dateFmt(new Date())}`);
     pdf.end();
   });
 }

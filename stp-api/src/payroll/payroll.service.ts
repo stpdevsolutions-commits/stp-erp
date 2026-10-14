@@ -584,4 +584,26 @@ export class PayrollService {
     const exists = await this.projectsRepository.existsBy({ id: projectId });
     if (!exists) throw new BadRequestException(`Project ${projectId} not found`);
   }
+
+  /**
+   * Pagos con retención dentro de un mes (por fecha de pago) para el reporte a la DGII. Solo pagos
+   * ya pagados: la retención se declara cuando se paga, no cuando se registra la nómina.
+   */
+  async retentionsForMonth(month: string): Promise<PayrollEntry[]> {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      throw new BadRequestException('Indica el mes con el formato AAAA-MM');
+    }
+    const [y, m] = month.split('-').map(Number);
+    const from = `${month}-01`;
+    const to = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}-01`;
+    return this.payrollRepository
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.collaborator', 'c')
+      .where('p.status = :status', { status: PayrollStatus.PAID })
+      .andWhere('p.retentionAmount > 0')
+      .andWhere('p.paymentDate >= :from AND p.paymentDate < :to', { from, to })
+      .orderBy('c.firstName', 'ASC')
+      .addOrderBy('p.paymentDate', 'ASC')
+      .getMany();
+  }
 }

@@ -11,6 +11,7 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -27,6 +28,8 @@ import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
 import { ModulePermissionGuard } from '../common/access/module-permission.guard';
 import { RequireModule } from '../common/decorators/require-module.decorator';
 import { UserRole } from '../users/entities/user.entity';
+import { DgiiService } from '../dgii/dgii.service';
+import { normalizeRnc } from '../fiscal-invoices/fiscal-invoice-rules';
 
 interface AuthUser {
   id: string;
@@ -50,6 +53,7 @@ export class ClientsController {
   constructor(
     private readonly clientsService: ClientsService,
     private readonly memberships: MembershipsService,
+    private readonly dgii: DgiiService,
   ) {}
 
   // ── Asignación de usuarios al cliente (solo ADMIN) ───────────────────────
@@ -81,6 +85,15 @@ export class ClientsController {
     @Param('userId', ParseUUIDPipe) userId: string,
   ) {
     return this.memberships.removeClientMember(id, userId);
+  }
+
+  /** Datos públicos del contribuyente en la DGII para rellenar el alta de un cliente. */
+  @Get('rnc-lookup/:rnc')
+  @RequireModule('clientes', 'manage')
+  async lookupRnc(@Param('rnc') raw: string) {
+    const rnc = normalizeRnc(raw);
+    if (!/^(\d{9}|\d{11})$/.test(rnc)) throw new BadRequestException('RNC inválido: 9 dígitos (11 si es cédula)');
+    return this.dgii.lookupRnc(rnc);
   }
 
   @Post()

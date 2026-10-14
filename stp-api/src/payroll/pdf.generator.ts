@@ -13,8 +13,7 @@ import {
   LEFT,
   RIGHT,
   WIDTH,
-  textLine,
-} from '../common/pdf.header';
+  textLine, drawDigitalSignature, } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
 import { formatDateRD, todayRD } from '../common/dates';
 import { formatRD } from '../common/money';
@@ -297,6 +296,7 @@ export function generatePayrollReceiptPdf(
         { width: WIDTH, align: 'center', lineBreak: false },
       );
 
+    drawDigitalSignature(doc, entry.number);
     doc.end();
   });
 }

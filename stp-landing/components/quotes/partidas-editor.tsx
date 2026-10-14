@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   Plus,
   Trash2,
@@ -10,6 +10,7 @@ import {
   Calculator,
   AlertTriangle,
   X,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,7 @@ import {
 import {
   type EditorNode,
   addChild,
+  genId,
   makeGroup,
   makeItem,
   nodeLabel,
@@ -33,6 +35,7 @@ import {
   updateNode,
 } from '@/lib/quote-tree'
 import type { Acu } from '@/lib/types'
+import { importQuoteExcel, type ImportedQuoteNode } from '@/lib/actions/quotes'
 import { AcuPickerDialog } from '@/components/quotes/acu-picker-dialog'
 
 const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' })
@@ -76,6 +79,49 @@ export function PartidasEditor({
   /** Partidas de costos disponibles para calcular unitarios. Vacío = solo precio a mano. */
   acus?: Acu[]
 }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const [importMsg, setImportMsg] = useState<{ tone: 'ok' | 'warn'; lines: string[] } | null>(null)
+
+  const toEditor = (n: ImportedQuoteNode): EditorNode => ({
+    id: genId(),
+    kind: n.kind,
+    description: n.description,
+    unit: n.unit ?? '',
+    quantity: n.kind === 'group' ? '' : String(n.quantity ?? 1),
+    unitPrice: n.kind === 'group' ? '' : String(n.unitPrice ?? 0),
+    discountPct: n.discountPct ? String(n.discountPct) : '',
+    acu: null,
+    children: (n.children ?? []).map(toEditor),
+  })
+
+  async function onFile(file: File | undefined) {
+    if (!file) return
+    setImporting(true)
+    setImportMsg(null)
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await importQuoteExcel(fd)
+    setImporting(false)
+    if (fileRef.current) fileRef.current.value = ''
+    if (!res.ok || !res.data) {
+      setImportMsg({ tone: 'warn', lines: [res.error ?? 'No se pudo leer el Excel'] })
+      return
+    }
+    // Un formulario recién abierto trae una línea vacía de relleno: se reemplaza en vez de dejarla colgando.
+    const vacio = nodes.length === 1 && nodes[0].kind === 'item' && !nodes[0].description && !nodes[0].unitPrice
+    onChange([...(vacio ? [] : nodes), ...res.data.nodes.map(toEditor)])
+    const d = res.data
+    setImportMsg({
+      tone: d.warnings.length || d.skipped.length ? 'warn' : 'ok',
+      lines: [
+        `Importadas ${d.itemCount} línea(s) en ${d.groupCount} partida(s) desde "${d.sheet}". Revísalas antes de guardar.`,
+        ...(d.skipped.length ? [`No importadas: ${d.skipped.slice(0, 5).map((s) => s.text).join(', ')}${d.skipped.length > 5 ? '…' : ''} (totales, impuestos o filas sin monto)`] : []),
+        ...d.warnings.slice(0, 3),
+      ],
+    })
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -86,6 +132,34 @@ export function PartidasEditor({
           Una partida puede dividirse en subpartidas
         </span>
       </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          className="hidden"
+          onChange={(e) => void onFile(e.target.files?.[0])}
+        />
+        <Button type="button" variant="outline" size="sm" disabled={importing} onClick={() => fileRef.current?.click()}>
+          <FileSpreadsheet className="size-4 mr-1.5" />
+          {importing ? 'Leyendo Excel…' : 'Importar desde Excel'}
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Cotización externa en .xlsx: busca Descripción, Cantidad, Unidad, Precio y Total
+        </span>
+      </div>
+      {importMsg && (
+        <div
+          className={`rounded-md px-3 py-2 text-xs space-y-0.5 ${
+            importMsg.tone === 'ok' ? 'bg-green-600/10 text-green-700 dark:text-green-400' : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+          }`}
+        >
+          {importMsg.lines.map((l, i) => (
+            <p key={i}>{l}</p>
+          ))}
+        </div>
+      )}
 
       {nodes.map((node, index) => (
         <NodeBlock

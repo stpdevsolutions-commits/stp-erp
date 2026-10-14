@@ -98,3 +98,25 @@ export async function deleteClient(id: string): Promise<ActionResult> {
   revalidatePath('/dashboard/clientes')
   return { ok: true }
 }
+
+export interface RncLookup {
+  found: boolean
+  rnc: string
+  name?: string
+  tradeName?: string
+  status?: string
+  activity?: string
+  message?: string
+}
+
+/** Consulta pública de la DGII para rellenar el alta de un cliente a partir de su RNC o cédula. */
+export async function lookupClientRnc(
+  rnc: string,
+): Promise<{ ok: boolean; error?: string; data?: RncLookup }> {
+  const res = await authFetch(`/clients/rnc-lookup/${encodeURIComponent(rnc)}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    return { ok: false, error: apiError(err, 'No se pudo consultar la DGII') }
+  }
+  return { ok: true, data: (await res.json()) as RncLookup }
+}

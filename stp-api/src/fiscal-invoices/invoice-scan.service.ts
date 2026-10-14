@@ -22,6 +22,8 @@ export type ScanProvider = 'gemini' | 'claude';
  * Se cambia con GEMINI_SCAN_MODEL, o con GEMINI_MODEL, que ya fija la extracción de precios.
  */
 const GEMINI_DEFAULT_MODEL = 'gemini-flash-latest';
+/** Respaldo cuando el modelo principal responde 503/429 (modelo más ligero, otra cola de demanda). */
+const GEMINI_FALLBACK_MODEL = 'gemini-flash-lite-latest';
 const CLAUDE_DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
 
 const UNREADABLE =
@@ -94,28 +96,36 @@ export class InvoiceScanService {
   }
 
   private async callGemini(buffer: Buffer, mimeType: string): Promise<string> {
-    const model =
+    const primary =
       this.config.get<string>('GEMINI_SCAN_MODEL') ?? this.config.get<string>('GEMINI_MODEL') ?? GEMINI_DEFAULT_MODEL;
+    // Si el modelo principal está saturado (503) o sin cuota (429), se prueba con otro de Google antes de rendirse.
+    const fallback = this.config.get<string>('GEMINI_SCAN_FALLBACK_MODEL') ?? GEMINI_FALLBACK_MODEL;
+    const models = fallback && fallback !== primary ? [primary, fallback] : [primary];
     this.gemini ??= new GoogleGenAI({ apiKey: this.config.get<string>('GEMINI_API_KEY') });
-    try {
-      const interaction = await this.gemini.interactions.create({
-        model,
-        system_instruction: SCAN_SYSTEM_PROMPT,
-        input: [
-          mimeType === 'application/pdf'
-            ? { type: 'document', data: buffer.toString('base64'), mime_type: 'application/pdf' }
-            : { type: 'image', data: buffer.toString('base64'), mime_type: mimeType },
-          { type: 'text', text: SCAN_USER_PROMPT },
-        ],
-        response_format: { type: 'text', mime_type: 'application/json', schema: SCAN_SCHEMA },
-        // Tope de espera: sin esto, con Google saturado (503) o la cuota agotada (429), el SDK
-        // reintentaba con esperas largas y una lectura llegó a tardar casi 3 minutos. Con
-        // 30 s por intento y un solo reintento, lo peor que espera la persona es ~1 minuto.
-      }, { timeout: 30_000, maxRetries: 1 });
-      return interaction.output_text ?? '';
-    } catch (err) {
-      throw this.providerError('gemini', err);
+    let lastError: unknown;
+    for (const [i, model] of models.entries()) {
+      try {
+        const interaction = await this.gemini.interactions.create({
+          model,
+          system_instruction: SCAN_SYSTEM_PROMPT,
+          input: [
+            mimeType === 'application/pdf'
+              ? { type: 'document', data: buffer.toString('base64'), mime_type: 'application/pdf' }
+              : { type: 'image', data: buffer.toString('base64'), mime_type: mimeType },
+            { type: 'text', text: SCAN_USER_PROMPT },
+          ],
+          response_format: { type: 'text', mime_type: 'application/json', schema: SCAN_SCHEMA },
+          // Tope de espera por intento: sin esto, con Google saturado el SDK reintentaba con esperas largas.
+        }, { timeout: 30_000, maxRetries: 1 });
+        return interaction.output_text ?? '';
+      } catch (err) {
+        lastError = err;
+        if (i < models.length - 1) {
+          this.logger.warn(`Gemini (${model}) falló: ${(err as Error).message?.slice(0, 120)}; se prueba con ${models[i + 1]}`);
+        }
+      }
     }
+    throw this.providerError('gemini', lastError);
   }
 
   private async callClaude(buffer: Buffer, mimeType: string): Promise<string> {

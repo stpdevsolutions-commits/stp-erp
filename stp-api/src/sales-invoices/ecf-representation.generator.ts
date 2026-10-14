@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import type { SalesInvoice } from './entities/sales-invoice.entity';
 import { SalesInvoiceKind } from './entities/sales-invoice.entity';
 import { findLogoPath } from '../common/logo.utils';
-import { DARK_BLUE, MID_GRAY, DARK_TEXT, BORDER_GRAY, LEFT, RIGHT, WIDTH, textLine, textHeight } from '../common/pdf.header';
+import { DARK_BLUE, MID_GRAY, DARK_TEXT, BORDER_GRAY, LEFT, RIGHT, WIDTH, textLine, textHeight, drawDigitalSignature } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
 import { formatRD } from '../common/money';
 
@@ -256,6 +256,9 @@ export async function generateEcfRepresentationPdf(
         doc.text(`Página ${i + 1} de ${count}`, LEFT, PAGE_H - 28, { width: WIDTH, align: 'right', lineBreak: false });
       }
     }
+
+    doc.switchToPage(count - 1);
+    drawDigitalSignature(doc, invoice.number ?? invoice.id, invoice.createdBy && `${invoice.createdBy.firstName} ${invoice.createdBy.lastName}`);
 
     doc.end();
   });

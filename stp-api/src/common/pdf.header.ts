@@ -1,5 +1,7 @@
 import type PDFDocument from 'pdfkit';
+import { createHash } from 'crypto';
 import type { CompanyData } from './company';
+import { currentActorName } from './actor-context';
 
 export const DARK_BLUE   = '#1a3c6e';
 export const TEAL        = '#0d9488';
@@ -98,4 +100,35 @@ export function drawDocumentHeader(
   // ── Separator line ────────────────────────────────────────────────────────
   doc.moveTo(LEFT, HEADER_H).lineTo(RIGHT, HEADER_H)
     .strokeColor('#cbd5e1').lineWidth(1.2).stroke();
+}
+
+/**
+ * Sello de firma digital al pie de la última página: quién generó el documento (el usuario que
+ * hizo la petición; si no hay petición, p. ej. al rehacer PDFs por script, el autor del documento),
+ * cuándo, y un código corto de verificación derivado de esos datos y de la referencia del documento.
+ * Va en la franja inferior (y = 824), debajo del pie propio de cada documento.
+ */
+export function drawDigitalSignature(
+  doc: InstanceType<typeof PDFDocument>,
+  documentRef: string,
+  fallbackName?: string | null,
+): void {
+  const signer = currentActorName() ?? (fallbackName?.trim() || 'Sistema STP ERP');
+  const at = new Date();
+  const stamp = new Intl.DateTimeFormat('es-DO', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'America/Santo_Domingo',
+  }).format(at);
+  const code = createHash('sha256')
+    .update(`${signer}|${documentRef}|${at.toISOString()}`)
+    .digest('hex')
+    .slice(0, 12)
+    .toUpperCase();
+  doc.fillColor(DARK_BLUE).font('Helvetica-Bold').fontSize(6.5);
+  doc.text(`Firmado digitalmente por ${signer}  ·  ${stamp}  ·  Cód. ${code}  ·  ${documentRef}`, LEFT, 824, {
+    width: WIDTH,
+    align: 'center',
+    lineBreak: false,
+  });
 }

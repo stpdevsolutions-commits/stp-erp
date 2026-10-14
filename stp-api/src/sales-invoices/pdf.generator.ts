@@ -14,8 +14,7 @@ import {
   RIGHT,
   WIDTH,
   textLine,
-  textHeight,
-} from '../common/pdf.header';
+  textHeight, drawDigitalSignature, } from '../common/pdf.header';
 import type { CompanyData } from '../common/company';
 import { formatDateRD } from '../common/dates';
 
@@ -196,6 +195,7 @@ export async function generateSalesInvoicePdf(
       { width: WIDTH, align: 'center', lineBreak: false },
     );
 
+    drawDigitalSignature(doc, invoice.number ?? invoice.id, invoice.createdBy && `${invoice.createdBy.firstName} ${invoice.createdBy.lastName}`);
     doc.end();
   });
 }

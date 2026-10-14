@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { createClient } from '@/lib/actions/clients'
+import { createClient, lookupClientRnc } from '@/lib/actions/clients'
 
 const schema = z.object({
   name: z.string().min(2, 'Mínimo 2 caracteres').max(150),
@@ -59,6 +59,7 @@ export function NuevoClienteDialog({
 } = {}) {
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [rncStatus, setRncStatus] = useState<{ kind: 'loading' | 'ok' | 'warn'; text: string } | null>(null)
 
   const {
     register,
@@ -71,6 +72,34 @@ export function NuevoClienteDialog({
     resolver: zodResolver(schema),
     defaultValues: { type: 'company' },
   })
+
+  /** Al salir del campo RNC: si es válido, trae de la DGII el nombre (y el nombre comercial) y el tipo. */
+  async function buscarRnc(raw: string) {
+    const rnc = raw.replace(/\D/g, '')
+    if (!/^(\d{9}|\d{11})$/.test(rnc)) {
+      setRncStatus(null)
+      return
+    }
+    setRncStatus({ kind: 'loading', text: 'Consultando la DGII…' })
+    const res = await lookupClientRnc(rnc)
+    if (!res.ok || !res.data) {
+      setRncStatus({ kind: 'warn', text: res.error ?? 'No se pudo consultar la DGII. Completa los datos a mano.' })
+      return
+    }
+    if (!res.data.found) {
+      setRncStatus({ kind: 'warn', text: res.data.message ?? 'La DGII no encontró ese RNC.' })
+      return
+    }
+    // Solo se rellena lo que está vacío: nunca se pisa lo que la persona ya escribió.
+    if (!watch('name')) setValue('name', res.data.name ?? res.data.tradeName ?? '', { shouldValidate: true })
+    setValue('type', rnc.length === 11 ? 'individual' : 'company')
+    if (!watch('notes') && res.data.activity) setValue('notes', `Actividad (DGII): ${res.data.activity}`)
+    const estado = res.data.status ? ` · ${res.data.status}` : ''
+    setRncStatus({
+      kind: res.data.status && !/activo/i.test(res.data.status) ? 'warn' : 'ok',
+      text: `DGII: ${res.data.name}${estado}. La DGII no publica dirección, teléfono ni correo: complétalos a mano.`,
+    })
+  }
 
   async function onSubmit(data: FormValues) {
     setServerError(null)
@@ -86,7 +115,7 @@ export function NuevoClienteDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { reset(); setServerError(null) } }}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { reset(); setServerError(null); setRncStatus(null) } }}>
       {trigger ?? (
         <DialogTrigger render={<Button size="sm" />}>
           <Plus className="size-4 mr-1" />
@@ -130,8 +159,17 @@ export function NuevoClienteDialog({
 
               <div className="space-y-1.5">
                 <Label htmlFor="rnc">RNC / Cédula</Label>
-                <Input id="rnc" placeholder="131XXXXXX o 00XXXXXXXXX" {...register('rnc')} />
+                <Input
+                  id="rnc"
+                  placeholder="131XXXXXX o 00XXXXXXXXX"
+                  {...register('rnc', { onBlur: (e) => void buscarRnc(e.target.value) })}
+                />
                 {errors.rnc && <p className="text-xs text-destructive">{errors.rnc.message}</p>}
+                {rncStatus && (
+                  <p className={`text-xs ${rncStatus.kind === 'warn' ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                    {rncStatus.text}
+                  </p>
+                )}
               </div>
             </div>
           </div>
