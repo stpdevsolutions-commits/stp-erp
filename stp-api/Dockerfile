@@ -31,4 +31,6 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 3001
 
 # Start application
+USER node
+
 CMD ["node", "dist/main"]

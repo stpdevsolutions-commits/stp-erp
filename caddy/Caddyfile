@@ -48,6 +48,7 @@ http://gw.stpsoluciones.com {
 		remote_ip 100.64.0.0/10 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
 	}
 	handle @erp {
+		header Strict-Transport-Security "max-age=2592000"
 		reverse_proxy stp-landing:3000
 	}
 
