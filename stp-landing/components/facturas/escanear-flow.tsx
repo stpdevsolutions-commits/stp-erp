@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { FacturaForm, type SavedSummary } from '@/components/facturas/factura-form'
 import { QrReader } from '@/components/facturas/qr-reader'
 import { scanFiscalInvoice, scanQrText } from '@/lib/actions/fiscal-invoices'
+import { prepareInvoiceImage } from '@/lib/prepare-invoice-image'
 import type { ScanResult } from '@/lib/fiscal-invoices'
 import type { Project } from '@/lib/types'
 
@@ -38,8 +39,10 @@ export function EscanearFlow({ projects }: { projects: Project[] }) {
     setPhase({ kind: 'form', run: run + 1, file, scan })
   }
 
-  async function readPhoto(file: File) {
+  async function readPhoto(original: File) {
     setPhase({ kind: 'reading', what: 'Leyendo la factura… puede tardar unos segundos.' })
+    // Fotos de 12+ MP se reducen a 2400 px (JPG 0.88); las normales y los PDF pasan intactos.
+    const file = await prepareInvoiceImage(original).catch(() => original)
     const form = new FormData()
     form.append('file', file)
     const res = await scanFiscalInvoice(form)

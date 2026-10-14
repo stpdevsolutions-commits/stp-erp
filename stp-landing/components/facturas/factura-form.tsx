@@ -54,6 +54,7 @@ import {
   validateFiscalInvoiceWithDgii,
 } from '@/lib/actions/fiscal-invoices'
 import { todayRD } from '@/lib/utils'
+import { prepareInvoiceImage } from '@/lib/prepare-invoice-image'
 import { GENERAL_EXPENSE } from '@/lib/general-expense'
 import type { Project } from '@/lib/types'
 
@@ -280,10 +281,11 @@ export function FacturaForm({
   }
 
   /** Lee la factura con IA, rellena el formulario y adjunta esa misma foto. La persona revisa y guarda. */
-  async function scan(file: File) {
+  async function scan(original: File) {
     setScanning(true)
     setScanInfo(null)
     setServerError(null)
+    const file = await prepareInvoiceImage(original).catch(() => original)
     const form = new FormData()
     form.append('file', file)
     const res = await scanFiscalInvoice(form)
@@ -717,7 +719,10 @@ export function FacturaForm({
             id="f-photo"
             type="file"
             accept="image/jpeg,image/png,image/webp,application/pdf"
-            onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+            onChange={async (e) => {
+              const picked = e.target.files?.[0] ?? null
+              setPhoto(picked ? await prepareInvoiceImage(picked).catch(() => picked) : null)
+            }}
           />
         </div>
       </div>
