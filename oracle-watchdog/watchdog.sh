@@ -20,7 +20,7 @@ LOG_FILE="${LOG_FILE:-$DIR/watchdog.log}"
 URL="${URL:-https://dia.stpsoluciones.com/}"
 FAIL_THRESHOLD="${FAIL_THRESHOLD:-3}"
 TIMEOUT="${TIMEOUT:-10}"
-LOG_ONLY="${LOG_ONLY:-1}"
+LOG_ONLY="${LOG_ONLY:-0}"
 
 send_telegram() {
   curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
