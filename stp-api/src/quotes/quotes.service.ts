@@ -11,7 +11,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { Repository, IsNull, EntityManager } from 'typeorm';
+import { Repository, IsNull, EntityManager, In } from 'typeorm';
 import { join, relative } from 'path';
 import { mkdirSync, statSync, existsSync, unlink } from 'fs';
 import { Quote, QuoteStatus, IndirectCost, QuoteRevisionSummary } from './entities/quote.entity';
@@ -517,9 +517,11 @@ export class QuotesService implements OnModuleInit {
       .createQueryBuilder('quote')
       .leftJoinAndSelect('quote.client', 'client')
       .leftJoinAndSelect('quote.project', 'project')
-      .leftJoinAndSelect('quote.items', 'items')
+      // OJO (ERP-79): aquí NO se une `items`. Un join uno-a-muchos con skip/take hace que
+      // TypeORM pagine sobre las filas unidas (cotización x partida), no sobre cotizaciones.
+      // Las partidas se cargan aparte, para los ids de la página (ver más abajo).
       .orderBy(sortBy.column, sortBy.order, 'NULLS LAST')
-      .addOrderBy('items.sortOrder', 'ASC')
+      .addOrderBy('quote.id', 'ASC') // desempate estable entre páginas
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -541,7 +543,21 @@ export class QuotesService implements OnModuleInit {
       clientExpr: 'quote.clientId',
     });
 
-    const [data, total] = await qb.getManyAndCount();
+    const [page_rows, total] = await qb.getManyAndCount();
+
+    // Paso 2: partidas de las cotizaciones de ESTA página, ordenadas por sortOrder.
+    // El orden de la página (y sus client/project) se conserva del paso 1.
+    const data = page_rows;
+    if (data.length > 0) {
+      const conItems = await this.quotesRepository.find({
+        where: { id: In(data.map((q) => q.id)) },
+        relations: { items: true },
+        select: { id: true },
+        order: { items: { sortOrder: 'ASC' } },
+      });
+      const itemsPorId = new Map(conItems.map((q) => [q.id, q.items ?? []]));
+      for (const q of data) q.items = itemsPorId.get(q.id) ?? [];
+    }
 
     // Cifras de las tarjetas: de todo lo que cumple los filtros, no solo de la página visible.
     const filas = await qb
