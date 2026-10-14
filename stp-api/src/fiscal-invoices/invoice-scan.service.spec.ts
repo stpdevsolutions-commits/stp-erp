@@ -157,4 +157,64 @@ describe('InvoiceScanService', () => {
       expect(String(err.message)).toContain('foto sea clara');
     });
   });
+
+  describe('Gemini: modelo de respaldo', () => {
+    const svcWith = (env: Record<string, string>, create: jest.Mock) => {
+      const svc = new InvoiceScanService(config({ GEMINI_API_KEY: 'g', ...env }));
+      (svc as any).gemini = { interactions: { create } };
+      return svc;
+    };
+    const err = (status: number, msg: string) => Object.assign(new Error(msg), { status });
+
+    it('503 en el principal: cambia al modelo de respaldo (por defecto flash-lite)', async () => {
+      const create = jest
+        .fn()
+        .mockRejectedValueOnce(err(503, 'UNAVAILABLE high demand'))
+        .mockResolvedValueOnce({ output_text: '{"ncf":"B0100000001"}' });
+      const { raw } = await svcWith({}, create).read(PNG, 'image/png');
+      expect(raw).toEqual({ ncf: 'B0100000001' });
+      expect(create.mock.calls.map((c: any[]) => c[0].model)).toEqual(['gemini-flash-latest', 'gemini-flash-lite-latest']);
+    });
+
+    it('GEMINI_SCAN_FALLBACK_MODEL cambia el respaldo', async () => {
+      const create = jest.fn().mockRejectedValueOnce(err(429, 'quota')).mockResolvedValueOnce({ output_text: '{}' });
+      await svcWith({ GEMINI_SCAN_FALLBACK_MODEL: 'otro-modelo' }, create).read(PNG, 'image/png');
+      expect(create.mock.calls[1][0].model).toBe('otro-modelo');
+    });
+
+    it('400/401/403: no cambia de modelo', async () => {
+      const create = jest.fn().mockRejectedValue(err(403, 'API key invalid'));
+      await expect(svcWith({}, create).read(PNG, 'image/png')).rejects.toMatchObject({ transient: false });
+      expect(create).toHaveBeenCalledTimes(1);
+    });
+
+    it('fallan los dos modelos por saturación: error pasajero (el flujo de WhatsApp reintentará)', async () => {
+      const create = jest.fn().mockRejectedValue(err(503, 'UNAVAILABLE'));
+      await expect(svcWith({}, create).read(PNG, 'image/png')).rejects.toMatchObject({ transient: true });
+      expect(create).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('Claude sin saldo degrada a Gemini sin romper', () => {
+    const original = global.fetch;
+    afterEach(() => {
+      global.fetch = original;
+    });
+    it('400 de Anthropic: usa Gemini, y los siguientes escaneos saltan Claude un rato', async () => {
+      const fetchMock = jest.fn(async () => ({ ok: false, status: 400, text: async () => 'credit balance is too low' }) as any);
+      global.fetch = fetchMock as any;
+      const svc = new InvoiceScanService(config({ ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g' }));
+      (svc as any).gemini = { interactions: { create: jest.fn(async () => ({ output_text: '{"ncf":"B0100000002"}' })) } };
+      expect((await svc.read(PNG, 'image/png')).provider).toBe('gemini');
+      expect((await svc.read(PNG, 'image/png')).provider).toBe('gemini');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('Claude 400 + Gemini saturado: el error es pasajero para que se reintente', async () => {
+      global.fetch = jest.fn(async () => ({ ok: false, status: 400, text: async () => 'credit balance' }) as any) as any;
+      const svc = new InvoiceScanService(config({ ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g' }));
+      (svc as any).gemini = { interactions: { create: jest.fn().mockRejectedValue(Object.assign(new Error('x'), { status: 503 })) } };
+      await expect(svc.read(PNG, 'image/png')).rejects.toMatchObject({ transient: true });
+    });
+  });
 });

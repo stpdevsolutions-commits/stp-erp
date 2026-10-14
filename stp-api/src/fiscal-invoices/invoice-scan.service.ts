@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  ServiceUnavailableException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenAI } from '@google/genai';
 import {
@@ -13,6 +8,7 @@ import {
   SCAN_USER_PROMPT,
   extractJsonObject,
 } from './invoice-scan';
+import { ScanUnavailableException, isTransientDetail, isTransientScanError } from './scan-retry';
 
 export type ScanProvider = 'gemini' | 'claude';
 
@@ -43,6 +39,8 @@ const UNREADABLE =
 export class InvoiceScanService {
   private readonly logger = new Logger(InvoiceScanService.name);
   private gemini: GoogleGenAI | null = null;
+  /** Si Claude respondió 400/401/403 (saldo agotado, clave mala) no se vuelve a llamar hasta esta hora. */
+  private claudeBlockedUntil = 0;
 
   constructor(private readonly config: ConfigService) {}
 
@@ -68,14 +66,20 @@ export class InvoiceScanService {
   }
 
   async read(buffer: Buffer, mimeType: string): Promise<{ raw: RawScan; provider: ScanProvider }> {
-    const order = this.providers();
+    const all = this.providers();
+    // Claude sin saldo/clave inválida: se salta unos minutos para no gastar una llamada que fallará igual,
+    // salvo que sea el único proveedor.
+    const skipClaude = Date.now() < this.claudeBlockedUntil && all.some((p) => p !== 'claude');
+    const order = skipClaude ? all.filter((p) => p !== 'claude') : all;
     if (order.length === 0) {
-      throw new ServiceUnavailableException(
+      throw new ScanUnavailableException(
         'El escaneo con IA no está configurado en el servidor (falta la clave del modelo). Registra la factura a mano.',
+        false,
       );
     }
 
     let firstError: unknown;
+    let firstTransient: unknown;
     for (const [i, provider] of order.entries()) {
       try {
         const text =
@@ -89,10 +93,13 @@ export class InvoiceScanService {
       } catch (err) {
         // Al usuario le llega el error del preferido; el del respaldo solo queda en el log.
         firstError ??= err;
+        if (isTransientScanError(err)) firstTransient ??= err;
         if (i < order.length - 1) this.logger.warn(`${provider} falló; se prueba con ${order[i + 1]}`);
       }
     }
-    throw firstError;
+    // Si algún proveedor falló por saturación, ese es el error que se muestra: así quien llama sabe que
+    // reintentar tiene sentido aunque el preferido haya fallado por algo permanente (p. ej. saldo de Claude).
+    throw firstTransient ?? firstError;
   }
 
   private async callGemini(buffer: Buffer, mimeType: string): Promise<string> {
@@ -120,6 +127,8 @@ export class InvoiceScanService {
         return interaction.output_text ?? '';
       } catch (err) {
         lastError = err;
+        // Un 400/401/403 no se arregla cambiando de modelo: se corta aquí.
+        if (!isTransientDetail((err as Error).message ?? '', (err as { status?: number }).status)) break;
         if (i < models.length - 1) {
           this.logger.warn(`Gemini (${model}) falló: ${(err as Error).message?.slice(0, 120)}; se prueba con ${models[i + 1]}`);
         }
@@ -175,17 +184,23 @@ export class InvoiceScanService {
   }
 
   /** El detalle técnico va al log; al usuario, algo que pueda entender y hacer. */
-  private providerError(provider: ScanProvider, err: unknown): ServiceUnavailableException {
+  private providerError(provider: ScanProvider, err: unknown): ScanUnavailableException {
     const detail = (err as Error).message ?? '';
+    const transient = isTransientDetail(detail, (err as { status?: number }).status);
+    if (provider === 'claude' && !transient && /\bHTTP (400|401|403)\b/.test(detail)) {
+      this.claudeBlockedUntil = Date.now() + 10 * 60_000;
+    }
     this.logger.error(`El escaneo falló (${provider}): ${detail}`);
     // 429 / cuota: no es "reintenta en un rato", es que el límite del servicio se agotó.
     if (/\b429\b|quota|rate.?limit/i.test(detail)) {
-      return new ServiceUnavailableException(
+      return new ScanUnavailableException(
         'Se agotó el límite de lecturas con IA del servicio. Se restablece más tarde; mientras tanto registra la factura a mano.',
+        transient,
       );
     }
-    return new ServiceUnavailableException(
+    return new ScanUnavailableException(
       'El servicio de escaneo no respondió. Espera unos minutos e inténtalo de nuevo, o registra la factura a mano.',
+      transient,
     );
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
@@ -18,8 +18,12 @@ import { SCAN_MAX_BYTES, SCAN_MIME_TYPES, ScanResult } from './invoice-scan';
 import { CreateFiscalInvoiceDto } from './dto/fiscal-invoice.dto';
 import { foldName } from './supplier-name';
 import { decodeQrFromImage } from './qr-image';
+import { isTransientScanError, retryDelayMs } from './scan-retry';
 
 const SESSION_TTL_MS = 20 * 60 * 1000;
+/** Cuánto se conserva una foto que no se pudo leer por saturación, para reintentarla con "reintentar". */
+const FAILED_MEDIA_TTL_MS = 6 * 60 * 60 * 1000;
+const SCAN_MAX_TRIES = 4;
 const AUTOREPLY_EVERY_MS = 24 * 60 * 60 * 1000;
 /** Tipo de gasto del 606 cuando la lectura no pudo deducirlo (se avisa para que se revise). */
 const DEFAULT_EXPENSE_TYPE = '02';
@@ -71,6 +75,10 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
   private readonly autoReplied = new Map<string, number>();
   /** Remitentes cuya foto se está leyendo ahora mismo. */
   private readonly processing = new Set<string>();
+  /** Fotos que no se pudieron leer por saturación del servicio: se conservan para "reintentar" sin reenviarlas. */
+  private readonly failedMedia = new Map<string, { buffer: Buffer; mime: string; expiresAt: number }>();
+  /** Espera entre intentos de lectura; los tests la reemplazan. */
+  protected sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms));
 
   constructor(
     private readonly whatsapp: WhatsappService,
@@ -187,6 +195,44 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
     }
   }
 
+  /**
+   * Lee con IA reintentando hasta SCAN_MAX_TRIES veces SOLO ante fallos pasajeros (saturación, 429, 5xx,
+   * timeout), con espera exponencial y jitter. Avisa una única vez que el servicio está saturado. Si se
+   * agotan los intentos conserva la foto para "reintentar". Devuelve null si ya contestó al usuario.
+   */
+  async scanWithRetry(from: string, buffer: Buffer, mime: string): Promise<ScanResult | null> {
+    let warned = false;
+    for (let attempt = 1; attempt <= SCAN_MAX_TRIES; attempt++) {
+      try {
+        const scan = await this.invoices.scan(buffer, mime);
+        this.failedMedia.delete(from);
+        return scan;
+      } catch (err) {
+        const transient = isTransientScanError(err);
+        this.logger.warn(`No se pudo leer una factura enviada por WhatsApp (intento ${attempt}/${SCAN_MAX_TRIES}): ${(err as Error).message}`);
+        if (transient && attempt < SCAN_MAX_TRIES) {
+          if (!warned) {
+            warned = true;
+            await this.whatsapp.sendText(from, 'El servicio de lectura está saturado. Sigo intentando, no hace falta que reenvíes la foto.');
+          }
+          await this.sleep(retryDelayMs(attempt));
+          continue;
+        }
+        if (transient) {
+          this.failedMedia.set(from, { buffer, mime, expiresAt: Date.now() + FAILED_MEDIA_TTL_MS });
+        }
+        await this.whatsapp.sendText(
+          from,
+          transient
+            ? 'No logré leer la factura: el servicio de lectura sigue saturado. Guardé tu foto; escribe "reintentar" en unos minutos y la intento de nuevo sin que la reenvíes (o regístrala desde Escanear en el ERP).'
+            : 'No pude leer esa imagen. Envíala de nuevo, de frente y con buena luz.',
+        );
+        return null;
+      }
+    }
+    return null;
+  }
+
   private async processFile(msg: InboundMessage, user: User): Promise<void> {
     const mime = (msg.mime ?? '').toLowerCase();
     if (!msg.mediaId || !(SCAN_MIME_TYPES as readonly string[]).includes(mime)) {
@@ -201,34 +247,15 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
       return;
     }
 
+    await this.processScan(msg.from, media.buffer, media.mime, user);
+  }
+
+  /** Lee la factura (QR primero, IA después) y arranca la conversación de destino. */
+  private async processScan(from: string, buffer: Buffer, mime: string, user: User): Promise<void> {
     // Primero el QR del e-CF: es exacto, más rápido y no gasta IA. Sin QR (o papel B01…), se lee con IA.
-    let scan: ScanResult | null = media.mime === 'application/pdf' ? null : await this.scanFromQr(media.buffer);
+    let scan: ScanResult | null = mime === 'application/pdf' ? null : await this.scanFromQr(buffer);
     if (!scan) {
-      // Si el servicio de lectura está saturado (503/429) se reintenta solo, avisando una vez, en vez de
-      // pedirle a la persona que reenvíe la foto.
-      const MAX_TRIES = 4;
-      for (let attempt = 1; attempt <= MAX_TRIES && !scan; attempt++) {
-        try {
-          scan = await this.invoices.scan(media.buffer, media.mime);
-        } catch (err) {
-          const transient = err instanceof ServiceUnavailableException;
-          this.logger.warn(`No se pudo leer una factura enviada por WhatsApp (intento ${attempt}/${MAX_TRIES}): ${(err as Error).message}`);
-          if (transient && attempt < MAX_TRIES) {
-            if (attempt === 1) {
-              await this.whatsapp.sendText(msg.from, 'El servicio de lectura está saturado. Sigo intentando, no hace falta que reenvíes la foto.');
-            }
-            await new Promise((r) => setTimeout(r, 20_000 * attempt));
-            continue;
-          }
-          await this.whatsapp.sendText(
-            msg.from,
-            transient
-              ? 'El servicio de lectura sigue sin responder. Inténtalo de nuevo en unos minutos, o regístrala desde Escanear en el ERP.'
-              : 'No pude leer esa imagen. Envíala de nuevo, de frente y con buena luz.',
-          );
-          return;
-        }
-      }
+      scan = await this.scanWithRetry(from, buffer, mime);
       if (!scan) return;
     }
 
@@ -241,22 +268,22 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
     if (!(f.baseAmount > 0)) missing.push('el monto');
     if (missing.length > 0) {
       await this.whatsapp.sendText(
-        msg.from,
+        from,
         `No parece una factura legible: no encontré ${missing.join(', ')}. Si sí lo es, regístrala desde Escanear en el ERP.`,
       );
       return;
     }
     if (scan.duplicate) {
       await this.whatsapp.sendText(
-        msg.from,
+        from,
         `Esa factura ya está registrada (${scan.duplicate.ncf} · ${scan.duplicate.supplierName}). No hice nada.`,
       );
       return;
     }
 
-    this.sessions.set(msg.from, { userId: user.id, scan, buffer: media.buffer, mime: media.mime, expiresAt: Date.now() + SESSION_TTL_MS });
-    await this.whatsapp.sendText(msg.from, this.summary(scan));
-    await this.askDestinationType(msg.from);
+    this.sessions.set(from, { userId: user.id, scan, buffer: buffer, mime: mime, expiresAt: Date.now() + SESSION_TTL_MS });
+    await this.whatsapp.sendText(from, this.summary(scan));
+    await this.askDestinationType(from);
   }
 
   private summary(scan: ScanResult): string {
@@ -352,6 +379,25 @@ export class WhatsappInvoiceFlowService implements OnModuleInit {
     if (['cancelar', 'cancel', 'no'].includes(lower)) {
       this.sessions.delete(msg.from);
       await this.whatsapp.sendText(msg.from, session ? 'Cancelado, no registré nada.' : 'No hay nada pendiente.');
+      return;
+    }
+    if (['reintentar', 'reintenta', 'retry'].includes(lower)) {
+      const failed = this.failedMedia.get(msg.from);
+      if (!failed || failed.expiresAt < Date.now()) {
+        this.failedMedia.delete(msg.from);
+        await this.whatsapp.sendText(msg.from, 'No tengo ninguna foto pendiente de reintento. Mándame la factura.');
+        return;
+      }
+      if (session || this.processing.has(msg.from)) {
+        await this.whatsapp.sendText(msg.from, 'Primero termina o cancela la factura que tienes en curso.');
+        return;
+      }
+      this.processing.add(msg.from);
+      try {
+        await this.processScan(msg.from, failed.buffer, failed.mime, user);
+      } finally {
+        this.processing.delete(msg.from);
+      }
       return;
     }
     if (session && text.length >= 2 && text.length <= 60) {
