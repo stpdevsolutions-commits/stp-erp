@@ -1,0 +1,126 @@
+#!/bin/bash
+# Ensayo de scripts/backup.sh.propuesta (INF-16). NO toca /data/backups, ni Drive,
+# ni Telegram, ni los secretos reales: todo ocurre en un directorio temporal con
+# "docker" y "sudo" falsos, una frase GPG generada al azar y Drive simulado por una
+# carpeta local. Uso:  bash scripts/ensayo-backup.sh.propuesta
+set -u
+AQUI=$(cd "$(dirname "$0")" && pwd)
+PROP="$AQUI/backup.sh.propuesta"
+T=/tmp/ensayo-inf16
+rm -rf "$T"; mkdir -p "$T/shims" "$T/home/stp" "$T/storage/erp-uploads" "$T/storage/nextcloud" "$T/storage/immich"
+PASS="frase-de-ensayo-$(head -c 12 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')"
+TOKEN="TOKENFALSO$(head -c 8 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')"
+ok=0; bad=0
+chk() { if eval "$2"; then echo "  [OK]  $1"; ok=$((ok+1)); else echo "  [FALLA] $1"; bad=$((bad+1)); fi; }
+
+# --- mundo falso ---
+H="$T/home"
+printf 'TELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=1\n' "$TOKEN" > "$H/stp/.env"
+printf 'BACKUP_GPG_PASSPHRASE=%s\n' "$PASS" > "$H/stp/.env.backup"
+mkdir -p "$H/stp/adguard/conf" "$H/stp/logs" "$H/.hermes" "$H/fantasy-nba-assistant" "$H/oracle-headscale" "$H/fiscord-backup" "$H/hermes-agent"
+echo hola > "$H/.hermes/dato.txt"; echo x > "$H/stp/adguard/conf/a.yaml"
+echo "cédula 001-0000000-1" > "$T/storage/erp-uploads/factura 1.txt"
+echo "nube" > "$T/storage/nextcloud/doc.txt"; echo "foto" > "$T/storage/immich/img.jpg"
+# shims
+cat > "$T/shims/docker" <<'EOF'
+#!/bin/bash
+case "$1 $2" in
+  "ps --format") echo "fake-pg postgres:16" ;;
+  "exec fake-pg") case "$3" in printenv) echo postgres ;; pg_dumpall) echo "-- volcado falso con datos personales" ;; esac ;;
+  *) tar czf - -T /dev/null ;;
+esac
+EOF
+cat > "$T/shims/sudo" <<'EOF'
+#!/bin/bash
+tar czf - -T /dev/null
+EOF
+chmod +x "$T/shims/"*
+BASE_ENV=(BACKUP_TEST_ROOT="$T/root" BACKUP_HOME_DIR="$H" BACKUP_STORAGE_ROOT="$T/storage"
+          BACKUP_IMMICH_LOCK="$T/immich.lock" BACKUP_RCLONE_REMOTE="$T/drive" BACKUP_DISK_ALERT_PCT=100
+          PATH="$T/shims:$PATH")
+corrida() { env "${BASE_ENV[@]}" "$@" bash "$PROP"; }
+
+echo "== 1. Sintaxis =="
+bash -n "$PROP" && echo "  bash -n OK"
+
+echo "== 2. Escenario A: modo por defecto (sin cifrado), Drive = carpeta local =="
+corrida > "$T/A.log" 2>&1; rcA=$?
+chk "sale con 0" "[ $rcA -eq 0 ]"
+chk "subió db-fake-pg.sql.gz a 'Drive'" "[ -s $T/drive/snapshots/$(date +%F)/db-fake-pg.sql.gz ]"
+chk "secretos .gpg descifra con la frase" "printf '%s\n' '$PASS' | gpg --batch --pinentry-mode loopback --passphrase-fd 0 -d $T/drive/snapshots/$(date +%F)/secretos.tar.gz.gpg 2>/dev/null | tar tzf - >/dev/null"
+chk "nextcloud sincronizado en claro" "[ -f $T/drive/nextcloud/doc.txt ]"
+
+echo "== 3. Escenario B: BACKUP_ENCRYPT_UPLOAD=1 + crypt para erp-uploads y ps vigilado =="
+rm -rf "$T/drive" "$T/root"
+( while :; do ps -eo args; sleep 0.05; done > "$T/ps.txt" 2>&1 ) & SAMPLER=$!
+# sobrescribe los valores por defecto del script vía .env.backup (como en producción)
+printf 'BACKUP_ENCRYPT_UPLOAD=1\nBACKUP_CRYPT_SYNC="erp-uploads"\n' >> "$H/stp/.env.backup"
+corrida > "$T/B.log" 2>&1; rcB=$?
+kill $SAMPLER 2>/dev/null
+D="$T/drive/snapshots/$(date +%F)"
+chk "sale con 0" "[ $rcB -eq 0 ]"
+chk "en Drive no hay .gz sin cifrar" "! ls $D | grep -qE '\.(gz|sql)$'"
+chk "en Drive hay db-fake-pg.sql.gz.gpg" "[ -s $D/db-fake-pg.sql.gz.gpg ]"
+chk "el volcado descifrado = el local" "printf '%s\n' '$PASS' | gpg --batch --pinentry-mode loopback --passphrase-fd 0 -d $D/db-fake-pg.sql.gz.gpg 2>/dev/null | cmp - $T/root/backups/snapshots/$(date +%F)/db-fake-pg.sql.gz"
+chk "el directorio de preparación se borró" "[ ! -e $T/root/backups/.stage-$(date +%F) ]"
+chk "erp-uploads NO está en claro en Drive" "[ ! -e '$T/drive/erp-uploads' ] && ! find $T/drive/cifrado -name '*factura*' | grep -q ."
+chk "nextcloud (no listado) sigue en claro" "[ -f $T/drive/nextcloud/doc.txt ]"
+# Restauración vía crypt solo con la frase
+export RCLONE_CONFIG_STPCRYPT_TYPE=crypt RCLONE_CONFIG_STPCRYPT_REMOTE="$T/drive/cifrado"
+export RCLONE_CONFIG_STPCRYPT_PASSWORD=$(printf '%s' "${PASS}|crypt-pass" | rclone obscure -)
+export RCLONE_CONFIG_STPCRYPT_PASSWORD2=$(printf '%s' "${PASS}|crypt-salt" | rclone obscure -)
+mkdir -p "$T/restaurado"
+rclone copy stpcrypt:erp-uploads "$T/restaurado" 2>/dev/null
+chk "restauración crypt con solo la frase recupera 'factura 1.txt'" "grep -q 001-0000000-1 '$T/restaurado/factura 1.txt'"
+unset RCLONE_CONFIG_STPCRYPT_TYPE RCLONE_CONFIG_STPCRYPT_REMOTE RCLONE_CONFIG_STPCRYPT_PASSWORD RCLONE_CONFIG_STPCRYPT_PASSWORD2
+chk "la frase NO apareció en ps" "! grep -qF '$PASS' $T/ps.txt"
+echo "     (muestras de ps: $(wc -l < "$T/ps.txt") líneas; gpg visto: $(grep -c 'passphrase-fd' "$T/ps.txt") veces)"
+
+echo "== 4. Escenario C: falla la retención de Drive -> 'con avisos', sin abortar =="
+cat > "$T/shims/rclone" <<EOF
+#!/bin/bash
+[ "\$1" = delete ] && { echo "Failed to delete: 403 rateLimitExceeded (simulado)" >&2; exit 1; }
+exec $(command -v rclone) "\$@"
+EOF
+chmod +x "$T/shims/rclone"
+corrida > "$T/C.log" 2>&1; rcC=$?
+chk "sale con 0 (no es error)" "[ $rcC -eq 0 ]"
+chk "registra AVISO de retención" "grep -q 'AVISO: falló la retención en Drive' $T/C.log"
+chk "cierra con 'CON n AVISO'" "grep -q 'completado CON [0-9]* AVISO' $T/C.log"
+chk "avisa por Telegram (simulado)" "grep -q 'ENSAYO avisar' $T/C.log"
+rm -f "$T/shims/rclone"
+
+echo "== 5. Escenario D: alerta de disco (umbral 1 %), una vez al día =="
+corrida BACKUP_DISK_ALERT_PCT=1 > "$T/D1.log" 2>&1
+corrida BACKUP_DISK_ALERT_PCT=1 > "$T/D2.log" 2>&1
+chk "1.ª corrida alerta" "grep -q 'Disco de /data al' $T/D1.log"
+chk "2.ª corrida no repite" "! grep -q 'Disco de /data al' $T/D2.log && grep -q 'ya se avisó hoy' $T/D2.log"
+
+echo "== 6. Escenario E: retención local segura =="
+S="$T/root/backups/snapshots"
+rm -rf "$S"; mkdir -p "$S"
+for d in 2026-01-01 2026-01-02 2026-01-03 2026-01-04 otra-cosa; do mkdir -p "$S/$d"; touch -d '60 days ago' "$S/$d"; done
+corrida > "$T/E.log" 2>&1
+chk "borró snapshots viejos con nombre de fecha (5 snapshots, conserva los 3 más recientes)" "[ ! -d $S/2026-01-01 ] && [ ! -d $S/2026-01-02 ] && [ -d $S/2026-01-03 ] && [ -d $S/2026-01-04 ]"
+chk "no tocó carpeta que no es fecha" "[ -d $S/otra-cosa ]"
+chk "snapshot de hoy intacto" "[ -d $S/$(date +%F) ]"
+
+echo "== 7. curl del token por stdin (no en argv) =="
+cat > "$T/shims/curl" <<'EOF'
+#!/bin/bash
+echo "ARGV: $*" > /tmp/ensayo-inf16/curl.argv
+cat > /tmp/ensayo-inf16/curl.stdin
+EOF
+chmod +x "$T/shims/curl"
+(
+  COMPOSE_DIR="$H/stp"; PATH="$T/shims:$PATH"
+  env_get() { grep "^$1=" "$COMPOSE_DIR/.env" | head -1 | cut -d= -f2-; }
+  eval "$(awk '/^avisar\(\) \{/,/^\}/' "$PROP")"
+  unset BACKUP_TEST_ROOT
+  avisar "mensaje de prueba"
+)
+chk "el token NO está en los argumentos de curl" "! grep -qF '$TOKEN' $T/curl.argv"
+chk "el token llegó por stdin (--config -)" "grep -qF '$TOKEN' $T/curl.stdin && grep -q -- '--config' $T/curl.argv"
+
+echo; echo "Resultado: $ok OK, $bad con falla.  Restos en $T (borrar con: rm -rf $T)"
+[ "$bad" -eq 0 ]

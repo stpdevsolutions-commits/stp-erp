@@ -1,0 +1,27 @@
+# PROPUESTA INF-16 (no instalada). Rotación de logs/backup.log (hoy 11 MB y creciendo).
+#
+# copytruncate: el cron abre el log con ">>" (O_APPEND), así que copiar y truncar
+# es seguro y no hace falta reiniciar nada. "su stp stp" es obligatorio si se
+# instala en /etc/logrotate.d (el directorio del log es de stp, no de root).
+#
+# Opción 1 (recomendada, sin root): una línea en el crontab de stp, p. ej. a las 03:30
+# (después de que termina el backup de las 02:00, que dura ~10 min):
+#   30 3 * * * /usr/sbin/logrotate -s /home/stp/stp/logs/.logrotate.state /home/stp/stp/scripts/logrotate-backup.propuesta
+# Opción 2: copiar a /etc/logrotate.d/stp-backup (con sudo); entonces corre solo con el
+# logrotate diario del sistema.
+#
+# Los logs de los otros scripts (telegram-bot-poller.log 2,7 MB, sync-erp-names.log 0,7 MB)
+# se pueden añadir a la misma lista cuando se quiera.
+/home/stp/stp/logs/backup.log {
+    su stp stp
+    weekly
+    # o antes si pasa de 5 MB
+    maxsize 5M
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    dateext
+}
