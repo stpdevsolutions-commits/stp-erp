@@ -1,0 +1,17 @@
+#!/bin/sh
+# INF-15: descarta DNS (53) publicado por Docker que entre por la NIC fisica desde fuera de redes privadas.
+# No toca tailscale0 ni trafico de contenedores. Idempotente.
+IF=enp6s0
+CH=DNS-GUARD
+i=0
+while ! iptables -n -L DOCKER-USER >/dev/null 2>&1; do
+  i=$((i+1)); [ "$i" -gt 60 ] && { echo "DOCKER-USER no existe" >&2; exit 1; }; sleep 2
+done
+iptables -n -L $CH >/dev/null 2>&1 || iptables -N $CH
+iptables -F $CH
+for s in 192.168.0.0/16 10.0.0.0/8 172.16.0.0/12; do iptables -A $CH -s $s -j RETURN; done
+iptables -A $CH -j DROP
+for p in udp tcp; do
+  iptables -C DOCKER-USER -i $IF -p $p -m conntrack --ctorigdstport 53 -j $CH 2>/dev/null || \
+  iptables -I DOCKER-USER -i $IF -p $p -m conntrack --ctorigdstport 53 -j $CH
+done
