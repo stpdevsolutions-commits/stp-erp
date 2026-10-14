@@ -353,12 +353,46 @@ export class PayrollService {
   }
 
   async remove(id: string): Promise<void> {
-    const entry = await this.findOne(id);
-    await this.detachExpense(entry);
-    if (entry.loanId && entry.loanDeductionAmount) {
-      await this.loansService.refundInstallment(entry.loanId, entry.loanDeductionAmount);
+    // Todo en UNA transacción: cuota devuelta al préstamo + pago borrado. Si un paso falla,
+    // no queda el saldo del préstamo subido con el pago aún existente (ni al revés).
+    // El gasto enlazado se borra DESPUÉS del commit: ExpensesService usa su propia conexión
+    // y la FK expenseId (SET NULL) esperaría el bloqueo de la fila del pago -> deadlock.
+    const expenseId = await this.dataSource.transaction(async (em) => {
+      const payrollRepo = em.getRepository(PayrollEntry);
+      const found = await payrollRepo.findOne({
+        where: { id },
+        loadEagerRelations: false,
+      });
+      if (!found) throw new NotFoundException('Payroll entry not found');
+
+      // Mismo orden de bloqueos que create(): primero el colaborador, luego préstamo y pago.
+      await em.getRepository(Collaborator).findOne({
+        where: { id: found.collaboratorId },
+        lock: { mode: 'pessimistic_write' },
+        loadEagerRelations: false,
+      });
+      const entry = await payrollRepo.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+        loadEagerRelations: false,
+      });
+      if (!entry) throw new NotFoundException('Payroll entry not found');
+
+      if (entry.loanId && entry.loanDeductionAmount) {
+        await this.loansService.refundInstallment(entry.loanId, entry.loanDeductionAmount, em);
+      }
+      await payrollRepo.remove(entry);
+      return entry.expenseId ?? null;
+    });
+
+    if (expenseId) {
+      await this.expensesService.remove(expenseId).catch((err: Error) => {
+        // El pago ya está borrado; si el gasto ya no existía no hay nada que arreglar.
+        this.logger.error(
+          `Nómina ${id} borrada pero no se pudo borrar su gasto ${expenseId}: ${err.message}`,
+        );
+      });
     }
-    await this.payrollRepository.remove(entry);
   }
 
   /** Cifras de cabecera del módulo (no dependen de la página que se esté viendo). */

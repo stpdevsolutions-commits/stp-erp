@@ -98,13 +98,21 @@ export class CollaboratorLoansService {
   }
 
   /** Revierte una cuota (al borrar el pago de nómina que la aplicó). */
-  async refundInstallment(loanId: string, amount: number): Promise<void> {
-    const loan = await this.loansRepository.findOne({ where: { id: loanId } });
+  async refundInstallment(
+    loanId: string,
+    amount: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repo = manager ? manager.getRepository(CollaboratorLoan) : this.loansRepository;
+    const loan = await repo.findOne({
+      where: { id: loanId },
+      ...(manager ? { lock: { mode: 'pessimistic_write' as const } } : {}),
+    });
     if (!loan) return;
     loan.balance = Math.round((loan.balance + amount) * 100) / 100;
     if (loan.status === CollaboratorLoanStatus.PAID && loan.balance > 0) {
       loan.status = CollaboratorLoanStatus.ACTIVE;
     }
-    await this.loansRepository.save(loan);
+    await repo.save(loan);
   }
 }
