@@ -19,7 +19,7 @@ function makeQuote(over: Record<string, unknown> = {}) {
   };
 }
 
-function setup(opts: { quote?: Record<string, unknown> | null; fresh?: Record<string, unknown> | null; affected?: number } = {}) {
+function setup(opts: { quote?: Record<string, unknown> | null; fresh?: Record<string, unknown> | null; affected?: number; secret?: string } = {}) {
   const quote = opts.quote === undefined ? makeQuote() : opts.quote;
   const execute = jest.fn().mockResolvedValue({ affected: opts.affected ?? 1 });
   const where = jest.fn().mockReturnValue({ execute });
@@ -40,6 +40,7 @@ function setup(opts: { quote?: Record<string, unknown> | null; fresh?: Record<st
       return { sub: QUOTE_ID, type: 'quote-decision' };
     }),
   };
+  const config = { get: jest.fn((key: string) => (key === 'QUOTE_DECISION_SECRET' ? opts.secret : undefined)) };
   const notifications = { sendQuoteApproved: jest.fn(), sendQuoteRejected: jest.fn() };
   const appNotifications = { notifyUser: jest.fn() };
 
@@ -52,12 +53,12 @@ function setup(opts: { quote?: Record<string, unknown> | null; fresh?: Record<st
     notifications as never,
     {} as never,
     jwtService as never,
-    {} as never,
+    config as never,
     {} as never,
     {} as never,
     appNotifications as never,
   );
-  return { service, quotesRepository, notifications, appNotifications, update, set, where, execute, jwtService };
+  return { service, quotesRepository, notifications, appNotifications, update, set, where, execute, jwtService, config };
 }
 
 describe('QuotesService.previewDecision (GET del enlace)', () => {
@@ -230,5 +231,28 @@ describe('QuotesService.decide (POST de confirmacion)', () => {
     expect(r.kind).toBe('already');
     expect(first.notifications.sendQuoteApproved).toHaveBeenCalledTimes(1);
     expect(second.notifications.sendQuoteApproved).not.toHaveBeenCalled();
+  });
+});
+
+describe('QuotesService: secreto propio de los enlaces de decision', () => {
+  it('con QUOTE_DECISION_SECRET verifica primero con ese secreto', async () => {
+    const { service, jwtService } = setup({ secret: 'decision-secret' });
+    expect(await service.previewDecision('ok', 'approve')).toMatchObject({ kind: 'confirm' });
+    expect(jwtService.verify).toHaveBeenCalledWith('ok', { secret: 'decision-secret' });
+  });
+
+  it('transicion: si falla con el secreto nuevo, acepta el firmado con el de sesion', async () => {
+    const { service, jwtService } = setup({ secret: 'decision-secret' });
+    jwtService.verify.mockImplementationOnce(() => {
+      throw new Error('invalid signature');
+    });
+    expect(await service.previewDecision('legacy', 'approve')).toMatchObject({ kind: 'confirm' });
+    expect(jwtService.verify).toHaveBeenNthCalledWith(2, 'legacy');
+  });
+
+  it('sin secreto propio verifica con el secreto por defecto, como antes', async () => {
+    const { service, jwtService } = setup();
+    await service.previewDecision('ok', 'approve');
+    expect(jwtService.verify).toHaveBeenCalledWith('ok', undefined);
   });
 });

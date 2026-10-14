@@ -243,9 +243,11 @@ export class QuotesService implements OnModuleInit {
       expiresIn = seconds > 0 ? seconds : THIRTY_DAYS;
     }
 
+    // Secreto propio para estos enlaces (distinto del JWT de sesión). Sin él, cae al secreto por defecto.
+    const decisionSecret = this.config.get<string>('QUOTE_DECISION_SECRET');
     const token = this.jwtService.sign(
       { sub: quote.id, type: 'quote-decision' },
-      { expiresIn },
+      { expiresIn, ...(decisionSecret ? { secret: decisionSecret } : {}) },
     );
 
     const base =
@@ -265,8 +267,18 @@ export class QuotesService implements OnModuleInit {
     if (action !== 'approve' && action !== 'reject') return { result: { kind: 'invalid' } };
 
     let payload: { sub?: string; type?: string };
+    const decisionSecret = this.config.get<string>('QUOTE_DECISION_SECRET');
     try {
-      payload = this.jwtService.verify<{ sub?: string; type?: string }>(token);
+      try {
+        payload = this.jwtService.verify<{ sub?: string; type?: string }>(
+          token,
+          decisionSecret ? { secret: decisionSecret } : undefined,
+        );
+      } catch (err) {
+        // Transición: enlaces ya enviados firmados con el secreto anterior (el de sesión).
+        if (!decisionSecret) throw err;
+        payload = this.jwtService.verify<{ sub?: string; type?: string }>(token);
+      }
     } catch {
       return { result: { kind: 'invalid' } };
     }
