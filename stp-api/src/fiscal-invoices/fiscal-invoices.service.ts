@@ -174,8 +174,8 @@ export class FiscalInvoicesService {
     if (!matchesMagic(buffer, mimeType)) {
       throw new BadRequestException('El contenido del archivo no coincide con su tipo. Usa una foto JPG, PNG, WEBP o un PDF.');
     }
-    const { raw } = await this.scanner.read(buffer, mimeType);
-    return this.enrich(normalizeScan(raw), 'ia', null);
+    const { raw, source } = await this.scanner.read(buffer, mimeType);
+    return this.enrich(normalizeScan(raw), source ?? 'ia', null);
   }
 
   /**
@@ -300,14 +300,14 @@ export class FiscalInvoicesService {
    * Remata una lectura (foto o QR): aplica el hábito del proveedor al tipo de gasto y a la forma
    * de pago, y avisa si la factura ya estaba registrada.
    */
-  private async enrich(core: ScanCore, source: 'ia' | 'qr', estadoDgii: string | null): Promise<ScanResult> {
+  private async enrich(core: ScanCore, source: ScanResult['source'], estadoDgii: string | null): Promise<ScanResult> {
     const hints: string[] = [];
     const { supplierRnc, ncf } = core.fields;
 
     if (isValidRnc(supplierRnc)) {
       const history = await this.historyFor(supplierRnc);
       if (history.count > 0) {
-        const a = applyHistory(core.fields, history, source);
+        const a = applyHistory(core.fields, history, source === 'qr' ? 'qr' : 'ia');
         core.fields.expenseType = a.expenseType;
         core.fields.paymentMethod = a.paymentMethod;
         if (a.applied.length > 0) {

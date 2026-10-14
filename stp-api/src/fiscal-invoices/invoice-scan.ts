@@ -134,8 +134,8 @@ export interface ScanResult {
   warnings: string[];
   /** Si esa factura (RNC + NCF) ya está registrada. */
   duplicate: { id: string; ncf: string; supplierName: string; invoiceDate: string } | null;
-  /** Cómo se leyó: foto con IA o código QR del e-CF. */
-  source: 'ia' | 'qr';
+  /** Cómo se leyó: foto con IA, código QR del e-CF o texto del PDF digital (sin IA). */
+  source: 'ia' | 'qr' | 'pdf-text';
   /** Avisos buenos (no son problemas): p. ej. "tipo de gasto tomado de tus 7 facturas anteriores". */
   hints: string[];
   /** Resultado de la DGII si la lectura ya lo trajo (QR): Aceptado, Vigente… */

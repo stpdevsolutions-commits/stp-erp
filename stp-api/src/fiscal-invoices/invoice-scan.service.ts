@@ -8,6 +8,7 @@ import {
   SCAN_USER_PROMPT,
   extractJsonObject,
 } from './invoice-scan';
+import { extractFromPdfText } from './pdf-text-extractor';
 import { ScanUnavailableException, isTransientDetail, isTransientScanError } from './scan-retry';
 
 export type ScanProvider = 'gemini' | 'claude';
@@ -65,7 +66,18 @@ export class InvoiceScanService {
     return hasKey ? [primary, other] : [primary];
   }
 
-  async read(buffer: Buffer, mimeType: string): Promise<{ raw: RawScan; provider: ScanProvider }> {
+  /**
+   * `source` dice cómo se leyó: 'pdf-text' = del texto del propio PDF, sin IA (ERP-52; en ese caso
+   * `provider` es null); 'ia' = con un modelo. Las imágenes y los PDF sin texto útil van a la IA.
+   */
+  async read(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<{ raw: RawScan; provider: ScanProvider | null; source: 'ia' | 'pdf-text' }> {
+    if (mimeType === 'application/pdf') {
+      const fromText = await extractFromPdfText(buffer);
+      if (fromText) return { raw: fromText.raw, provider: null, source: 'pdf-text' };
+    }
     const all = this.providers();
     // Claude sin saldo/clave inválida: se salta unos minutos para no gastar una llamada que fallará igual,
     // salvo que sea el único proveedor.
@@ -85,7 +97,7 @@ export class InvoiceScanService {
         const text =
           provider === 'claude' ? await this.callClaude(buffer, mimeType) : await this.callGemini(buffer, mimeType);
         try {
-          return { raw: JSON.parse(extractJsonObject(text)) as RawScan, provider };
+          return { raw: JSON.parse(extractJsonObject(text)) as RawScan, provider, source: 'ia' };
         } catch {
           this.logger.error(`Respuesta no parseable (${provider}): ${text.slice(0, 400)}`);
           throw new UnprocessableEntityException(UNREADABLE);
