@@ -49,6 +49,17 @@ export class FichasService {
   }
 
   async findAll(query: QueryFichasDto, currentUser: User): Promise<Ficha[]> {
+    return (await this.findAllPaged(query, currentUser)).items;
+  }
+
+  /**
+   * Lista de fichas. Sin `page`/`limit` devuelve todas (formato histórico); con alguno,
+   * una página de `limit` (máx. 100, por defecto 20) y el total para la carga incremental.
+   */
+  async findAllPaged(
+    query: QueryFichasDto,
+    currentUser: User,
+  ): Promise<{ items: Ficha[]; total: number; paged: boolean }> {
     const where: FindOptionsWhere<Ficha> = {};
 
     if (query.clientId) where.project = { clientId: query.clientId };
@@ -63,11 +74,18 @@ export class FichasService {
       where.technicianId = query.technicianId;
     }
 
-    return this.fichasRepo.find({
+    const paged = query.page !== undefined || query.limit !== undefined;
+    const limit = Math.min(Math.max(query.limit ?? 20, 1), 100);
+    const page = Math.max(query.page ?? 1, 1);
+
+    const [items, total] = await this.fichasRepo.findAndCount({
       where,
       relations: { project: true, technician: true },
-      order: { createdAt: 'DESC' },
+      // createdAt puede repetirse: el id desempata para que las páginas no se solapen.
+      order: { createdAt: 'DESC', id: 'DESC' },
+      ...(paged ? { skip: (page - 1) * limit, take: limit } : {}),
     });
+    return { items, total, paged };
   }
 
   async findOne(id: string, currentUser: User): Promise<Ficha> {

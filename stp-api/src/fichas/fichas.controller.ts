@@ -44,8 +44,16 @@ export class FichasController {
   }
 
   @Get()
-  findAll(@Query() query: QueryFichasDto, @CurrentUser() user: User) {
-    return this.fichasService.findAll(query, user);
+  async findAll(
+    @Query() query: QueryFichasDto,
+    @CurrentUser() user: User,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { items, total } = await this.fichasService.findAllPaged(query, user);
+    // El cuerpo sigue siendo un array (compatible con web y app); el total va en cabecera.
+    res.setHeader('X-Total-Count', String(total));
+    res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');
+    return items;
   }
 
   @Get(':id')

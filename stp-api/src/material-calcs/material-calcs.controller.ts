@@ -19,7 +19,9 @@ import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
 import { ModulePermissionGuard } from '../common/access/module-permission.guard';
 import { RequireModule } from '../common/decorators/require-module.decorator';
-import { User } from '../users/entities/user.entity';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { User, UserRole } from '../users/entities/user.entity';
 import { MaterialCalcsService } from './material-calcs.service';
 import {
   ClaveParam,
@@ -46,12 +48,17 @@ export class MaterialCalcsController {
     return this.service.getLinks();
   }
 
+  // Configuración compartida: solo admin y manager modifican vínculos (el rol user solo lee).
   @Put('links/:clave')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   setLink(@Param() p: ClaveParam, @Body() dto: SetCalcLinkDto, @CurrentUser() user: User) {
     return this.service.setLink(p.clave, dto.materialId, user);
   }
 
   @Delete('links/:clave')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   deleteLink(@Param() p: ClaveParam) {
     return this.service.deleteLink(p.clave);
   }

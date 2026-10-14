@@ -1,4 +1,4 @@
-import { IsEnum, IsUUID, IsOptional, IsNumber, IsString, IsObject, MaxLength } from 'class-validator';
+import { IsEnum, IsUUID, IsOptional, IsNumber, IsString, IsObject, ArrayMaxSize, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { FichaType } from '../entities/ficha.entity';
 import { FichaElectricaData } from '../types/ficha-electrica.types';
@@ -30,6 +30,7 @@ export class CreateFichaDto {
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsString({ each: true })
+  @ArrayMaxSize(60)
   photos?: string[];
 
   @ApiPropertyOptional()
