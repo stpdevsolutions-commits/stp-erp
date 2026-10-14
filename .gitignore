@@ -53,3 +53,20 @@ caddy/downloads/
 # Config local de Claude Code (permisos/ajustes por usuario, no del proyecto)
 .claude/settings.local.json
 adguard/conf/*.bak-*
+
+# Respaldos, llaves, certificados, volcados y binarios (nunca al repo)
+*.bak*
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.sql
+*.dump
+*.apk
+*.aab
+
+# Dependencias, compilados y proyectos nativos generados
+node_modules/
+dist/
+android/
