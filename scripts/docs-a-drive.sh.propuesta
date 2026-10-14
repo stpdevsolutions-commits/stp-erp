@@ -1,0 +1,19 @@
+#!/bin/bash
+# Copia la documentacion Markdown (stp/ y personal/) a Google Drive. PROPUESTA: sin commit, sin cron.
+# Fuente: ~/docs-stp en el servidor, que se refresca desde la PC con:
+#   scp -r C:\Proyectos\Documentacion-STP\stp C:\Proyectos\Documentacion-STP\personal stp:docs-stp/
+# Usa "copy" (nunca "sync"): no borra nada en Drive.
+set -euo pipefail
+ORIGEN="$HOME/docs-stp"
+DESTINO="gdrive:Documentacion-STP"
+
+[ -d "$ORIGEN" ] || { echo "No existe $ORIGEN" >&2; exit 1; }
+
+# Barrera de secretos: aborta si encuentra algo que parezca credencial.
+if grep -rEIl 'sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{20,}|ghp_[A-Za-z0-9]{20,}|BEGIN [A-Z ]*PRIVATE KEY|[0-9]{8,10}:[A-Za-z0-9_-]{35}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}' "$ORIGEN"; then
+  echo "ABORTADO: posible secreto en los archivos listados." >&2
+  exit 2
+fi
+
+rclone copy "$ORIGEN" "$DESTINO" --include '*.md' -v
+rclone size "$DESTINO"
