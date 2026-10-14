@@ -94,6 +94,7 @@ export class ReportsController {
   }
 
   @Get('dashboard')
+  @RequireModule('proyectos', 'view')
   getDashboard(@CurrentUser() user: AuthUser) {
     return this.reportsService.getDashboard(user);
   }
@@ -103,6 +104,7 @@ export class ReportsController {
    * `months` = ventana hacia atrás (1–24, por defecto 6).
    */
   @Get('analytics')
+  @RequireModule('proyectos', 'view')
   getAnalytics(@CurrentUser() user: AuthUser, @Query('months') months?: string) {
     const parsed = months != null ? Number(months) : 6;
     if (!Number.isFinite(parsed) || parsed < 1 || parsed > 24)

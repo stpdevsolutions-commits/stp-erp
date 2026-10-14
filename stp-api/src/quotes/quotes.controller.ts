@@ -85,10 +85,11 @@ interface QuoteItemRow {
  */
 @Controller('quotes')
 @UseGuards(JwtAuthGuard, ResourceAccessGuard, ModulePermissionGuard)
-@RequireModule('cotizaciones', 'manage')
+@RequireModule('cotizaciones', 'view')
 export class QuotesController {
   constructor(private readonly quotesService: QuotesService) {}
 
+  @RequireModule('cotizaciones', 'manage')
   @Post()
   create(@Body() dto: CreateQuoteDto, @CurrentUser() user: AuthUser) {
     return this.quotesService.create(dto, user.id);
@@ -99,6 +100,7 @@ export class QuotesController {
    * que encontró, SIN guardar nada: el editor las muestra para revisarlas y se guardan con la
    * cotización como cualquier otra partida.
    */
+  @RequireModule('cotizaciones', 'manage')
   @Post('import-excel')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
   async importExcel(@UploadedFile() file?: Express.Multer.File) {
@@ -228,6 +230,7 @@ export class QuotesController {
     return this.quotesService.findOne(id, user.role);
   }
 
+  @RequireModule('cotizaciones', 'manage')
   @Get(':id/pdf-file')
   @ScopedResource('quote')
   async getPdfFile(@Param('id', ParseUUIDPipe) id: string) {
@@ -236,12 +239,14 @@ export class QuotesController {
     return file;
   }
 
+  @RequireModule('cotizaciones', 'manage')
   @Patch(':id')
   @ScopedResource('quote')
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateQuoteDto, @CurrentUser() user: AuthUser) {
     return this.quotesService.update(id, dto, user.role);
   }
 
+  @RequireModule('cotizaciones', 'manage')
   @Post(':id/send')
   @ScopedResource('quote')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -249,18 +254,21 @@ export class QuotesController {
     return this.quotesService.sendEmail(id);
   }
 
+  @RequireModule('cotizaciones', 'manage')
   @Post(':id/revise')
   @ScopedResource('quote')
   revise(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.quotesService.revise(id, user.id);
   }
 
+  @RequireModule('cotizaciones', 'manage')
   @Post(':id/convert-to-project')
   @ScopedResource('quote')
   convertToProject(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.quotesService.convertToProject(id, user.id);
   }
 
+  @RequireModule('cotizaciones', 'manage')
   @Delete(':id')
   @ScopedResource('quote')
   @UseGuards(RolesGuard)
@@ -276,6 +284,7 @@ export class QuotesController {
    * Aviso de precios viejos: qué líneas nacidas de un ACU tienen el unitario congelado
    * desfasado respecto al costo de hoy, y en cuánto. Solo lectura: no cambia nada.
    */
+  @RequireModule('cotizaciones', 'manage')
   @Get(':id/acu-drift')
   @ScopedResource('quote')
   acuDrift(@Param('id', ParseUUIDPipe) id: string) {
@@ -286,6 +295,7 @@ export class QuotesController {
    * Vuelve a congelar esos unitarios con los costos de hoy. Es la única vía por la que
    * el precio de una cotización cambia por el módulo de costos, y es siempre explícita.
    */
+  @RequireModule('cotizaciones', 'manage')
   @Post(':id/acu-refresh')
   @ScopedResource('quote')
   refreshAcuPrices(
@@ -298,6 +308,7 @@ export class QuotesController {
 
   // ── Items ──────────────────────────────────────────────────────────────────
 
+  @RequireModule('cotizaciones', 'manage')
   @Post(':id/items')
   @ScopedResource('quote')
   addItem(
@@ -308,6 +319,7 @@ export class QuotesController {
     return this.quotesService.addItem(id, dto, user.role);
   }
 
+  @RequireModule('cotizaciones', 'manage')
   @Patch(':id/items/:itemId')
   @ScopedResource('quote')
   updateItem(
@@ -319,6 +331,7 @@ export class QuotesController {
     return this.quotesService.updateItem(id, itemId, dto, user.role);
   }
 
+  @RequireModule('cotizaciones', 'manage')
   @Delete(':id/items/:itemId')
   @ScopedResource('quote')
   @HttpCode(HttpStatus.OK)

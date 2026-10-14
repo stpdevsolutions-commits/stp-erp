@@ -14,6 +14,8 @@ import {
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ResourceAccessGuard } from '../common/guards/resource-access.guard';
+import { ModulePermissionGuard } from '../common/access/module-permission.guard';
+import { RequireModule } from '../common/decorators/require-module.decorator';
 import { ScopedResource } from '../common/decorators/scoped-resource.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -47,7 +49,9 @@ interface AuthUser {
  * la restricción depende del tipo pedido y no del controlador entero.
  */
 @Controller('reports/projects/:projectId/informe')
-@UseGuards(JwtAuthGuard, ResourceAccessGuard)
+@UseGuards(JwtAuthGuard, ResourceAccessGuard, ModulePermissionGuard)
+// 'proyectos' view: todos los roles con acceso hoy ya lo tienen; deja fuera a `readonly`.
+@RequireModule('proyectos', 'view')
 @ScopedResource({ kind: 'project', param: 'projectId' })
 export class ProjectReportController {
   constructor(

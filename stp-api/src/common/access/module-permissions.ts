@@ -105,6 +105,15 @@ export const MODULE_PERMISSIONS: Record<UserRole, Record<ModuleKey, PermissionLe
     // Bandeja de WhatsApp y CRM ligero (ERP-57).
     mensajes: 'none',
   },
+  // Agente de solo lectura (Hermes/MCP): SOLO ver clientes y cotizaciones; todo lo demas 'none'.
+  // Ninguna ruta de escritura de esos modulos le sirve: las escrituras piden 'manage'.
+  [UserRole.READONLY]: {
+    clientes: 'view', cotizaciones: 'view', proyectos: 'none', cronograma: 'none',
+    tareas: 'none', fichas: 'none', archivos: 'none', costos: 'none',
+    proveedores: 'none', inventario: 'none', pagos: 'none', gastos: 'none',
+    nomina: 'none', reportes: 'none', colaboradores: 'none', configuracion: 'none',
+    facturas: 'none', mensajes: 'none',
+  },
 };
 
 export function getModuleAccess(role: UserRole | string, module: ModuleKey): PermissionLevel {

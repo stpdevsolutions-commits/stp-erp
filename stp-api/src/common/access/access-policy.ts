@@ -66,6 +66,11 @@ export const UNRESTRICTED_ROLES: readonly string[] = [
   UserRole.ADMIN,
   UserRole.MANAGER,
   UserRole.FINANZA,
+  // READONLY ve TODOS los clientes y cotizaciones (sin pertenencia), pero solo donde
+  // module-permissions.ts le da 'view'. Las rutas sin @RequireModule que dependen de
+  // esta lista (informes de proyecto, dashboard, analytics) llevan 'proyectos' view
+  // para dejarlo fuera.
+  UserRole.READONLY,
 ];
 
 /**

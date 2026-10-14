@@ -15,7 +15,7 @@ export interface CreateUserInput {
   email: string
   password: string
   phone?: string
-  role?: 'admin' | 'manager' | 'finanza' | 'user'
+  role?: 'admin' | 'manager' | 'finanza' | 'readonly' | 'user'
   isActive?: boolean
 }
 
@@ -25,7 +25,7 @@ export interface UpdateUserInput {
   email?: string
   password?: string
   phone?: string
-  role?: 'admin' | 'manager' | 'finanza' | 'user'
+  role?: 'admin' | 'manager' | 'finanza' | 'readonly' | 'user'
   isActive?: boolean
 }
 

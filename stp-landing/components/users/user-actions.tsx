@@ -42,13 +42,13 @@ const editSchema = z.object({
   email: z.string().email('Correo inválido'),
   password: z.string().optional(),
   phone: z.string().optional(),
-  role: z.enum(['admin', 'manager', 'finanza', 'user']),
+  role: z.enum(['admin', 'manager', 'finanza', 'readonly', 'user']),
   isActive: z.boolean(),
 })
 
 type EditFormValues = z.infer<typeof editSchema>
 
-const ROLE_LABELS = { admin: 'Administrador', manager: 'Gerente', finanza: 'Finanza', user: 'Usuario' }
+const ROLE_LABELS = { admin: 'Administrador', manager: 'Gerente', finanza: 'Finanza', readonly: 'Solo lectura (agente)', user: 'Usuario' }
 
 // ── Edit dialog ───────────────────────────────────────────────────────────────
 

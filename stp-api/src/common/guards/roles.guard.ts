@@ -13,6 +13,9 @@ const ROLE_RANK: Record<UserRole, number> = {
   // @RequireModule(), Finanza queda denegado por defecto en vez de heredar
   // de más por accidente.
   [UserRole.FINANZA]: 0,
+  // READONLY (agente de solo lectura): rango 0, igual que FINANZA — en cualquier
+  // endpoint con @Roles() queda denegado; solo entra por @RequireModule().
+  [UserRole.READONLY]: 0,
 };
 
 @Injectable()

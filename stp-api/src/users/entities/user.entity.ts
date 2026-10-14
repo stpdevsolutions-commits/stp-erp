@@ -17,6 +17,9 @@ export enum UserRole {
    *  common/access/module-permissions.ts), no por el rango de RolesGuard —
    *  ver ERP-83/ERP-85. */
   FINANZA = 'finanza',
+  /** Cuenta de agente (Hermes/MCP) de SOLO LECTURA: ve Clientes y Cotizaciones y nada más.
+   *  Igual que FINANZA, su acceso lo decide module-permissions.ts; rango 0 en RolesGuard. */
+  READONLY = 'readonly',
 }
 
 @Entity('users')

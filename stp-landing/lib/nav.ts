@@ -150,12 +150,13 @@ export const NAV: NavGroup[] = [
   },
 ]
 
-export const ROLE_RANK: Record<string, number> = { user: 1, finanza: 2, manager: 2, admin: 3 }
+export const ROLE_RANK: Record<string, number> = { readonly: 0, user: 1, finanza: 2, manager: 2, admin: 3 }
 
 export const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
   manager: 'Gerente',
   finanza: 'Finanzas',
+  readonly: 'Solo lectura (agente)',
   user: 'Usuario',
 }
 

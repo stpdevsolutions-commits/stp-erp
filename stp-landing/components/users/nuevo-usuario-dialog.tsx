@@ -32,13 +32,13 @@ const schema = z.object({
   lastName: z.string().min(2, 'Mínimo 2 caracteres').max(100),
   email: z.string().email('Correo inválido'),
   password: z.string().min(8, 'Mínimo 8 caracteres'),
-  role: z.enum(['admin', 'manager', 'finanza', 'user']),
+  role: z.enum(['admin', 'manager', 'finanza', 'readonly', 'user']),
   isActive: z.boolean(),
 })
 
 type FormValues = z.infer<typeof schema>
 
-const ROLE_LABELS = { admin: 'Administrador', manager: 'Gerente', finanza: 'Finanza', user: 'Usuario' }
+const ROLE_LABELS = { admin: 'Administrador', manager: 'Gerente', finanza: 'Finanza', readonly: 'Solo lectura (agente)', user: 'Usuario' }
 
 export function NuevoUsuarioDialog() {
   const [open, setOpen] = useState(false)

@@ -197,8 +197,13 @@ describe('Matriz de permisos y controladores', () => {
         'clientes=view cotizaciones=none proyectos=view cronograma=view tareas=manage fichas=manage archivos=contribute costos=none proveedores=none inventario=view pagos=none gastos=none nomina=none reportes=none colaboradores=none configuracion=none facturas=none mensajes=none',
       );
     });
+    it('readonly', () => {
+      expect(snapshot(UserRole.READONLY)).toBe(
+        'clientes=view cotizaciones=view proyectos=none cronograma=none tareas=none fichas=none archivos=none costos=none proveedores=none inventario=none pagos=none gastos=none nomina=none reportes=none colaboradores=none configuracion=none facturas=none mensajes=none',
+      );
+    });
     it('no aparecen roles nuevos sin revisar la matriz', () => {
-      expect(Object.values(UserRole).sort()).toEqual(['admin', 'finanza', 'manager', 'user']);
+      expect(Object.values(UserRole).sort()).toEqual(['admin', 'finanza', 'manager', 'readonly', 'user']);
     });
   });
 
