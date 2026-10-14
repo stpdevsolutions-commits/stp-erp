@@ -22,21 +22,21 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: [],
     status: "Esta tarjeta muestra solo el estado en vivo (git, servicios, alertas). La descripción, el estado y el historial del proyecto están en su página de AppFlowy.",
     recentWork: ["Ver el historial completo en AppFlowy (enlace de abajo)."],
-    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/66d9ad0c-7439-4cd7-8a2a-a3a308c36a9b" }, { label: "ERP", url: "https://erp.stpsoluciones.com" }],
+    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/f9792773-67ca-405a-b32e-8e86e1549c3b" }, { label: "ERP", url: "https://erp.stpsoluciones.com" }],
   },
   "stp-mobile": {
     purpose: "Ficha retirada de Vigía el 2026-10-13: la documentación de este proyecto vive ahora en AppFlowy.",
     stack: [],
     status: "Esta tarjeta muestra solo el estado en vivo (git, servicios, alertas). La descripción, el estado y el historial del proyecto están en su página de AppFlowy.",
     recentWork: ["Ver el historial completo en AppFlowy (enlace de abajo)."],
-    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/7600f2a5-9e29-4da9-a7ba-5d42c6fb3162" }],
+    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/e38e2865-c15c-42e5-8857-5e8af3020d43" }],
   },
   "ecf-saas": {
     purpose: "Ficha retirada de Vigía el 2026-10-13: la documentación de este proyecto vive ahora en AppFlowy.",
     stack: [],
     status: "Esta tarjeta muestra solo el estado en vivo (git, servicios, alertas). La descripción, el estado y el historial del proyecto están en su página de AppFlowy.",
     recentWork: ["Ver el historial completo en AppFlowy (enlace de abajo)."],
-    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/5d76268e-3c32-4ba1-834c-e34a119625f9" }],
+    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/5cd09d09-c53e-4621-b9b6-157ff0790505" }],
   },
   "mi-dia": {
     purpose: "Ficha retirada de Vigía el 2026-10-13: la documentación de este proyecto vive ahora en AppFlowy.",
@@ -92,7 +92,7 @@ export const PROJECT_META: Record<string, ProjectMeta> = {
     stack: [],
     status: "Esta tarjeta muestra solo el estado en vivo (git, servicios, alertas). La descripción, el estado y el historial del proyecto están en su página de AppFlowy.",
     recentWork: ["Ver el historial completo en AppFlowy (enlace de abajo)."],
-    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/8034d0e4-307f-4878-83b7-bcbbf50262ca" }],
+    links: [{ label: "Documentación en AppFlowy", url: "https://notas.stpsoluciones.com/app/da265893-d216-44bc-9d33-84cd4864ea05/7743fefc-71d3-4893-a75a-023ff2f10b71" }],
   },
   "stp-tickets-app": {
     purpose: "Ficha retirada de Vigía el 2026-10-13: la documentación de este proyecto vive ahora en AppFlowy.",
