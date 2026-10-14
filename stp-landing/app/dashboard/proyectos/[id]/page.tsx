@@ -1,12 +1,12 @@
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, loadMain, loadSafe, failedLabels } from '@/lib/api'
 import type { Client, Collaborator, Project, Task, Expense, Payment, FileUpload, PaginatedResponse, Ficha, User as AppUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChevronLeft, Calendar, DollarSign, FileText, User, HardHat, UserCheck, MapPin } from 'lucide-react'
 import { ProjectDetailTabs } from '@/components/projects/project-detail-tabs'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import { ProjectActions } from '@/components/projects/project-actions'
 import type { Member } from '@/lib/actions/memberships'
 import { formatDate } from '@/lib/utils'
@@ -36,19 +36,27 @@ export default async function ProyectoDetallePage({
 }) {
   const { id } = await params
 
-  let project: Project
-  try {
-    project = await api.get<Project>(`/projects/${id}`)
-  } catch {
-    notFound()
-  }
+  const project = await loadMain(api.get<Project>(`/projects/${id}`))
 
-  const rawFiles = await api.get<FileUpload[]>(`/files/clients/${project.clientId}/projects/${id}`).catch(() => [] as FileUpload[])
-  const [tasks, expenses, payments, fichas] = await Promise.all([
-    api.get<PaginatedResponse<Task>>(`/tasks?projectId=${id}&limit=100`).catch(() => ({ data: [], total: 0, page: 1, limit: 100 })),
-    api.get<PaginatedResponse<Expense>>(`/expenses?projectId=${id}&limit=100`).catch(() => ({ data: [], total: 0, page: 1, limit: 100 })),
-    api.get<PaginatedResponse<Payment>>(`/payments?projectId=${id}&limit=100`).catch(() => ({ data: [], total: 0, page: 1, limit: 100 })),
-    api.get<Ficha[]>(`/fichas?projectId=${id}`).catch(() => [] as Ficha[]),
+  const emptyPage = <T,>(limit: number): PaginatedResponse<T> => ({ data: [], total: 0, page: 1, limit })
+  const [rawFilesR, tasksR, expensesR, paymentsR, fichasR] = await Promise.all([
+    loadSafe(api.get<FileUpload[]>(`/files/clients/${project.clientId}/projects/${id}`), [] as FileUpload[]),
+    loadSafe(api.get<PaginatedResponse<Task>>(`/tasks?projectId=${id}&limit=100`), emptyPage<Task>(100)),
+    loadSafe(api.get<PaginatedResponse<Expense>>(`/expenses?projectId=${id}&limit=100`), emptyPage<Expense>(100)),
+    loadSafe(api.get<PaginatedResponse<Payment>>(`/payments?projectId=${id}&limit=100`), emptyPage<Payment>(100)),
+    loadSafe(api.get<Ficha[]>(`/fichas?projectId=${id}`), [] as Ficha[]),
+  ])
+  const rawFiles = rawFilesR.data
+  const { data: tasks } = tasksR
+  const { data: expenses } = expensesR
+  const { data: payments } = paymentsR
+  const { data: fichas } = fichasR
+  const loadErrors = failedLabels([
+    ['tareas', tasksR.failed],
+    ['gastos', expensesR.failed],
+    ['pagos', paymentsR.failed],
+    ['archivos', rawFilesR.failed],
+    ['fichas', fichasR.failed],
   ])
   const files = { data: rawFiles, total: rawFiles.length, page: 1, limit: rawFiles.length || 1 }
 
@@ -69,26 +77,25 @@ export default async function ProyectoDetallePage({
   // propio catch para no tumbar la carga entera de la página).
   const me = await api.get<Pick<AppUser, 'role'>>('/users/me').catch(() => ({ role: 'user' as const }))
   const isAdmin = me.role === 'admin'
-  const [clients, collaborators, users] = await Promise.all([
-    api
-      .get<PaginatedResponse<Client>>('/clients?limit=200&isActive=true')
-      .then((r) => r.data)
-      .catch(() => [] as Client[]),
-    api
-      .get<PaginatedResponse<Collaborator>>('/collaborators?limit=200&status=active')
-      .then((r) => r.data)
-      .catch(() => [] as Collaborator[]),
-    api
-      .get<PaginatedResponse<AppUser>>('/users?limit=100')
-      .then((r) => r.data)
-      .catch(() => [] as AppUser[]),
+  const [clientsR, collaboratorsR, usersR, membersR] = await Promise.all([
+    loadSafe(api.get<PaginatedResponse<Client>>('/clients?limit=200&isActive=true').then((r) => r.data), [] as Client[]),
+    loadSafe(api.get<PaginatedResponse<Collaborator>>('/collaborators?limit=200&status=active').then((r) => r.data), [] as Collaborator[]),
+    loadSafe(api.get<PaginatedResponse<AppUser>>('/users?limit=100').then((r) => r.data), [] as AppUser[]),
+    // Panel de Accesos (dentro del diálogo de edición): solo para ADMIN, el endpoint /members también lo es.
+    isAdmin
+      ? loadSafe(api.get<Member[]>(`/projects/${id}/members`), [] as Member[])
+      : Promise.resolve({ data: [] as Member[], failed: false }),
   ])
-
-  // Panel de Accesos (dentro del diálogo de edición): solo para ADMIN, el
-  // endpoint /members también lo es.
-  const members = isAdmin
-    ? await api.get<Member[]>(`/projects/${id}/members`).catch(() => [] as Member[])
-    : ([] as Member[])
+  const clients = clientsR.data
+  const collaborators = collaboratorsR.data
+  const users = usersR.data
+  const members = membersR.data
+  const editErrors = failedLabels([
+    ['clientes del formulario de edición', clientsR.failed],
+    ['colaboradores del formulario de edición', collaboratorsR.failed],
+    ['usuarios del formulario de edición', usersR.failed],
+    ['accesos del proyecto', membersR.failed],
+  ])
 
   return (
     <div className="space-y-6">
@@ -99,6 +106,8 @@ export default async function ProyectoDetallePage({
           Proyectos
         </Button>
       </div>
+
+      <LoadErrorBanner failed={[...loadErrors, ...editErrors]} />
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">

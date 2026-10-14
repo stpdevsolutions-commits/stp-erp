@@ -1,7 +1,7 @@
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, ExternalLink, FileText } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, loadMain, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { User } from '@/lib/types'
 import {
   PAYMENT_BADGE,
@@ -25,16 +25,13 @@ const DOP = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' 
 export default async function FacturaEmitidaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  let invoice: SalesInvoice
-  try {
-    invoice = await api.get<SalesInvoice>(`/sales-invoices/${id}`)
-  } catch {
-    notFound()
-  }
-  const [payments, me] = await Promise.all([
-    api.get<InvoicePayment[]>(`/sales-invoices/${id}/payments`).catch(() => [] as InvoicePayment[]),
+  const invoice = await loadMain(api.get<SalesInvoice>(`/sales-invoices/${id}`))
+  const [paymentsR, me] = await Promise.all([
+    loadSafe(api.get<InvoicePayment[]>(`/sales-invoices/${id}/payments`), [] as InvoicePayment[]),
     api.get<Pick<User, 'role'>>('/users/me').catch(() => ({ role: 'user' as const })),
   ])
+  const payments = paymentsR.data
+  const loadErrors = failedLabels([['cobros aplicados a la factura', paymentsR.failed]])
   const canManage = ['admin', 'finanza'].includes(String(me.role).toLowerCase())
 
   const issued = invoice.status === 'issued'
@@ -49,6 +46,8 @@ export default async function FacturaEmitidaDetallePage({ params }: { params: Pr
           Facturas emitidas
         </Button>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

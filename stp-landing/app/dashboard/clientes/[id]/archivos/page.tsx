@@ -1,6 +1,6 @@
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, loadMain, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Client, FileUpload } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, FolderOpen } from 'lucide-react'
@@ -13,14 +13,11 @@ export default async function ClienteArchivosPage({
 }) {
   const { id } = await params
 
-  let client: Client
-  try {
-    client = await api.get<Client>(`/clients/${id}`)
-  } catch {
-    notFound()
-  }
+  const client = await loadMain(api.get<Client>(`/clients/${id}`))
 
-  const files = await api.get<FileUpload[]>(`/files/clients/${id}`).catch(() => [] as FileUpload[])
+  const filesR = await loadSafe(api.get<FileUpload[]>(`/files/clients/${id}`), [] as FileUpload[])
+  const files = filesR.data
+  const loadErrors = failedLabels([['archivos del cliente', filesR.failed]])
 
   return (
     <div className="space-y-6">
@@ -38,6 +35,8 @@ export default async function ClienteArchivosPage({
         </h1>
         <p className="text-muted-foreground text-sm">{client.name}</p>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       <ArchivoViewer files={files} clientId={id} canDelete={true} />
     </div>

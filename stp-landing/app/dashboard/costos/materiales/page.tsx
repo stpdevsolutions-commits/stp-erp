@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { api, pageError } from '@/lib/api'
+import { api, pageError, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Material, MaterialCategory, PaginatedResponse, Unit } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -48,9 +49,15 @@ export default async function MaterialesPage({
   }
 
   // Unidades y categorías se necesitan para el formulario de alta.
-  const [units, categories] = await Promise.all([
-    api.get<Unit[]>('/costs/units').catch(() => [] as Unit[]),
-    api.get<MaterialCategory[]>('/costs/material-categories').catch(() => [] as MaterialCategory[]),
+  const [unitsR, categoriesR] = await Promise.all([
+    loadSafe(api.get<Unit[]>('/costs/units'), [] as Unit[]),
+    loadSafe(api.get<MaterialCategory[]>('/costs/material-categories'), [] as MaterialCategory[]),
+  ])
+  const units = unitsR.data
+  const categories = categoriesR.data
+  const loadErrors = failedLabels([
+    ['unidades del formulario de alta', unitsR.failed],
+    ['categorías del formulario de alta', categoriesR.failed],
   ])
 
   const totalPages = Math.max(1, Math.ceil(res.total / LIMIT))
@@ -68,6 +75,8 @@ export default async function MaterialesPage({
       </div>
 
       <CostosTabs />
+
+      <LoadErrorBanner failed={loadErrors} />
 
       <Card>
         <CardHeader className="pb-3">

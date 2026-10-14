@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
 import { AlertTriangle, ArrowLeft, FileQuestion, Loader2 } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, loadMain, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Material, MaterialCategory, PaginatedResponse, PriceImport, Unit } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,20 +18,22 @@ export default async function ImportacionPage({
 }) {
   const { id } = await params
 
-  let imp: PriceImport
-  try {
-    imp = await api.get<PriceImport>(`/costs/price-imports/${id}`)
-  } catch {
-    notFound()
-  }
+  const imp = await loadMain(api.get<PriceImport>(`/costs/price-imports/${id}`))
 
-  const [materials, units, categories] = await Promise.all([
-    api
-      .get<PaginatedResponse<Material>>('/costs/materials?limit=500')
-      .then((r) => r.data)
-      .catch(() => [] as Material[]),
-    api.get<Unit[]>('/costs/units').catch(() => [] as Unit[]),
-    api.get<MaterialCategory[]>('/costs/material-categories').catch(() => [] as MaterialCategory[]),
+  const [materialsR, unitsR, categoriesR] = await Promise.all([
+    loadSafe(api.get<PaginatedResponse<Material>>('/costs/materials?limit=500').then((r) => r.data), [] as Material[]),
+    loadSafe(api.get<Unit[]>('/costs/units'), [] as Unit[]),
+    loadSafe(api.get<MaterialCategory[]>('/costs/material-categories'), [] as MaterialCategory[]),
+  ])
+  const materials = materialsR.data
+  const units = unitsR.data
+  const categories = categoriesR.data
+  // Sin el catálogo no se puede asignar material a cada renglón: que se vea que falló,
+  // no que "no hay materiales".
+  const loadErrors = failedLabels([
+    ['catálogo de materiales (para asignar renglones)', materialsR.failed],
+    ['unidades', unitsR.failed],
+    ['categorías', categoriesR.failed],
   ])
 
   const estado = IMPORT_STATUS[imp.status]
@@ -78,6 +80,8 @@ export default async function ImportacionPage({
           <Badge variant={estado.variant}>{estado.label}</Badge>
         </div>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       <ImportarPasos actual={paso} />
 

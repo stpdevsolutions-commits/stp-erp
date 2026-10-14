@@ -1,6 +1,6 @@
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, loadMain, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Task, Project, Collaborator, User, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -46,17 +46,21 @@ export default async function TareaDetallePage({
 }) {
   const { id } = await params
 
-  let tarea: Task
-  try {
-    tarea = await api.get<Task>(`/tasks/${id}`)
-  } catch {
-    notFound()
-  }
+  const tarea = await loadMain(api.get<Task>(`/tasks/${id}`))
 
-  const [projects, collaborators, users] = await Promise.all([
-    api.get<PaginatedResponse<Project>>('/projects?limit=200').then((r) => r.data).catch(() => [] as Project[]),
-    api.get<PaginatedResponse<Collaborator>>('/collaborators?limit=200&status=active').then((r) => r.data).catch(() => [] as Collaborator[]),
-    api.get<PaginatedResponse<User>>('/users?limit=200').then((r) => r.data).catch(() => [] as User[]),
+  const [projectsR, collaboratorsR, usersR] = await Promise.all([
+    loadSafe(api.get<PaginatedResponse<Project>>('/projects?limit=200').then((r) => r.data), [] as Project[]),
+    loadSafe(api.get<PaginatedResponse<Collaborator>>('/collaborators?limit=200&status=active').then((r) => r.data), [] as Collaborator[]),
+    // /users es solo para admin: un 403 no es fallo (loadSafe lo trata como vacío).
+    loadSafe(api.get<PaginatedResponse<User>>('/users?limit=200').then((r) => r.data), [] as User[]),
+  ])
+  const projects = projectsR.data
+  const collaborators = collaboratorsR.data
+  const users = usersR.data
+  const loadErrors = failedLabels([
+    ['proyectos del formulario', projectsR.failed],
+    ['colaboradores del formulario', collaboratorsR.failed],
+    ['usuarios del formulario', usersR.failed],
   ])
 
   // Mismo criterio que el listado y el Resumen.
@@ -74,6 +78,8 @@ export default async function TareaDetallePage({
           Tareas
         </Button>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       <div className="flex items-start justify-between gap-4">
         <div>

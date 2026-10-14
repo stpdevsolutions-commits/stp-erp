@@ -1,7 +1,7 @@
 import { TableEmpty } from '@/components/ui/empty-state'
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, loadMain, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Client, Payment, Project, Quote, PaginatedResponse, User as AppUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -46,28 +46,24 @@ export default async function ClienteDetallePage({
 }) {
   const { id } = await params
 
-  let client: Client
-  try {
-    client = await api.get<Client>(`/clients/${id}`)
-  } catch {
-    notFound()
-  }
+  const client = await loadMain(api.get<Client>(`/clients/${id}`))
 
-  const projectsRes = await api
-    .get<PaginatedResponse<Project>>(`/projects?clientId=${id}&limit=100`)
-    .catch(() => ({ data: [], total: 0, page: 1, limit: 100 }) as PaginatedResponse<Project>)
+  const emptyPage = <T,>(): PaginatedResponse<T> => ({ data: [], total: 0, page: 1, limit: 100 })
+  const projectsR = await loadSafe(
+    api.get<PaginatedResponse<Project>>(`/projects?clientId=${id}&limit=100`),
+    emptyPage<Project>(),
+  )
+  const projectsRes = projectsR.data
 
   // Cobros del cliente (pagos completados) y cotizaciones aprobadas. Un rol sin
   // acceso a Pagos/Cotizaciones recibe 403: la consulta vuelve vacía y el
   // resumen simplemente no se muestra.
-  const [pagosRes, cotizacionesRes] = await Promise.all([
-    api
-      .get<PaginatedResponse<Payment>>(`/payments?clientId=${id}&limit=100`)
-      .catch(() => ({ data: [], total: 0, page: 1, limit: 100 }) as PaginatedResponse<Payment>),
-    api
-      .get<PaginatedResponse<Quote>>(`/quotes?clientId=${id}&status=approved&limit=100`)
-      .catch(() => ({ data: [], total: 0, page: 1, limit: 100 }) as PaginatedResponse<Quote>),
+  const [pagosR, cotizacionesR] = await Promise.all([
+    loadSafe(api.get<PaginatedResponse<Payment>>(`/payments?clientId=${id}&limit=100`), emptyPage<Payment>()),
+    loadSafe(api.get<PaginatedResponse<Quote>>(`/quotes?clientId=${id}&status=approved&limit=100`), emptyPage<Quote>()),
   ])
+  const pagosRes = pagosR.data
+  const cotizacionesRes = cotizacionesR.data
   const pagosCompletados = pagosRes.data.filter((p) => p.status === 'completed')
   const cobrado = pagosCompletados.reduce((s, p) => s + p.amount, 0)
   const aprobado = cotizacionesRes.data.reduce((s, q) => s + q.total, 0)
@@ -76,15 +72,24 @@ export default async function ClienteDetallePage({
   // Panel de accesos: solo para ADMIN (los endpoints /members también lo son)
   const me = await api.get<Pick<AppUser, 'role'>>('/users/me').catch(() => ({ role: 'user' as const }))
   const isAdmin = me.role === 'admin'
-  const [members, users] = isAdmin
+  const [membersR, usersR] = isAdmin
     ? await Promise.all([
-        api.get<Member[]>(`/clients/${id}/members`).catch(() => [] as Member[]),
-        api
-          .get<PaginatedResponse<AppUser>>('/users?limit=100')
-          .then((r) => r.data)
-          .catch(() => [] as AppUser[]),
+        loadSafe(api.get<Member[]>(`/clients/${id}/members`), [] as Member[]),
+        loadSafe(api.get<PaginatedResponse<AppUser>>('/users?limit=100').then((r) => r.data), [] as AppUser[]),
       ])
-    : [[] as Member[], [] as AppUser[]]
+    : [
+        { data: [] as Member[], failed: false },
+        { data: [] as AppUser[], failed: false },
+      ]
+  const members = membersR.data
+  const users = usersR.data
+  const loadErrors = failedLabels([
+    ['proyectos del cliente', projectsR.failed],
+    ['pagos', pagosR.failed],
+    ['cotizaciones', cotizacionesR.failed],
+    ['accesos del cliente', membersR.failed],
+    ['usuarios del formulario', usersR.failed],
+  ])
 
   return (
     <div className="space-y-6">
@@ -95,6 +100,8 @@ export default async function ClienteDetallePage({
           Clientes
         </Button>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">

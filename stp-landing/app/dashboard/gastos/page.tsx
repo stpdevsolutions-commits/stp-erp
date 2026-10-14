@@ -2,7 +2,8 @@
 import { SortHead } from '@/components/ui/sort-head'
 import { StatCard } from '@/components/ui/stat-card'
 import { TableEmpty } from '@/components/ui/empty-state'
-import { api, pageError } from '@/lib/api'
+import { api, pageError, loadSafe, failedLabels, UnauthorizedError } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Expense, Project, Client, Supplier, PaginatedResponse, Material, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -59,6 +60,7 @@ export default async function GastosPage({
   let error: string | null = null
   let userRole = 'USER'
   let totalEsteMes = 0
+  let resumenFailed = false
 
   // "Este mes" respeta todos los filtros menos las fechas (el mes ya es su período).
   const summaryQuery = new URLSearchParams()
@@ -75,24 +77,33 @@ export default async function GastosPage({
       api.get<PaginatedResponse<Supplier>>('/suppliers?limit=200&isActive=true'),
       api.get<Pick<User, 'role'>>('/users/me'),
       // Total real del mes calendario, no solo de la página actual (ver ExpensesController.summary).
-      api.get<number>(`/expenses/summary?${summaryQuery.toString()}`).catch(() => 0),
+      api.get<number>(`/expenses/summary?${summaryQuery.toString()}`).catch((e) => {
+        if (e instanceof UnauthorizedError) throw e
+        return null
+      }),
     ])
     gastosRes = gr
     projects = proyRes.data
     clients = clientesRes.data
     suppliers = provRes.data
     userRole = me.role
-    totalEsteMes = esteMes
+    totalEsteMes = esteMes ?? 0
+    resumenFailed = esteMes === null
   } catch (e) {
     error = pageError(e, 'Error al cargar gastos')
   }
 
   // El catálogo de materiales es opcional para esta pantalla: si falla, el formulario
   // sigue sirviendo para registrar gastos, solo sin desglose por material.
-  materials = await api
-    .get<PaginatedResponse<Material>>('/costs/materials?limit=300&isActive=true')
-    .then((r) => r.data)
-    .catch(() => [] as Material[])
+  const materialsR = await loadSafe(
+    api.get<PaginatedResponse<Material>>('/costs/materials?limit=300&isActive=true').then((r) => r.data),
+    [] as Material[],
+  )
+  materials = materialsR.data
+  const loadErrors = failedLabels([
+    ['total de este mes', resumenFailed],
+    ['materiales del formulario de gasto', materialsR.failed],
+  ])
 
   const gastos = gastosRes.data
   // El backend manda la suma de todo lo filtrado; la suma local es solo respaldo.
@@ -114,6 +125,8 @@ export default async function GastosPage({
           <NuevoGastoDialog clients={clients} projects={projects} suppliers={suppliers} materials={materials} userRole={userRole} />
         </div>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <StatCard label="Total registros"><div className="text-2xl font-bold">{gastosRes.total}</div></StatCard>

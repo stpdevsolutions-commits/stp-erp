@@ -1,6 +1,7 @@
 import { TableEmpty } from '@/components/ui/empty-state'
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Ficha, FichaStatus, FichaType, Project, Client, PaginatedResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -45,10 +46,18 @@ export default async function FichasPage({
   if (type) params.set('type', type)
   if (status) params.set('status', status)
 
-  const [fichas, projects, clients] = await Promise.all([
-    api.get<Ficha[]>(`/fichas?${params}`).catch(() => [] as Ficha[]),
-    api.get<PaginatedResponse<Project>>('/projects?limit=200').catch(() => ({ data: [] as Project[], total: 0, page: 1, limit: 200 })),
-    api.get<PaginatedResponse<Client>>('/clients?limit=200').catch(() => ({ data: [] as Client[], total: 0, page: 1, limit: 200 })),
+  const [fichasR, projectsR, clientsR] = await Promise.all([
+    loadSafe(api.get<Ficha[]>(`/fichas?${params}`), [] as Ficha[]),
+    loadSafe(api.get<PaginatedResponse<Project>>('/projects?limit=200'), { data: [] as Project[], total: 0, page: 1, limit: 200 }),
+    loadSafe(api.get<PaginatedResponse<Client>>('/clients?limit=200'), { data: [] as Client[], total: 0, page: 1, limit: 200 }),
+  ])
+  const fichas = fichasR.data
+  const projects = projectsR.data
+  const clients = clientsR.data
+  const loadErrors = failedLabels([
+    ['fichas', fichasR.failed],
+    ['proyectos del filtro', projectsR.failed],
+    ['clientes del filtro', clientsR.failed],
   ])
 
   return (
@@ -59,6 +68,8 @@ export default async function FichasPage({
           Registros técnicos generados desde la app móvil
         </p>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       {/* Filtros */}
       <FiltrosFichas clients={clients.data} projects={projects.data} />

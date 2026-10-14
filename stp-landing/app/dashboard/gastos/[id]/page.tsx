@@ -1,6 +1,6 @@
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, loadMain, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Expense, Project, Supplier, Material, PaginatedResponse, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,22 +28,26 @@ export default async function GastoDetallePage({
 }) {
   const { id } = await params
 
-  let gasto: Expense
-  try {
-    gasto = await api.get<Expense>(`/expenses/${id}`)
-  } catch {
-    notFound()
-  }
+  const gasto = await loadMain(api.get<Expense>(`/expenses/${id}`))
 
   // La factura fiscal que originó este gasto, si la hay. Solo admin y finanzas pueden verla:
   // para el resto (403) o si el gasto no viene de una factura (404) simplemente no se muestra.
-  const factura = await api.get<FiscalInvoice>(`/fiscal-invoices/by-expense/${id}`).catch(() => null)
-
-  const [projects, suppliers, materials, me] = await Promise.all([
-    api.get<PaginatedResponse<Project>>('/projects?limit=200').then((r) => r.data).catch(() => [] as Project[]),
-    api.get<PaginatedResponse<Supplier>>('/suppliers?limit=200&isActive=true').then((r) => r.data).catch(() => [] as Supplier[]),
-    api.get<PaginatedResponse<Material>>('/costs/materials?limit=300&isActive=true').then((r) => r.data).catch(() => [] as Material[]),
+  const [facturaR, projectsR, suppliersR, materialsR, me] = await Promise.all([
+    loadSafe(api.get<FiscalInvoice>(`/fiscal-invoices/by-expense/${id}`), null as FiscalInvoice | null),
+    loadSafe(api.get<PaginatedResponse<Project>>('/projects?limit=200').then((r) => r.data), [] as Project[]),
+    loadSafe(api.get<PaginatedResponse<Supplier>>('/suppliers?limit=200&isActive=true').then((r) => r.data), [] as Supplier[]),
+    loadSafe(api.get<PaginatedResponse<Material>>('/costs/materials?limit=300&isActive=true').then((r) => r.data), [] as Material[]),
     api.get<Pick<User, 'role'>>('/users/me').catch(() => ({ role: 'user' as const })),
+  ])
+  const factura = facturaR.data
+  const projects = projectsR.data
+  const suppliers = suppliersR.data
+  const materials = materialsR.data
+  const loadErrors = failedLabels([
+    ['factura fiscal vinculada', facturaR.failed],
+    ['proyectos del formulario', projectsR.failed],
+    ['proveedores del formulario', suppliersR.failed],
+    ['materiales del formulario', materialsR.failed],
   ])
 
   return (
@@ -54,6 +58,8 @@ export default async function GastoDetallePage({
           Gastos
         </Button>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       <div className="flex items-start justify-between gap-4">
         <div>

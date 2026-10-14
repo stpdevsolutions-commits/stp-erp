@@ -1,7 +1,7 @@
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { AlertTriangle, ChevronLeft } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, loadMain, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { AcuCostResponse, Material, PaginatedResponse, Unit } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,22 +32,23 @@ export default async function AcuDetallePage({ params }: { params: Promise<{ id:
   const { id } = await params
 
   // Un solo viaje: `/cost` devuelve la partida con su receta Y la valoración de hoy.
-  let res: AcuCostResponse
-  try {
-    res = await api.get<AcuCostResponse>(`/costs/acus/${id}/cost`)
-  } catch {
-    notFound()
-  }
+  const res = await loadMain(api.get<AcuCostResponse>(`/costs/acus/${id}/cost`))
 
   const { acu, cost } = res
   const items = acu.items ?? []
 
-  const [units, materials] = await Promise.all([
-    api.get<Unit[]>('/costs/units').catch(() => [] as Unit[]),
-    api
-      .get<PaginatedResponse<Material>>('/costs/materials?limit=300&isActive=true')
-      .then((r) => r.data)
-      .catch(() => [] as Material[]),
+  const [unitsR, materialsR] = await Promise.all([
+    loadSafe(api.get<Unit[]>('/costs/units'), [] as Unit[]),
+    loadSafe(
+      api.get<PaginatedResponse<Material>>('/costs/materials?limit=300&isActive=true').then((r) => r.data),
+      [] as Material[],
+    ),
+  ])
+  const units = unitsR.data
+  const materials = materialsR.data
+  const loadErrors = failedLabels([
+    ['unidades', unitsR.failed],
+    ['catálogo de materiales (para la receta)', materialsR.failed],
   ])
 
   const lineByItem = new Map(cost.lines.map((l) => [l.itemId, l]))
@@ -72,6 +73,8 @@ export default async function AcuDetallePage({ params }: { params: Promise<{ id:
           Partidas (ACU)
         </Link>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>

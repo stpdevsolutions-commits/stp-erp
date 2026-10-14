@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Project, Task, PaginatedResponse } from '@/lib/types'
 import { Card, CardContent } from '@/components/ui/card'
 import { Calendar, MapPin, User, HardHat, UserCheck, ExternalLink } from 'lucide-react'
@@ -18,23 +19,35 @@ export default async function CronogramaPage({
 }) {
   const { proyecto: proyectoId } = await searchParams
 
-  const projectsResult = await api
-    .get<PaginatedResponse<Project>>('/projects?limit=200')
-    .catch(() => ({ data: [] as Project[], total: 0, page: 1, limit: 200 }))
-  const projects = projectsResult.data
+  const projectsR = await loadSafe(
+    api.get<PaginatedResponse<Project>>('/projects?limit=200'),
+    { data: [] as Project[], total: 0, page: 1, limit: 200 },
+  )
+  const projects = projectsR.data.data
+  let projectFailed = false
+  let tasksFailed = false
 
   let project: Project | null = null
   let tasks: Task[] = []
 
   if (proyectoId) {
-    project = await api.get<Project>(`/projects/${proyectoId}`).catch(() => null)
+    const projectR = await loadSafe(api.get<Project>(`/projects/${proyectoId}`), null as Project | null)
+    project = projectR.data
+    projectFailed = projectR.failed
     if (project) {
-      const tasksResult = await api
-        .get<PaginatedResponse<Task>>(`/tasks?projectId=${proyectoId}&limit=200`)
-        .catch(() => ({ data: [] as Task[], total: 0, page: 1, limit: 200 }))
-      tasks = tasksResult.data
+      const tasksR = await loadSafe(
+        api.get<PaginatedResponse<Task>>(`/tasks?projectId=${proyectoId}&limit=200`),
+        { data: [] as Task[], total: 0, page: 1, limit: 200 },
+      )
+      tasks = tasksR.data.data
+      tasksFailed = tasksR.failed
     }
   }
+  const loadErrors = failedLabels([
+    ['lista de proyectos', projectsR.failed],
+    ['el proyecto seleccionado', projectFailed],
+    ['las actividades del cronograma', tasksFailed],
+  ])
 
   return (
     <div className="space-y-6">
@@ -46,6 +59,8 @@ export default async function CronogramaPage({
           Actividades de un proyecto organizadas por semana, con su avance frente al plazo.
         </p>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       <ProyectoSelector projects={projects} selectedId={proyectoId ?? ''} />
 

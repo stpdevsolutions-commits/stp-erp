@@ -1,7 +1,7 @@
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, loadMain, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type {
   Material,
   MaterialPrice,
@@ -72,25 +72,26 @@ export default async function MaterialDetallePage({
   const sp = await searchParams
   const includeVoided = sp.anulados === '1'
 
-  let material: Material
-  try {
-    material = await api.get<Material>(`/costs/materials/${id}`)
-  } catch {
-    notFound()
-  }
+  const material = await loadMain(api.get<Material>(`/costs/materials/${id}`))
 
   const pricesQuery = new URLSearchParams({ limit: '100' })
   if (includeVoided) pricesQuery.set('includeVoided', 'true')
 
-  const [report, prices, suppliers] = await Promise.all([
-    api.get<MaterialPriceReport>(`/costs/materials/${id}/prices/report`).catch(() => null),
-    api
-      .get<PaginatedResponse<MaterialPrice>>(`/costs/materials/${id}/prices?${pricesQuery}`)
-      .catch(() => ({ data: [], total: 0, page: 1, limit: 100 }) as PaginatedResponse<MaterialPrice>),
-    api
-      .get<PaginatedResponse<Supplier>>('/suppliers?limit=200')
-      .then((r) => r.data)
-      .catch(() => [] as Supplier[]),
+  const [reportR, pricesR, suppliersR] = await Promise.all([
+    loadSafe(api.get<MaterialPriceReport>(`/costs/materials/${id}/prices/report`), null as MaterialPriceReport | null),
+    loadSafe(
+      api.get<PaginatedResponse<MaterialPrice>>(`/costs/materials/${id}/prices?${pricesQuery}`),
+      { data: [], total: 0, page: 1, limit: 100 } as PaginatedResponse<MaterialPrice>,
+    ),
+    loadSafe(api.get<PaginatedResponse<Supplier>>('/suppliers?limit=200').then((r) => r.data), [] as Supplier[]),
+  ])
+  const report = reportR.data
+  const prices = pricesR.data
+  const suppliers = suppliersR.data
+  const loadErrors = failedLabels([
+    ['resumen de precios', reportR.failed],
+    ['historial de precios', pricesR.failed],
+    ['proveedores del formulario', suppliersR.failed],
   ])
 
   const summary = report?.summary
@@ -107,6 +108,8 @@ export default async function MaterialDetallePage({
           Materiales
         </Link>
       </div>
+
+      <LoadErrorBanner failed={loadErrors} />
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>

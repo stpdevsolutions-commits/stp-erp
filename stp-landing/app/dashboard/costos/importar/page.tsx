@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { AlertTriangle, FileText } from 'lucide-react'
-import { api, pageError } from '@/lib/api'
+import { api, pageError, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { PaginatedResponse, PriceImport, Supplier } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -42,10 +43,12 @@ export default async function ImportarPreciosPage({
     error = pageError(e, 'Error al cargar las importaciones')
   }
 
-  const suppliers = await api
-    .get<PaginatedResponse<Supplier>>('/suppliers?limit=200')
-    .then((r) => r.data)
-    .catch(() => [] as Supplier[])
+  const suppliersR = await loadSafe(
+    api.get<PaginatedResponse<Supplier>>('/suppliers?limit=200').then((r) => r.data),
+    [] as Supplier[],
+  )
+  const suppliers = suppliersR.data
+  const loadErrors = failedLabels([['proveedores del formulario de subida', suppliersR.failed]])
 
   // Mientras haya un lote en la cola la página se refresca sola: el resultado llega
   // minutos después y nadie debería quedarse pulsando F5.
@@ -69,6 +72,8 @@ export default async function ImportarPreciosPage({
       <CostosTabs />
 
       <ImportarPasos />
+
+      <LoadErrorBanner failed={loadErrors} />
 
       {error && (
         <Card className="border-destructive/50">

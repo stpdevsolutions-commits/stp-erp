@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Client, PaginatedResponse, Project, Quote } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { FacturaEmitidaForm } from '@/components/facturas/emitidas/factura-emitida-form'
@@ -12,14 +13,24 @@ export default async function NuevaFacturaEmitidaPage({
 }) {
   const sp = await searchParams
 
-  const [clients, projects, quotes] = await Promise.all([
-    api.get<PaginatedResponse<Client>>('/clients?limit=200').then((r) => r.data).catch(() => [] as Client[]),
-    api.get<PaginatedResponse<Project>>('/projects?limit=200').then((r) => r.data).catch(() => [] as Project[]),
+  const [clientsR, projectsR, quotesR] = await Promise.all([
+    loadSafe(api.get<PaginatedResponse<Client>>('/clients?limit=200').then((r) => r.data), [] as Client[]),
+    loadSafe(api.get<PaginatedResponse<Project>>('/projects?limit=200').then((r) => r.data), [] as Project[]),
     // Solo las vigentes y aprobadas se pueden facturar.
-    api
-      .get<PaginatedResponse<Quote>>('/quotes?limit=200&status=approved')
-      .then((r) => r.data.filter((q) => !q.supersededById))
-      .catch(() => [] as Quote[]),
+    loadSafe(
+      api
+        .get<PaginatedResponse<Quote>>('/quotes?limit=200&status=approved')
+        .then((r) => r.data.filter((q) => !q.supersededById)),
+      [] as Quote[],
+    ),
+  ])
+  const clients = clientsR.data
+  const projects = projectsR.data
+  const quotes = quotesR.data
+  const loadErrors = failedLabels([
+    ['clientes', clientsR.failed],
+    ['proyectos', projectsR.failed],
+    ['cotizaciones aprobadas', quotesR.failed],
   ])
 
   return (
@@ -30,6 +41,7 @@ export default async function NuevaFacturaEmitidaPage({
           Facturas emitidas
         </Button>
       </div>
+      <LoadErrorBanner failed={loadErrors} />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Nueva factura</h1>
         <p className="text-muted-foreground text-sm">

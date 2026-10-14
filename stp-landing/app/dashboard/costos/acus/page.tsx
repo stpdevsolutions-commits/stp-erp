@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
-import { api, pageError } from '@/lib/api'
+import { api, pageError, loadSafe, failedLabels } from '@/lib/api'
+import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import type { Acu, PaginatedResponse, Unit } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -47,13 +48,16 @@ export default async function AcusPage({
     error = pageError(e, 'Error al cargar las partidas')
   }
 
-  const [units, todas] = await Promise.all([
-    api.get<Unit[]>('/costs/units').catch(() => [] as Unit[]),
+  const [unitsR, todasR] = await Promise.all([
+    loadSafe(api.get<Unit[]>('/costs/units'), [] as Unit[]),
     // Solo para sugerir capítulos ya usados: sin `withCost`, que es lo que cuesta.
-    api
-      .get<PaginatedResponse<Acu>>('/costs/acus?limit=200')
-      .then((r) => r.data)
-      .catch(() => [] as Acu[]),
+    loadSafe(api.get<PaginatedResponse<Acu>>('/costs/acus?limit=200').then((r) => r.data), [] as Acu[]),
+  ])
+  const units = unitsR.data
+  const todas = todasR.data
+  const loadErrors = failedLabels([
+    ['unidades del formulario de alta', unitsR.failed],
+    ['capítulos sugeridos', todasR.failed],
   ])
 
   const chapters = [...new Set(todas.map((a) => a.chapter).filter(Boolean) as string[])].sort()
@@ -74,6 +78,8 @@ export default async function AcusPage({
       </div>
 
       <CostosTabs />
+
+      <LoadErrorBanner failed={loadErrors} />
 
       {incompletas > 0 && (
         <p className="text-destructive flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm">
