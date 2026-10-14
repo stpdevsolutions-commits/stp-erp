@@ -2,9 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NotificationsService } from './notifications/notifications.service';
 
+import { getCorsOrigins } from './common/cors';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors({ origin: '*' });
+  app.enableCors({ origin: getCorsOrigins() });
   app.setGlobalPrefix('api');
   await app.listen(process.env.PORT ?? 3002);
   console.log(`Vigía backend running on port ${process.env.PORT ?? 3002}`);

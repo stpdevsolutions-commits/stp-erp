@@ -13,7 +13,9 @@ import { ContainersService } from '../containers/containers.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { ProjectsService } from '../projects/projects.service';
 
-@WebSocketGateway({ cors: { origin: '*' }, namespace: '/monitor' })
+import { getCorsOrigins } from '../common/cors';
+
+@WebSocketGateway({ cors: { origin: getCorsOrigins() }, namespace: '/monitor' })
 export class MonitorGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
 

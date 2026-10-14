@@ -15,7 +15,9 @@ export class ContainersService {
   private docker: Dockerode;
 
   constructor() {
-    this.docker = new Dockerode({ socketPath: '/var/run/docker.sock' });
+    this.docker = process.env.DOCKER_PROXY_HOST
+      ? new Dockerode({ host: process.env.DOCKER_PROXY_HOST, port: Number(process.env.DOCKER_PROXY_PORT ?? 2375) })
+      : new Dockerode({ socketPath: '/var/run/docker.sock' });
   }
 
   async getContainers(): Promise<ContainerInfo[]> {

@@ -220,6 +220,22 @@ services:
     depends_on:
       - stp-caddy
 
+  # Proxy de solo lectura al socket de Docker (INF-15): Vigía solo lista contenedores
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0@sha256:9e4b9e7517a6b660f2cc903a19b257b1852d5b3344794e3ea334ff00ae677ac2
+    container_name: docker-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # read_only no es posible: el entrypoint genera haproxy.cfg en /usr/local/etc/haproxy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - stp-network
+
   # Vigía — backend de monitoreo
   vigia-backend:
     build:
@@ -239,8 +255,10 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       ALERT_TO_EMAIL: ${ALERT_TO_EMAIL:-pedroangss@gmail.com}
       LOCAL_AGENT_KEY: ${LOCAL_AGENT_KEY:-}
+      DOCKER_PROXY_HOST: docker-socket-proxy
+      DOCKER_PROXY_PORT: 2375
+      CORS_ORIGINS: https://monitor.stpsoluciones.com
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /data:/data:ro
       - /storage:/storage:ro
       # Solo lectura: ProjectsService corre git status/log ahí adentro (ver
@@ -263,6 +281,8 @@ services:
     depends_on:
       stp-postgres:
         condition: service_healthy
+      docker-socket-proxy:
+        condition: service_started
 
   # Vigía — dashboard frontend
   vigia-frontend:
