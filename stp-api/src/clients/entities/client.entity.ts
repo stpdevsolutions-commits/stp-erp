@@ -4,7 +4,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
+import { phoneNormalizedSql } from '../../common/phone-normalized';
 
 export enum ClientType {
   COMPANY = 'company',
@@ -31,6 +33,11 @@ export class Client {
   @Column({ type: 'varchar', nullable: true })
   phone: string;
 
+  /** Teléfono en solo dígitos con código de país, generado por Postgres (ERP-75). */
+  @Index('IDX_clients_phoneNormalized')
+  @Column({ type: 'varchar', nullable: true, insert: false, update: false, generatedType: 'STORED', asExpression: phoneNormalizedSql('phone') })
+  phoneNormalized: string | null;
+
   @Column({ type: 'varchar', nullable: true })
   address: string;
 
@@ -42,6 +49,10 @@ export class Client {
 
   @Column({ type: 'varchar', nullable: true })
   contactPhone: string;
+
+  @Index('IDX_clients_contactPhoneNormalized')
+  @Column({ type: 'varchar', nullable: true, insert: false, update: false, generatedType: 'STORED', asExpression: phoneNormalizedSql('contactPhone') })
+  contactPhoneNormalized: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string;

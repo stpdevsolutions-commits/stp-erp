@@ -29,7 +29,9 @@ export function PanelLead({ contact, agents, onChanged }: Props) {
   const notesEl = useRef<HTMLTextAreaElement>(null)
   const latest = useRef({ id: contact.id, name, service, notes, saved: contact })
   const [clientQuery, setClientQuery] = useState('')
-  const [clientHits, setClientHits] = useState<{ id: string; name: string; phone: string | null }[]>([])
+  const [clientHitsRaw, setClientHits] = useState<{ id: string; name: string; phone: string | null }[]>([])
+  // Con menos de 2 letras no hay sugerencias, sin vaciar el estado desde el efecto.
+  const clientHits = clientQuery.trim().length < 2 ? [] : clientHitsRaw
 
   useEffect(() => {
     latest.current = { id: contact.id, name, service, notes, saved: contact }
@@ -56,10 +58,7 @@ export function PanelLead({ contact, agents, onChanged }: Props) {
 
   useEffect(() => {
     const q = clientQuery.trim()
-    if (q.length < 2) {
-      setClientHits([])
-      return
-    }
+    if (q.length < 2) return
     const t = setTimeout(() => {
       mFetch<{ id: string; name: string; phone: string | null }[]>(`/clients?search=${encodeURIComponent(q)}`)
         .then(setClientHits)

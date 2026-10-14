@@ -2,6 +2,8 @@ import { isNewerThan, parseWebhook, previewOf, summarizeWebhook } from './whatsa
 import { isWorkingHours, MessagingService } from './messaging.service';
 import { ConflictException } from '@nestjs/common';
 import { WA_TEMPLATES } from './wa-templates';
+import { normalizePhone } from '../notifications/whatsapp.service';
+import { phoneNormalizedSql } from '../common/phone-normalized';
 
 const wrap = (value: unknown) => ({ entry: [{ changes: [{ value }] }] });
 
@@ -141,7 +143,10 @@ describe('envío saliente', () => {
       update: jest.fn(async () => undefined),
       findOne: jest.fn(async () => ({ id: 'm1', status: 'sent' })),
     };
-    const contacts = { findOne: jest.fn(async () => contact), update: jest.fn(async () => undefined) };
+    const qb: Record<string, jest.Mock> = {};
+    for (const k of ['update', 'set', 'where', 'setParameters']) qb[k] = jest.fn(() => qb);
+    qb.execute = jest.fn(async () => undefined);
+    const contacts = { findOne: jest.fn(async () => contact), update: jest.fn(async () => undefined), createQueryBuilder: jest.fn(() => qb) };
     const svc = new MessagingService(
       contacts as never,
       messages as never,
@@ -152,7 +157,7 @@ describe('envío saliente', () => {
       {} as never,
       { get: () => undefined } as never,
     );
-    return { svc, messages, saved };
+    return { svc, messages, saved, qb };
   };
 
   it('guarda el mensaje como "sending" antes de enviarlo a Meta', async () => {
@@ -166,6 +171,14 @@ describe('envío saliente', () => {
     await svc.sendText('u1', 'c1', 'Hola');
     expect(statusAtSend).toBe('sending');
     expect(messages.update).toHaveBeenCalledWith('m1', { waId: 'wamid.X', status: 'sent' });
+  });
+
+  it('lastMessageAt del envío usa GREATEST para no retroceder', async () => {
+    const { svc, qb } = build(jest.fn(async () => ({ wamid: 'w1' })));
+    await svc.sendText('u1', 'c1', 'Hola');
+    const set = qb.set.mock.calls[0][0] as { lastMessageAt: () => string };
+    expect(set.lastMessageAt()).toBe('GREATEST("lastMessageAt", :sentAt)');
+    expect(qb.setParameters).toHaveBeenCalledWith({ sentAt: expect.any(Date) });
   });
 
   it('si Meta rechaza, el mensaje queda como fallido', async () => {
@@ -183,5 +196,52 @@ describe('envío saliente', () => {
     const bad = build(jest.fn().mockRejectedValueOnce(new Error('x')).mockResolvedValue({ wamid: 'w2' }));
     await expect(bad.svc.sendText('u1', 'c1', 'Hola')).rejects.toThrow();
     await expect(bad.svc.sendText('u1', 'c1', 'Hola')).resolves.toBeDefined();
+  });
+});
+
+describe('teléfono normalizado (ERP-75)', () => {
+  it('unifica formatos de RD con y sin código de país', () => {
+    for (const raw of ['809-420-8567', '(809) 420 8567', '8094208567', '+1 809 420 8567', '18094208567', '1-809-420-8567']) {
+      expect(normalizePhone(raw)).toBe('18094208567');
+    }
+  });
+
+  it('rechaza lo que no parece un número', () => {
+    for (const raw of ['', 'abc', '12345', '1234567890123456']) expect(normalizePhone(raw)).toBeNull();
+  });
+
+  it('la expresión SQL sigue la misma regla (10 dígitos => 1 + dígitos; 11 a 15; si no, NULL)', () => {
+    const sql = phoneNormalizedSql('phone');
+    expect(sql).toContain("regexp_replace(\"phone\", '\\D', '', 'g')");
+    expect(sql).toContain("= 10 THEN '1' ||");
+    expect(sql).toContain('BETWEEN 11 AND 15');
+    expect(sql).toContain('ELSE NULL END');
+  });
+
+  const svcWith = (users: unknown, clients: unknown) =>
+    new MessagingService({} as never, {} as never, users as never, clients as never, {} as never, { registerRaw: jest.fn() } as never, {} as never, { get: () => undefined } as never);
+
+  it('isStaff consulta por la columna normalizada e ignora entradas inválidas', async () => {
+    const where = jest.fn();
+    const qb = { where: (...a: unknown[]) => (where(...a), qb), getExists: jest.fn(async () => true) };
+    const svc = svcWith({ createQueryBuilder: () => qb }, {});
+    await expect(svc.isStaff('809-420-8567')).resolves.toBe(true);
+    expect(where).toHaveBeenCalledWith(expect.stringContaining('u.phoneNormalized = :p'), { p: '18094208567' });
+    await expect(svc.isStaff('xx')).resolves.toBe(false);
+    expect(qb.getExists).toHaveBeenCalledTimes(1);
+  });
+
+  it('findClientId busca por teléfono o teléfono de contacto y devuelve null si no hay', async () => {
+    const where = jest.fn();
+    const getRawOne = jest.fn().mockResolvedValueOnce({ id: 'cli1' }).mockResolvedValueOnce(undefined);
+    const qb: Record<string, unknown> = {};
+    for (const k of ['select', 'orderBy', 'limit']) qb[k] = () => qb;
+    qb.where = (...a: unknown[]) => (where(...a), qb);
+    qb.getRawOne = getRawOne;
+    const svc = svcWith({}, { createQueryBuilder: () => qb });
+    await expect(svc.findClientId('8094208567')).resolves.toBe('cli1');
+    expect(where).toHaveBeenCalledWith('c.phoneNormalized = :p OR c.contactPhoneNormalized = :p', { p: '18094208567' });
+    await expect(svc.findClientId('18094208567')).resolves.toBeNull();
+    await expect(svc.findClientId('')).resolves.toBeNull();
   });
 });

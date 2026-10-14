@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { fetchWithSession } from '@/lib/session-fetch'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -43,10 +43,6 @@ function jsonError(status: number, message: string): NextResponse {
 async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
   if (!validPath(path)) return jsonError(400, 'Ruta no válida')
 
-  const store = await cookies()
-  const token = store.get('stp-token')?.value
-  if (!token) return new NextResponse('Unauthorized', { status: 401 })
-
   const hasBody = req.method !== 'GET' && req.method !== 'HEAD'
   if (hasBody && Number(req.headers.get('content-length') ?? 0) > MAX_BODY_BYTES) {
     return jsonError(413, 'El archivo es demasiado grande (máximo 10 MB).')
@@ -65,7 +61,7 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
 
   let res: Response
   try {
-    res = await fetch(`${API_URL}/messaging${path.length ? `/${path.join('/')}` : ''}${req.nextUrl.search}`, {
+    res = await fetchWithSession((token) => fetch(`${API_URL}/messaging${path.length ? `/${path.join('/')}` : ''}${req.nextUrl.search}`, {
       method: req.method,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -74,7 +70,7 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
       body,
       cache: 'no-store',
       signal: AbortSignal.timeout(BACKEND_TIMEOUT_MS),
-    })
+    }))
   } catch (err) {
     const timedOut = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
     return jsonError(timedOut ? 504 : 502, timedOut ? 'El servidor tardó demasiado en responder.' : 'No se pudo contactar al servidor.')

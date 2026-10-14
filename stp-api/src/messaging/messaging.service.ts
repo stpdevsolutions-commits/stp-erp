@@ -43,8 +43,6 @@ const ESCALATE_AFTER_MS = 30 * 60 * 1000;
 const MAX_MEDIA_BYTES = 16 * 1024 * 1024;
 /** Un mensaje idéntico (mismo usuario, contacto y contenido) dentro de este lapso se toma por doble clic. */
 const DUPLICATE_WINDOW_MS = 5_000;
-/** Las listas de teléfonos de personal y clientes se recuerdan este tiempo en vez de recargarse por cada mensaje. */
-const PHONE_CACHE_TTL_MS = 60_000;
 /** Avisos de estado que llegaron antes de que se guardara el id del mensaje: se recuerdan unos minutos. */
 const ORPHAN_TTL_MS = 5 * 60_000;
 const ORPHAN_MAX = 500;
@@ -96,7 +94,6 @@ export class MessagingService implements OnModuleInit {
   private readonly erpUrl: string;
   private readonly recentSends = new Map<string, number>();
   private readonly orphanStatuses = new Map<string, { status: string; error?: string; at: number }>();
-  private readonly phoneCache = new Map<string, { at: number; value: Promise<unknown> }>();
 
   constructor(
     @InjectRepository(WaContact) private readonly contacts: Repository<WaContact>,
@@ -538,8 +535,7 @@ export class MessagingService implements OnModuleInit {
     await this.messages.update(saved.id, { waId: wamid, status: 'sent' });
     await this.applyOrphan(saved.id, wamid);
 
-    const patch: Partial<WaContact> = {
-      lastMessageAt: saved.sentAt,
+    const patch = {
       lastMessagePreview: previewOf(m.type, m.body),
       awaitingReply: false,
       unreadCount: 0,
@@ -548,7 +544,14 @@ export class MessagingService implements OnModuleInit {
       assignedToId: c.assignedToId ?? userId,
       stage: c.stage === LeadStage.NEW ? LeadStage.QUALIFYING : c.stage,
     };
-    await this.contacts.update(c.id, patch);
+    await this.contacts
+      .createQueryBuilder()
+      .update(WaContact)
+      // GREATEST como en la entrada: un envío con reloj atrasado no hace retroceder la última actividad.
+      .set({ ...patch, lastMessageAt: () => 'GREATEST("lastMessageAt", :sentAt)' })
+      .where('id = :id', { id: c.id })
+      .setParameters({ sentAt: saved.sentAt })
+      .execute();
     if (!c.assignedToId) auditLog(userId, 'whatsapp.auto-assign', { contactId: c.id });
     if (patch.stage !== c.stage) auditLog(userId, 'whatsapp.stage', { contactId: c.id, from: c.stage, to: patch.stage });
 
@@ -660,49 +663,25 @@ export class MessagingService implements OnModuleInit {
     return c;
   }
 
-  /** Recuerda por 60 s lo que cuesta cargar (todos los usuarios/clientes) en vez de repetirlo por cada mensaje. */
-  private cached<T>(slot: string, load: () => Promise<T>): Promise<T> {
-    const hit = this.phoneCache.get(slot);
-    if (hit && Date.now() - hit.at < PHONE_CACHE_TTL_MS) return hit.value as Promise<T>;
-    const value = load();
-    this.phoneCache.set(slot, { at: Date.now(), value });
-    value.catch(() => {
-      if (this.phoneCache.get(slot)?.value === value) this.phoneCache.delete(slot);
-    });
-    return value;
+  /** ¿El número es de un usuario activo del ERP? Consulta indexada sobre `users.phoneNormalized`. */
+  async isStaff(phone: string): Promise<boolean> {
+    const p = normalizePhone(phone);
+    if (!p) return false;
+    return this.users.createQueryBuilder('u').where('u.isActive = true AND u.phoneNormalized = :p', { p }).getExists();
   }
 
-  private async isStaff(phone: string): Promise<boolean> {
-    const set = await this.cached('staffPhones', async () => {
-      const users = await this.users.createQueryBuilder('u').where('u.isActive = true AND u.phone IS NOT NULL').getMany();
-      const out = new Set<string>();
-      for (const u of users) {
-        const p = normalizePhone(u.phone);
-        if (p) out.add(p);
-      }
-      return out;
-    });
-    return set.has(phone);
-  }
-
-  /** Cliente del ERP cuyo teléfono (o el de su contacto) coincide con el número. */
-  private async findClientId(phone: string): Promise<string | null> {
-    const map = await this.cached('clientPhones', async () => {
-      const rows = await this.clients
-        .createQueryBuilder('c')
-        .select(['c.id', 'c.phone', 'c.contactPhone'])
-        .where('c.phone IS NOT NULL OR c.contactPhone IS NOT NULL')
-        .getMany();
-      const out = new Map<string, string>();
-      for (const c of rows) {
-        for (const raw of [c.phone, c.contactPhone]) {
-          const p = raw ? normalizePhone(raw) : null;
-          if (p && !out.has(p)) out.set(p, c.id);
-        }
-      }
-      return out;
-    });
-    return map.get(phone) ?? null;
+  /** Cliente del ERP cuyo teléfono (o el de su contacto) coincide con el número. Consulta indexada. */
+  async findClientId(phone: string): Promise<string | null> {
+    const p = normalizePhone(phone);
+    if (!p) return null;
+    const row = await this.clients
+      .createQueryBuilder('c')
+      .select('c.id', 'id')
+      .where('c.phoneNormalized = :p OR c.contactPhoneNormalized = :p', { p })
+      .orderBy('c.createdAt', 'ASC')
+      .limit(1)
+      .getRawOne<{ id: string }>();
+    return row?.id ?? null;
   }
 
   private toView(c: WaContact) {

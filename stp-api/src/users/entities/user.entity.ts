@@ -4,8 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { phoneNormalizedSql } from '../../common/phone-normalized';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -44,6 +46,11 @@ export class User {
   /** Para notificaciones por WhatsApp (asignación de tareas, etc.). Cualquier formato; se normaliza al enviar. */
   @Column({ type: 'varchar', nullable: true })
   phone: string;
+
+  /** Solo dígitos con código de país; la calcula Postgres a partir de `phone` (ERP-75). No se escribe a mano. */
+  @Index('IDX_users_phoneNormalized')
+  @Column({ type: 'varchar', nullable: true, insert: false, update: false, generatedType: 'STORED', asExpression: phoneNormalizedSql('phone') })
+  phoneNormalized: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

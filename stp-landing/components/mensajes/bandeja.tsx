@@ -84,10 +84,9 @@ export function Bandeja() {
 
   // Conversación abierta por enlace (notificación, Telegram) que no está en el filtro actual.
   useEffect(() => {
-    if (!selectedId || contacts.some((c) => c.id === selectedId)) {
-      setExtra(null)
-      return
-    }
+    // Si ya está en la lista (o no hay selección) no hace falta pedirla; `selected` prefiere la lista
+    // y solo usa `extra` si su id coincide, así que no hace falta vaciarla aquí.
+    if (!selectedId || contacts.some((c) => c.id === selectedId)) return
     mFetch<WaContactView>(`/contacts/${selectedId}`).then(setExtra).catch(() => setExtra(null))
   }, [selectedId, contacts])
 
