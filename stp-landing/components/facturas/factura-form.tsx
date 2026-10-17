@@ -186,6 +186,8 @@ export function FacturaForm({
   const [candidates, setCandidates] = useState<ExpenseCandidate[]>([])
   const [linkId, setLinkId] = useState<string | null>(null)
   const [syncExpense, setSyncExpense] = useState(false)
+  // Factura dividida entre varios destinos (ERP-81): el destino se cambia desde "Dividir factura".
+  const splitCount = invoice?.splits?.length ?? 0
 
   const {
     register,
@@ -251,13 +253,15 @@ export function FacturaForm({
 
   const destinoLabel = linkId
     ? 'Gasto ya registrado (vinculado)'
-    : destino === GENERAL_EXPENSE
-      ? 'Gasto general (sin proyecto)'
-      : destino === PENDING
-        ? 'Sin asignar (solo cuenta para el 606)'
-        : projects.find((p) => p.id === destino)
-          ? `${projects.find((p) => p.id === destino)!.code} — ${projects.find((p) => p.id === destino)!.name}`
-          : undefined
+    : splitCount > 0
+      ? `Dividida entre ${splitCount} destinos`
+      : destino === GENERAL_EXPENSE
+        ? 'Gasto general (sin proyecto)'
+        : destino === PENDING
+          ? 'Sin asignar (solo cuenta para el 606)'
+          : projects.find((p) => p.id === destino)
+            ? `${projects.find((p) => p.id === destino)!.code} — ${projects.find((p) => p.id === destino)!.name}`
+            : undefined
 
   /** Pasa una lectura (IA o QR) al formulario. La persona revisa y guarda; `file` se adjunta como foto. */
   function applyScan(data: ScanResult, file: File | null) {
@@ -684,7 +688,7 @@ export function FacturaForm({
 
         <div className="col-span-full space-y-1.5">
           <Label>Destino del gasto</Label>
-          <Select value={destino} onValueChange={(v) => v && setValue('destino', v)} disabled={!!linkId}>
+          <Select value={destino} onValueChange={(v) => v && setValue('destino', v)} disabled={!!linkId || splitCount > 0}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Elegir destino">{destinoLabel}</SelectValue>
             </SelectTrigger>
@@ -700,9 +704,11 @@ export function FacturaForm({
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            {linkId
-              ? 'La factura se vincula al gasto que ya registraste: no se crea otro y el proyecto es el de ese gasto.'
-              : 'La factura cuenta para el 606 en cualquier caso. Con destino, además crea su gasto en el ERP.'}
+            {splitCount > 0
+              ? 'La factura está dividida entre varios destinos. Cambia el reparto desde «Dividir factura» en el menú de la factura.'
+              : linkId
+                ? 'La factura se vincula al gasto que ya registraste: no se crea otro y el proyecto es el de ese gasto.'
+                : 'La factura cuenta para el 606 en cualquier caso. Con destino, además crea su gasto en el ERP.'}
           </p>
         </div>
 

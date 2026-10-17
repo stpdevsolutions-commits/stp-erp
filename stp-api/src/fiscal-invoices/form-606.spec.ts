@@ -140,4 +140,33 @@ describe('form-606', () => {
     expect(count('Col 23')).toBe(7);
     expect(count('Col 2 ')).toBe(2);
   });
+
+  describe('factura dividida entre proyectos (ERP-81)', () => {
+    it('el 606 NO cambia: mismos importes y NCF con o sin reparto; solo la columna Proyecto lista los destinos', () => {
+      const entera = factura({ expense: null });
+      const dividida = factura({
+        expense: null,
+        splits: [
+          { project: { code: 'PRJ-2026-001' } },
+          { project: { code: 'PRJ-2026-002' } },
+          { project: null },
+        ],
+      });
+      const a = toRow606(entera);
+      const b = toRow606(dividida);
+
+      // Una sola fila por factura, con el total entero (no una fila por línea de reparto).
+      expect({ ...b, proyecto: '' }).toEqual({ ...a, proyecto: '' });
+      expect(b.totalGeneral).toBe(1180);
+      expect(b.itbis).toBe(180);
+      expect(b.servicios + b.bienes).toBe(1000);
+      expect(b.proyecto).toBe('PRJ-2026-001, PRJ-2026-002, General');
+      expect(a.proyecto).toBe('General');
+    });
+
+    it('sin reparto la columna Proyecto es la de siempre', () => {
+      expect(toRow606(factura({ expense: { project: { code: 'PRJ-2026-003' } }, splits: [] })).proyecto).toBe('PRJ-2026-003');
+      expect(toRow606(factura({ splits: null })).proyecto).toBe('General');
+    });
+  });
 });

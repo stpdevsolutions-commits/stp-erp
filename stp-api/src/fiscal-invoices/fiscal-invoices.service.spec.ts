@@ -58,8 +58,11 @@ function build(opts: { existingSupplierId?: string; expenseCreate?: () => Promis
     checkComprobante: jest.fn(async (): Promise<any> => ({ verdict: 'unknown', estado: null, message: '', isEcf: true })),
   };
   const settings = { getCompanyData: jest.fn(async () => ({ rnc: '132943058' })) };
-  const service = new FiscalInvoicesService(repo as any, dgii as any, settings as any, expenses as any, suppliers as any, expenseRepo as any, scanner as any);
-  return { service, repo, expenses, suppliers, store, scanner, dgii, settings, expenseRepo };
+  // Reparto de la factura (ERP-81): estas pruebas son de facturas sin dividir, así que no hay líneas.
+  const splitRepo = { find: jest.fn(async () => []), findOne: jest.fn(async () => null) };
+  const dataSource = { transaction: jest.fn() };
+  const service = new FiscalInvoicesService(repo as any, dgii as any, settings as any, expenses as any, suppliers as any, expenseRepo as any, scanner as any, splitRepo as any, dataSource as any);
+  return { service, repo, expenses, suppliers, store, scanner, dgii, settings, expenseRepo, splitRepo, dataSource };
 }
 
 const dto = (over: Record<string, unknown> = {}) =>

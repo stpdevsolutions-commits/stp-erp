@@ -2,7 +2,7 @@
 
 import { toast } from '@/lib/toast'
 import { useEffect, useState } from 'react'
-import { ImageIcon, Link2, Link2Off, MoreHorizontal, Pencil, ShieldCheck, Trash2 } from 'lucide-react'
+import { ImageIcon, Link2, Link2Off, MoreHorizontal, Pencil, ShieldCheck, Split, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -22,6 +22,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FacturaForm } from '@/components/facturas/factura-form'
+import { DividirFacturaDialog } from '@/components/facturas/dividir-factura-dialog'
 import { GastoCandidatos } from '@/components/facturas/gasto-candidatos'
 import {
   deleteFiscalInvoice,
@@ -150,11 +151,13 @@ function DeleteDialog({
           <DialogDescription>
             ¿Eliminar la factura <span className="font-mono font-semibold text-foreground">{invoice.ncf}</span> de{' '}
             {invoice.supplierName}? Sale del 606
-            {invoice.expenseId
-              ? invoice.expenseOwned === false
-                ? '. El gasto al que estaba vinculada se conserva'
-                : ' y también se elimina su gasto'
-              : ''}
+            {invoice.splits?.length
+              ? ' y también se eliminan los gastos de cada parte del reparto'
+              : invoice.expenseId
+                ? invoice.expenseOwned === false
+                  ? '. El gasto al que estaba vinculada se conserva'
+                  : ' y también se elimina su gasto'
+                : ''}
             . Esta acción no se puede deshacer.
           </DialogDescription>
         </DialogHeader>
@@ -317,6 +320,7 @@ export function FacturaActions({
   const [validateOpen, setValidateOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const [unlinkOpen, setUnlinkOpen] = useState(false)
+  const [splitOpen, setSplitOpen] = useState(false)
 
   // Editar: admin y finanza (módulo 'facturas' = manage). Eliminar: solo admin.
   const isAdmin = userRole.toLowerCase() === 'admin'
@@ -337,7 +341,14 @@ export function FacturaActions({
             <ShieldCheck className="size-4" />
             Validar en la DGII
           </DropdownMenuItem>
-          {!invoice.expenseId && (
+          {/* Una factura vinculada a un gasto que ya existía no se divide: primero se desvincula. */}
+          {!(invoice.expenseId && invoice.expenseOwned === false) && (
+            <DropdownMenuItem onClick={() => setSplitOpen(true)}>
+              <Split className="size-4" />
+              Dividir factura…
+            </DropdownMenuItem>
+          )}
+          {!invoice.expenseId && !invoice.splits?.length && (
             <DropdownMenuItem onClick={() => setLinkOpen(true)}>
               <Link2 className="size-4" />
               Vincular a un gasto…
@@ -387,6 +398,11 @@ export function FacturaActions({
       {/* Se montan solo abiertos: la búsqueda de gastos nace limpia cada vez. */}
       {linkOpen && <VincularDialog invoice={invoice} open={linkOpen} onOpenChange={setLinkOpen} />}
       {unlinkOpen && <UnlinkDialog invoice={invoice} open={unlinkOpen} onOpenChange={setUnlinkOpen} />}
+
+      {/* Se monta solo abierto: las líneas nacen del reparto guardado cada vez. */}
+      {splitOpen && (
+        <DividirFacturaDialog invoice={invoice} projects={projects} open={splitOpen} onOpenChange={setSplitOpen} />
+      )}
 
       <DeleteDialog invoice={invoice} open={deleteOpen} onOpenChange={setDeleteOpen} />
     </>

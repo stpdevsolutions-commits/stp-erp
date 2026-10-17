@@ -17,6 +17,7 @@ import { ExpensesModule } from './expenses/expenses.module';
 import { FiscalInvoicesModule } from './fiscal-invoices/fiscal-invoices.module';
 import { DgiiModule } from './dgii/dgii.module';
 import { FiscalInvoice } from './fiscal-invoices/entities/fiscal-invoice.entity';
+import { FiscalInvoiceSplit } from './fiscal-invoices/entities/fiscal-invoice-split.entity';
 import { PaymentsModule } from './payments/payments.module';
 import { SalesInvoicesModule } from './sales-invoices/sales-invoices.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
@@ -82,7 +83,7 @@ import { SalesInvoiceLine } from './sales-invoices/entities/sales-invoice-line.e
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry, CollaboratorLoan, ProjectReport, Notification, MaterialCalc, CalcMaterialLink, FiscalInvoice, SalesInvoice, SalesInvoiceLine, WaContact, WaMessage, PushSubscription],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry, CollaboratorLoan, ProjectReport, Notification, MaterialCalc, CalcMaterialLink, FiscalInvoice, FiscalInvoiceSplit, SalesInvoice, SalesInvoiceLine, WaContact, WaMessage, PushSubscription],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',

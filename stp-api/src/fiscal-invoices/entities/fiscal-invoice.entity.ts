@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
@@ -10,6 +11,7 @@ import {
 } from 'typeorm';
 import { Expense } from '../../expenses/entities/expense.entity';
 import { User } from '../../users/entities/user.entity';
+import { FiscalInvoiceSplit } from './fiscal-invoice-split.entity';
 
 const dec = {
   to: (v: number) => v,
@@ -117,6 +119,14 @@ export class FiscalInvoice {
    */
   @Column({ type: 'boolean', default: true })
   expenseOwned: boolean;
+
+  /**
+   * Reparto entre proyectos y gasto general (ERP-81). Vacío = factura sin dividir (usa `expense`).
+   * Con 2 o más líneas, `expenseId` es null y cada línea lleva su propio gasto. La factura sigue
+   * entera para el 606: el reparto solo decide a qué costos se carga el dinero.
+   */
+  @OneToMany(() => FiscalInvoiceSplit, (s) => s.fiscalInvoice)
+  splits?: FiscalInvoiceSplit[];
 
   /** Id de la factura en FiscoRD, para que la migración no duplique si se repite. */
   @Index('UQ_fiscal_invoices_legacy', { unique: true, where: '"legacyId" IS NOT NULL' })

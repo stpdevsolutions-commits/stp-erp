@@ -226,6 +226,29 @@ export class ExpensesService {
     await this.removePdfForExpense(id);
   }
 
+  // ── Ganchos para quien escribe/borra gastos dentro de su propia transacción (ERP-81) ──
+  // El reparto de una factura crea y borra gastos con el EntityManager de SU transacción; lo
+  // accesorio (PDF, precios derivados) se hace aquí, fuera de ella y sin tumbar el dato contable.
+
+  /** (Re)genera el PDF de un gasto ya guardado. No propaga errores. */
+  async refreshPdf(id: string): Promise<void> {
+    try {
+      await this.savePdfForExpense(await this.findOne(id));
+    } catch (err) {
+      this.logger.error(`PDF regeneration failed for expense ${id}: ${(err as Error).message}`);
+    }
+  }
+
+  /** Anula los precios derivados de un gasto que se va a borrar (como hace `remove`). */
+  async voidDerivedPrices(id: string, requesterId?: string): Promise<void> {
+    await this.materialPrices.voidByExpense(id, requesterId);
+  }
+
+  /** Limpia lo accesorio de un gasto ya borrado (su PDF). No propaga errores. */
+  async cleanupRemoved(id: string): Promise<void> {
+    await this.removePdfForExpense(id);
+  }
+
   async findPdfFile(expenseId: string): Promise<FileUpload | null> {
     return this.fileRepo.findOne({ where: { filename: expensePdfFilename(expenseId) } });
   }

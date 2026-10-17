@@ -7,15 +7,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, IsNull, Repository } from 'typeorm';
+import { Brackets, DataSource, EntityManager, In, Repository } from 'typeorm';
 import { existsSync, unlink } from 'fs';
 import { join, relative } from 'path';
 import { FiscalInvoice } from './entities/fiscal-invoice.entity';
+import { FiscalInvoiceSplit } from './entities/fiscal-invoice-split.entity';
 import {
   CreateFiscalInvoiceDto,
   ExpenseCandidatesQueryDto,
   LinkPairDto,
   QueryFiscalInvoicesDto,
+  SplitLineDto,
   UpdateFiscalInvoiceDto,
 } from './dto/fiscal-invoice.dto';
 import {
@@ -26,6 +28,7 @@ import {
   type MatchExpense,
 } from './expense-match';
 import { expenseCategoryFor, invoiceTotal, isValidNcf, isValidRnc, ncfTypeOf, normalizeRnc } from './fiscal-invoice-rules';
+import { checkSplit, describeDifference, mergeSplitLines, toCents, type SplitLine } from './invoice-split';
 import { InvoiceScanService } from './invoice-scan.service';
 import { matchesMagic, normalizeScan, type ScanCore, type ScanResult } from './invoice-scan';
 import { QrParseError, parseDgiiQr } from './qr-ecf';
@@ -33,6 +36,7 @@ import { applyHistory, summarizeHistory, type SupplierHistory } from './supplier
 import { ExpensesService } from '../expenses/expenses.service';
 import { Expense, ExpenseCategory } from '../expenses/entities/expense.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
+import { Project } from '../projects/entities/project.entity';
 import { getUploadRoot, validateFileMagicBytes } from '../files/files.utils';
 import { auditLog } from '../common/audit-log';
 import { DgiiService } from '../dgii/dgii.service';
@@ -64,6 +68,9 @@ export class FiscalInvoicesService {
     @InjectRepository(Expense)
     private readonly expenseRepo: Repository<Expense>,
     private readonly scanner: InvoiceScanService,
+    @InjectRepository(FiscalInvoiceSplit)
+    private readonly splitRepo: Repository<FiscalInvoiceSplit>,
+    private readonly dataSource: DataSource,
   ) {}
 
   private readonly logger = new Logger(FiscalInvoicesService.name);
@@ -118,6 +125,17 @@ export class FiscalInvoicesService {
     projectId: string | null | undefined,
     userId: string,
   ): Promise<void> {
+    // Factura dividida (ERP-81): darle un destino único la deja sin dividir, con ese destino;
+    // si no se pide destino, los gastos de cada línea solo siguen los datos de la factura.
+    if (invoice.splits?.length) {
+      if (projectId !== undefined) {
+        await this.applySplits(invoice, [{ projectId, amount: invoice.totalAmount }], userId);
+      } else {
+        await this.syncSplitExpenses(invoice);
+      }
+      return;
+    }
+
     if (!invoice.expenseId && projectId === undefined) return;
 
     // Gasto que ya existía y solo se vinculó (ERP-50): no se le pisan los datos; a lo sumo
@@ -339,7 +357,12 @@ export class FiscalInvoicesService {
 
   /** La factura que originó un gasto (para mostrarla en el detalle del gasto). */
   async findByExpense(expenseId: string): Promise<FiscalInvoice> {
-    const invoice = await this.repo.findOne({ where: { expenseId } });
+    let invoice = await this.repo.findOne({ where: { expenseId } });
+    if (!invoice) {
+      // El gasto puede ser una parte de una factura dividida (ERP-81).
+      const split = await this.splitRepo.findOne({ where: { expenseId } });
+      if (split) invoice = await this.repo.findOne({ where: { id: split.fiscalInvoiceId } });
+    }
     if (!invoice) throw new NotFoundException('Este gasto no viene de una factura fiscal');
     return invoice;
   }
@@ -374,7 +397,9 @@ export class FiscalInvoicesService {
       .createQueryBuilder('e')
       .leftJoinAndSelect('e.supplier', 's')
       .leftJoinAndSelect('e.project', 'p')
-      .where('NOT EXISTS (SELECT 1 FROM fiscal_invoices f WHERE f."expenseId" = e.id)');
+      .where('NOT EXISTS (SELECT 1 FROM fiscal_invoices f WHERE f."expenseId" = e.id)')
+      // Las partes de una factura dividida (ERP-81) ya tienen factura: no se ofrecen para vincular.
+      .andWhere('NOT EXISTS (SELECT 1 FROM fiscal_invoice_splits sp WHERE sp."expenseId" = e.id)');
     if (dateFrom) qb.andWhere('e.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('e.date <= :dateTo', { dateTo });
     return qb.orderBy('e.date', 'DESC').getMany();
@@ -433,7 +458,7 @@ export class FiscalInvoicesService {
 
   async candidatesForInvoice(id: string) {
     const inv = await this.findOne(id);
-    if (inv.expenseId) return [];
+    if (inv.expenseId || inv.splits?.length) return [];
     return this.expenseCandidates({
       supplierRnc: inv.supplierRnc,
       supplierName: inv.supplierName,
@@ -449,7 +474,13 @@ export class FiscalInvoicesService {
    */
   async reconciliation() {
     const [invoices, expenses] = await Promise.all([
-      this.repo.find({ where: { expenseId: IsNull() }, order: { invoiceDate: 'DESC' } }),
+      // Sin gasto y sin reparto (una factura dividida ya tiene sus gastos, ERP-81).
+      this.repo
+        .createQueryBuilder('inv')
+        .where('inv."expenseId" IS NULL')
+        .andWhere('NOT EXISTS (SELECT 1 FROM fiscal_invoice_splits sp WHERE sp."fiscalInvoiceId" = inv.id)')
+        .orderBy('inv.invoiceDate', 'DESC')
+        .getMany(),
       this.unlinkedExpenses(),
     ]);
     const invById = new Map(invoices.map((i) => [i.id, i]));
@@ -496,6 +527,9 @@ export class FiscalInvoicesService {
   async linkExpense(invoiceId: string, expenseId: string, userId: string, syncExpense = false): Promise<FiscalInvoice> {
     const invoice = await this.findOne(invoiceId);
     if (invoice.expenseId) throw new ConflictException('Esta factura ya tiene un gasto.');
+    if (invoice.splits?.length) {
+      throw new ConflictException('Esta factura está dividida entre proyectos: quita la división antes de vincularla a un gasto.');
+    }
     const expense = await this.expenseRepo.findOne({ where: { id: expenseId } });
     if (!expense) throw new NotFoundException('Gasto no encontrado');
     const taken = await this.repo.findOne({ where: { expenseId } });
@@ -555,9 +589,14 @@ export class FiscalInvoicesService {
     if (dateFrom) qb.andWhere('inv.invoiceDate >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('inv.invoiceDate <= :dateTo', { dateTo });
     if (expenseType) qb.andWhere('inv.expenseType = :expenseType', { expenseType });
-    if (project === 'with') qb.andWhere('expense.projectId IS NOT NULL');
-    if (project === 'without') qb.andWhere('expense.projectId IS NULL');
-    if (projectId) qb.andWhere('expense.projectId = :projectId', { projectId });
+    // Con reparto (ERP-81) el destino está en las líneas, no en el gasto único.
+    const splitWith = (cond: string) =>
+      `EXISTS (SELECT 1 FROM fiscal_invoice_splits sp WHERE sp."fiscalInvoiceId" = inv.id${cond ? ` AND ${cond}` : ''})`;
+    if (project === 'with') qb.andWhere(`(expense.projectId IS NOT NULL OR ${splitWith('sp."projectId" IS NOT NULL')})`);
+    if (project === 'without') {
+      qb.andWhere(`((NOT ${splitWith('')} AND expense.projectId IS NULL) OR ${splitWith('sp."projectId" IS NULL')})`);
+    }
+    if (projectId) qb.andWhere(`(expense.projectId = :projectId OR ${splitWith('sp."projectId" = :projectId')})`, { projectId });
     if (paymentMethod) qb.andWhere('inv.paymentMethod = :paymentMethod', { paymentMethod });
     if (ncfType) qb.andWhere('inv.ncfType = :ncfType', { ncfType });
     if (dgii === 'pending') qb.andWhere('inv.dgiiEstado IS NULL');
@@ -565,8 +604,8 @@ export class FiscalInvoicesService {
     if (dgii === 'issue') {
       qb.andWhere('inv.dgiiEstado IS NOT NULL AND inv.dgiiEstado NOT IN (:...okStates)', { okStates: DGII_OK_STATES });
     }
-    if (assigned === 'assigned') qb.andWhere('inv.expenseId IS NOT NULL');
-    if (assigned === 'unassigned') qb.andWhere('inv.expenseId IS NULL');
+    if (assigned === 'assigned') qb.andWhere(`(inv.expenseId IS NOT NULL OR ${splitWith('')})`);
+    if (assigned === 'unassigned') qb.andWhere(`(inv.expenseId IS NULL AND NOT ${splitWith('')})`);
     if (hasPhoto === 'yes') qb.andWhere('inv.photoPath IS NOT NULL');
     if (hasPhoto === 'no') qb.andWhere('inv.photoPath IS NULL');
     if (amountMin !== undefined) qb.andWhere('inv.totalAmount >= :amountMin', { amountMin });
@@ -590,6 +629,7 @@ export class FiscalInvoicesService {
       qb.getManyAndCount(),
       sumQb.getRawOne<{ sum: string }>(),
     ]);
+    await this.attachSplits(data);
     return { data, total, page, limit, totalAmount: parseFloat(sumRow?.sum ?? '0') };
   }
 
@@ -609,7 +649,24 @@ export class FiscalInvoicesService {
         `Hay más de ${EXPORT_LIMIT} facturas con esos filtros: acota el período (el 606 es mensual).`,
       );
     }
+    await this.attachSplits(rows);
     return rows;
+  }
+
+  /**
+   * Pone en cada factura su reparto (`splits`, vacío si no está dividida) con una sola consulta.
+   * No se une en la consulta del listado: la unión multiplicaría filas y rompería la suma y la paginación.
+   */
+  private async attachSplits(invoices: FiscalInvoice[]): Promise<void> {
+    if (invoices.length === 0) return;
+    const rows = await this.splitRepo.find({
+      where: { fiscalInvoiceId: In(invoices.map((i) => i.id)) },
+      relations: { project: true },
+      order: { position: 'ASC', createdAt: 'ASC' },
+    });
+    const byInvoice = new Map<string, FiscalInvoiceSplit[]>();
+    for (const row of rows) byInvoice.set(row.fiscalInvoiceId, [...(byInvoice.get(row.fiscalInvoiceId) ?? []), row]);
+    for (const inv of invoices) inv.splits = byInvoice.get(inv.id) ?? [];
   }
 
   async findOne(id: string): Promise<FiscalInvoice> {
@@ -618,6 +675,7 @@ export class FiscalInvoicesService {
       relations: { expense: { project: true } },
     });
     if (!invoice) throw new NotFoundException('Factura no encontrada');
+    await this.attachSplits([invoice]);
     return invoice;
   }
 
@@ -636,11 +694,19 @@ export class FiscalInvoicesService {
       Object.entries(fields as Record<string, unknown>).filter(([, v]) => v !== undefined),
     ) as Partial<FiscalInvoice>;
     const merged = { ...invoice, ...defined };
+    const newTotal = invoiceTotal(merged);
+
+    // Una factura dividida reparte exactamente su total: si el total cambiara, el reparto dejaría de cuadrar.
+    if (invoice.splits?.length && toCents(newTotal) !== toCents(invoice.totalAmount)) {
+      throw new ConflictException(
+        'Esta factura está dividida entre proyectos y el cambio modifica su total. Ajusta el reparto (o déjala en un solo destino) y vuelve a intentarlo.',
+      );
+    }
 
     const patch: InvoicePatch = {
       ...(defined as InvoicePatch),
       ncfType: this.typeOrFail(merged.ncf),
-      totalAmount: invoiceTotal(merged),
+      totalAmount: newTotal,
     };
     // Cambió lo fiscal: el resultado de la DGII ya no habla de esta factura.
     if (dto.ncf !== undefined || dto.supplierRnc !== undefined) {
@@ -666,6 +732,20 @@ export class FiscalInvoicesService {
       total: invoice.totalAmount,
     });
     const photo = invoice.photoPath;
+
+    // Factura dividida (ERP-81): la factura y los gastos de todas sus líneas se borran en una sola transacción.
+    if (invoice.splits?.length) {
+      const expenseIds = invoice.splits.map((s) => s.expenseId).filter((e): e is string => !!e);
+      for (const expenseId of expenseIds) await this.expenses.voidDerivedPrices(expenseId, requesterId);
+      await this.dataSource.transaction(async (m) => {
+        await m.getRepository(FiscalInvoice).delete(id);
+        if (expenseIds.length) await m.getRepository(Expense).delete({ id: In(expenseIds) });
+      });
+      if (photo) this.unlinkStored(photo);
+      for (const expenseId of expenseIds) await this.expenses.cleanupRemoved(expenseId);
+      return;
+    }
+
     // Solo se borra el gasto que nació de esta factura; uno vinculado ya existía y se conserva.
     const expenseId = invoice.expenseOwned ? invoice.expenseId : null;
     await this.repo.remove(invoice);
@@ -678,6 +758,163 @@ export class FiscalInvoicesService {
       } catch (err) {
         this.logger.error(`No se pudo borrar el gasto ${expenseId} de la factura ${id}: ${(err as Error).message}`);
       }
+    }
+  }
+
+  // ── Dividir la factura entre proyectos y gasto general (ERP-81) ─────────────
+
+  /**
+   * Guarda el reparto de la factura: cada línea es un destino (proyecto o gasto general) con su
+   * monto, y genera SU PROPIO gasto (categoría, proveedor y fecha de la factura). Reemplaza el
+   * reparto anterior y el gasto único que la factura tuviera, sin dejar duplicados ni huérfanos.
+   *
+   * - La suma de los montos debe ser exactamente el total de la factura (al céntimo).
+   * - El mismo destino repetido se FUSIONA en una línea (suma de montos, notas unidas).
+   * - Una sola línea = factura sin dividir con ese destino (el caso de siempre, `expenseId`).
+   * - Una factura vinculada a mano a un gasto ya existente no se divide: primero se desvincula.
+   */
+  async setSplits(id: string, lines: SplitLineDto[], userId: string): Promise<FiscalInvoice> {
+    const invoice = await this.findOne(id);
+    await this.applySplits(invoice, lines, userId);
+    return this.findOne(id);
+  }
+
+  private async applySplits(invoice: FiscalInvoice, rawLines: SplitLine[], userId: string): Promise<void> {
+    const lines = mergeSplitLines(rawLines);
+    const supplierId = await this.ensureSupplier(invoice);
+
+    const removed: string[] = [];
+    const touched: string[] = [];
+
+    await this.dataSource.transaction(async (m) => {
+      // La factura se bloquea mientras se reparte: dos guardados a la vez no se pisan.
+      await m.query('SELECT id FROM fiscal_invoices WHERE id = $1 FOR UPDATE', [invoice.id]);
+      const fresh = await m.getRepository(FiscalInvoice).findOneByOrFail({ id: invoice.id });
+
+      if (fresh.expenseId && !fresh.expenseOwned) {
+        throw new ConflictException(
+          'Esta factura está vinculada a un gasto que ya existía. Desvincúlala antes de dividirla (así no se cuenta dos veces).',
+        );
+      }
+      const check = checkSplit(fresh.totalAmount, lines);
+      if (!check.ok) {
+        throw new BadRequestException(
+          `El reparto no cuadra con el total de la factura (RD$ ${fresh.totalAmount.toFixed(2)}): ${describeDifference(check.difference)}.`,
+        );
+      }
+      await this.assertProjectsExist(m, lines);
+
+      const expRepo = m.getRepository(Expense);
+      const splitRepo = m.getRepository(FiscalInvoiceSplit);
+      const key = (projectId: string | null) => projectId ?? '__general__';
+
+      // Gastos que ya existen de esta factura y se pueden reutilizar si el destino se repite
+      // (así no cambia de id ni se regenera su PDF sin necesidad). Lo que no se reutilice se borra.
+      const reusable = new Map<string, string>();
+      const discard: string[] = [];
+      const offer = (projectId: string | null, expenseId: string) => {
+        if (reusable.has(key(projectId))) discard.push(expenseId);
+        else reusable.set(key(projectId), expenseId);
+      };
+      const previous = await splitRepo.find({ where: { fiscalInvoiceId: fresh.id } });
+      for (const p of previous) if (p.expenseId) offer(p.projectId, p.expenseId);
+      if (fresh.expenseId) {
+        const single = await expRepo.findOne({ where: { id: fresh.expenseId }, select: { id: true, projectId: true } });
+        if (single) offer(single.projectId, single.id);
+      }
+
+      const many = lines.length > 1;
+      const created: { line: SplitLine; expenseId: string }[] = [];
+      for (const line of lines) {
+        const data = this.splitExpenseData(fresh, line, many, supplierId);
+        const reuse = reusable.get(key(line.projectId));
+        if (reuse) {
+          reusable.delete(key(line.projectId));
+          await expRepo.update(reuse, data);
+          created.push({ line, expenseId: reuse });
+        } else {
+          const saved = await expRepo.save(expRepo.create({ ...data, createdById: userId }));
+          created.push({ line, expenseId: saved.id });
+        }
+        touched.push(created[created.length - 1].expenseId);
+      }
+      discard.push(...reusable.values());
+
+      // El reparto anterior sale entero y el nuevo entra (los destinos únicos no chocan: ya se borraron).
+      await splitRepo.delete({ fiscalInvoiceId: fresh.id });
+      if (many) {
+        await splitRepo.insert(
+          created.map((c, i) => ({
+            fiscalInvoiceId: fresh.id,
+            projectId: c.line.projectId,
+            amount: c.line.amount,
+            note: c.line.note ?? null,
+            expenseId: c.expenseId,
+            position: i,
+          })),
+        );
+        await m.getRepository(FiscalInvoice).update(fresh.id, { expenseId: null, expenseOwned: true });
+      } else {
+        await m.getRepository(FiscalInvoice).update(fresh.id, { expenseId: created[0].expenseId, expenseOwned: true });
+      }
+
+      if (discard.length > 0) {
+        // Los precios derivados de un gasto que se borra se anulan, como en ExpensesService.remove.
+        for (const expenseId of discard) await this.expenses.voidDerivedPrices(expenseId, userId);
+        await expRepo.delete({ id: In(discard) });
+        removed.push(...discard);
+      }
+    });
+
+    auditLog(userId, 'fiscal-invoice.splits-set', {
+      invoiceId: invoice.id,
+      ncf: invoice.ncf,
+      lines: lines.map((l) => ({ projectId: l.projectId, amount: l.amount })),
+    });
+    // Lo accesorio va DESPUÉS de confirmar y sin propagar: el dato contable ya está guardado.
+    for (const expenseId of touched) await this.expenses.refreshPdf(expenseId);
+    for (const expenseId of removed) await this.expenses.cleanupRemoved(expenseId);
+  }
+
+  /** Lo que una línea del reparto pone en su gasto. Con una sola línea es idéntico al gasto único de siempre. */
+  private splitExpenseData(invoice: FiscalInvoice, line: SplitLine, many: boolean, supplierId: string) {
+    const base = `Factura ${invoice.ncf}`;
+    const parts = [many ? `${base}. Parte de RD$ ${invoice.totalAmount.toFixed(2)}` : base];
+    if (line.note) parts.push(line.note);
+    if (invoice.notes) parts.push(invoice.notes);
+    return {
+      projectId: line.projectId,
+      description: `${invoice.supplierName} — ${invoice.ncf}`,
+      category: expenseCategoryFor(invoice.expenseType) as ExpenseCategory,
+      amount: line.amount,
+      date: invoice.invoiceDate,
+      supplierId,
+      notes: parts.join('. '),
+    };
+  }
+
+  /** Los proyectos del reparto existen (mensaje claro en vez de un error de llave foránea). */
+  private async assertProjectsExist(m: EntityManager, lines: SplitLine[]): Promise<void> {
+    const ids = lines.map((l) => l.projectId).filter((p): p is string => !!p);
+    if (ids.length === 0) return;
+    const found = await m.getRepository(Project).find({ where: { id: In(ids) }, select: { id: true } });
+    const missing = ids.filter((id) => !found.some((f) => f.id === id));
+    if (missing.length > 0) throw new BadRequestException(`Proyecto no encontrado: ${missing.join(', ')}`);
+  }
+
+  /**
+   * Deja los gastos de cada línea al día con los datos de la factura (fecha, proveedor, categoría,
+   * descripción y notas). El monto de cada gasto es el de su línea y no cambia aquí.
+   */
+  private async syncSplitExpenses(invoice: FiscalInvoice): Promise<void> {
+    const supplierId = await this.ensureSupplier(invoice);
+    const many = (invoice.splits?.length ?? 0) > 1;
+    for (const s of invoice.splits ?? []) {
+      if (!s.expenseId) continue;
+      await this.expenses.update(
+        s.expenseId,
+        this.splitExpenseData(invoice, { projectId: s.projectId, amount: s.amount, note: s.note }, many, supplierId),
+      );
     }
   }
 

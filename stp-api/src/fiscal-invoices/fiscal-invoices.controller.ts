@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Res,
   UploadedFile,
@@ -28,6 +29,7 @@ import {
   LinkExpenseDto,
   CreateFiscalInvoiceDto,
   QueryFiscalInvoicesDto,
+  SetSplitsDto,
   UpdateFiscalInvoiceDto,
   ValidateDgiiDto,
   ValidatePendingDto,
@@ -219,6 +221,17 @@ export class FiscalInvoicesController {
   @RequireModule('facturas', 'manage')
   linkExpense(@Param('id', ParseUUIDPipe) id: string, @Body() dto: LinkExpenseDto, @CurrentUser() user: AuthUser) {
     return this.service.linkExpense(id, dto.expenseId, user.id, !!dto.syncExpense);
+  }
+
+  /**
+   * Guarda el reparto de la factura entre proyectos y gasto general (ERP-81): reemplaza el
+   * anterior y regenera los gastos. La suma debe ser el total de la factura. Con una sola línea
+   * la factura queda sin dividir.
+   */
+  @Put(':id/splits')
+  @RequireModule('facturas', 'manage')
+  setSplits(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetSplitsDto, @CurrentUser() user: AuthUser) {
+    return this.service.setSplits(id, dto.splits, user.id);
   }
 
   @Delete(':id/link-expense')

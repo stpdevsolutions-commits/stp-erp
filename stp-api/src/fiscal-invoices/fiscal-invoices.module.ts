@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FiscalInvoice } from './entities/fiscal-invoice.entity';
+import { FiscalInvoiceSplit } from './entities/fiscal-invoice-split.entity';
 import { FiscalInvoicesService } from './fiscal-invoices.service';
 import { FiscalInvoicesController } from './fiscal-invoices.controller';
 import { InvoiceScanService } from './invoice-scan.service';
@@ -14,7 +15,7 @@ import { Project } from '../projects/entities/project.entity';
 import { WhatsappInvoiceFlowService } from './whatsapp-invoice-flow.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([FiscalInvoice, Supplier, Expense, User, Project]), DgiiModule, SettingsModule, ExpensesModule],
+  imports: [TypeOrmModule.forFeature([FiscalInvoice, FiscalInvoiceSplit, Supplier, Expense, User, Project]), DgiiModule, SettingsModule, ExpensesModule],
   providers: [FiscalInvoicesService, InvoiceScanService, WhatsappInvoiceFlowService],
   controllers: [FiscalInvoicesController],
   exports: [FiscalInvoicesService],

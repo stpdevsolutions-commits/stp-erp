@@ -49,6 +49,17 @@ function DgiiBadge({ estado }: { estado: string | null }) {
 
 /** Dónde cae el gasto de la factura: un proyecto, general, o todavía no tiene gasto. */
 function Destino({ f }: { f: FiscalInvoice }) {
+  // Dividida entre varios destinos (ERP-81): cuántos y cuáles.
+  if (f.splits && f.splits.length > 0) {
+    return (
+      <div>
+        <div className="text-sm">Dividida en {f.splits.length}</div>
+        <div className="text-xs text-muted-foreground font-mono">
+          {f.splits.map((s) => s.project?.code ?? 'General').join(' · ')}
+        </div>
+      </div>
+    )
+  }
   if (f.expense?.project) {
     return (
       <div>

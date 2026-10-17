@@ -246,6 +246,23 @@ export async function linkFiscalInvoiceToExpense(
   return { ok: true, id }
 }
 
+/**
+ * Guarda el reparto de una factura entre proyectos (uuid) y gasto general (`null`). La suma debe ser el
+ * total de la factura; con una sola línea la factura queda sin dividir, con ese destino.
+ */
+export async function setFiscalInvoiceSplits(
+  id: string,
+  splits: { projectId: string | null; amount: number; note?: string | null }[],
+): Promise<ActionResult> {
+  const res = await authFetch(`/fiscal-invoices/${id}/splits`, { method: 'PUT', body: JSON.stringify({ splits }) })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    return { ok: false, error: apiError(err, 'No se pudo guardar el reparto') }
+  }
+  refresh()
+  return { ok: true, id }
+}
+
 /** Suelta el gasto de una factura; el gasto no se borra. */
 export async function unlinkFiscalInvoiceExpense(id: string): Promise<ActionResult> {
   const res = await authFetch(`/fiscal-invoices/${id}/link-expense`, { method: 'DELETE' })

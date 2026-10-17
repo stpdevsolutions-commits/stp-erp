@@ -34,7 +34,23 @@ export interface FiscalInvoice {
     projectId: string | null
     project?: { id: string; code: string; name: string } | null
   } | null
+  /**
+   * Reparto entre proyectos y gasto general (ERP-81). Vacío o ausente = factura sin dividir.
+   * Con líneas, `expenseId` es null y cada línea lleva su propio gasto.
+   */
+  splits?: FiscalInvoiceSplit[]
   createdAt: string
+}
+
+/** Una línea del reparto de una factura: a qué proyecto (o gasto general) va y cuánto. */
+export interface FiscalInvoiceSplit {
+  id: string
+  /** `null` = gasto general. */
+  projectId: string | null
+  amount: number
+  note: string | null
+  expenseId: string | null
+  project?: { id: string; code: string; name: string } | null
 }
 
 export const EXPENSE_TYPES_606: Record<string, string> = {

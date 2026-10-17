@@ -291,3 +291,37 @@ export class ApplyLinksDto {
   @Type(() => LinkPairDto)
   pairs: LinkPairDto[];
 }
+
+/** Una línea del reparto de una factura (ERP-81). */
+export class SplitLineDto {
+  /** Un proyecto (uuid) o `null` explícito = gasto general. */
+  @ValidateIf((o: SplitLineDto) => o.projectId !== null)
+  @IsUUID()
+  projectId: string | null;
+
+  /** Monto de esta parte: mayor que cero y con céntimos como máximo. */
+  @Type(() => Number)
+  @IsNumber(MONEY)
+  @Min(0.01)
+  @Max(MAX_MONEY)
+  amount: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  note?: string | null;
+}
+
+/**
+ * Reparto completo de una factura. Reemplaza al anterior. La suma de los montos debe ser
+ * exactamente el total de la factura (lo valida el servicio, que conoce el total). Con una sola
+ * línea la factura queda sin dividir, con ese destino.
+ */
+export class SetSplitsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => SplitLineDto)
+  splits: SplitLineDto[];
+}

@@ -26,6 +26,8 @@ export interface Invoice606Source {
   invoiceDate: string;
   dgiiEstado?: string | null;
   expense?: { project?: { code: string } | null } | null;
+  /** Reparto entre proyectos (ERP-81). Solo informa la columna "Proyecto": los importes no cambian. */
+  splits?: { project?: { code: string } | null }[] | null;
 }
 
 export interface Row606 {
@@ -49,7 +51,10 @@ export interface Row606 {
   ncfType: string;
   totalGeneral: number;
   estadoDgii: string;
-  /** Código del proyecto, o 'General' si es un gasto general de la empresa. */
+  /**
+   * Código del proyecto, o 'General' si es un gasto general de la empresa. Una factura dividida
+   * (ERP-81) lista los destinos separados por coma; la factura sigue entera en el resto de columnas.
+   */
   proyecto: string;
 }
 
@@ -76,6 +81,14 @@ export function fechaParts(date: string | null | undefined): { anomes: string; d
   return { anomes: clean.slice(0, 6), dia: clean.slice(6, 8) };
 }
 
+/** Columna "Proyecto": el del gasto, 'General', o los destinos del reparto. */
+function proyecto606(inv: Invoice606Source): string {
+  if (inv.splits && inv.splits.length > 0) {
+    return [...new Set(inv.splits.map((s) => s.project?.code ?? 'General'))].join(', ');
+  }
+  return inv.expense?.project?.code ?? 'General';
+}
+
 export function toRow606(inv: Invoice606Source): Row606 {
   const tipo = tipo606(inv.expenseType);
   const base = round2(Number(inv.baseAmount));
@@ -100,7 +113,7 @@ export function toRow606(inv: Invoice606Source): Row606 {
     ncfType: inv.ncfType,
     totalGeneral: round2(Number(inv.totalAmount)),
     estadoDgii: inv.dgiiEstado ?? '',
-    proyecto: inv.expense?.project?.code ?? 'General',
+    proyecto: proyecto606(inv),
   };
 }
 
