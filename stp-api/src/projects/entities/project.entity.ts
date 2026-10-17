@@ -96,6 +96,17 @@ export class Project {
   @Column({ type: 'varchar', nullable: true })
   location: string;
 
+  /** ERP-80: coordenadas GPS (grados decimales, ~0,1 m). Ambas o ninguna. */
+  @Column({ type: 'numeric', precision: 9, scale: 6, nullable: true, transformer: decimalTransformer })
+  latitude: number | null;
+
+  @Column({ type: 'numeric', precision: 9, scale: 6, nullable: true, transformer: decimalTransformer })
+  longitude: number | null;
+
+  /** ERP-80: dirección o referencia para llegar (junto a las coordenadas). */
+  @Column({ type: 'text', nullable: true })
+  locationNote: string | null;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 

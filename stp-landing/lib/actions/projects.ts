@@ -18,6 +18,9 @@ export interface CreateProjectInput {
   endDate?: string
   budget?: number
   location?: string
+  latitude?: number
+  longitude?: number
+  locationNote?: string
   assignedToId?: string
   supervisorId?: string
 }
@@ -31,6 +34,9 @@ export interface UpdateProjectInput {
   endDate?: string | null
   budget?: number | null
   location?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  locationNote?: string | null
   assignedToId?: string | null
   supervisorId?: string | null
 }

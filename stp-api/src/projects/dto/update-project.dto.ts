@@ -9,6 +9,7 @@ import {
   MinLength,
   MaxLength,
   Min,
+  Max,
 } from 'class-validator';
 import { ProjectStatus, ProjectType } from '../entities/project.entity';
 
@@ -64,6 +65,24 @@ export class UpdateProjectDto {
   @IsString()
   @MaxLength(255)
   location?: string;
+
+  /** ERP-80: GPS del proyecto. Ambas coordenadas o ninguna (lo valida el servicio). */
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(-90)
+  @Max(90)
+  latitude?: number | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(-180)
+  @Max(180)
+  longitude?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  locationNote?: string | null;
 
   @IsOptional()
   @IsString()

@@ -19,6 +19,7 @@ import { ProjectActions } from '@/components/projects/project-actions'
 import { FiltrosProyectos } from '@/components/proyectos/filtros-proyectos'
 import { Paginacion } from '@/components/ui/paginacion'
 import { formatDate } from '@/lib/utils'
+import { MapPin } from 'lucide-react'
 
 const STATUS_LABELS: Record<Project['status'], string> = {
   draft: 'Pendiente',
@@ -169,7 +170,15 @@ export default async function ProyectosPage({
                           <div className="font-mono text-xs text-muted-foreground md:hidden">
                             {p.code}{p.client ? ` · ${p.client.name}` : ''}
                           </div>
-                          <div>{p.name}</div>
+                          <div>
+                            {p.name}
+                            {p.latitude != null && p.longitude != null && (
+                              <MapPin
+                                className="inline-block size-3 ml-1.5 align-baseline text-muted-foreground"
+                                aria-label="Tiene ubicación GPS"
+                              />
+                            )}
+                          </div>
                           {p.startDate && (
                             <div className="text-xs text-muted-foreground">
                               Inicio: {formatDate(p.startDate)}

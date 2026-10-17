@@ -42,6 +42,7 @@ export class ProjectsService {
     if (dto.assignedToId) await this.assertUserExists(dto.assignedToId);
     if (dto.supervisorId) await this.assertCollaboratorExists(dto.supervisorId);
     this.assertDates(dto.startDate, dto.endDate);
+    this.assertCoords(dto.latitude, dto.longitude);
 
     return saveWithUniqueCode(
       () => this.generateCode(),
@@ -122,6 +123,11 @@ export class ProjectsService {
       dto.startDate ?? project.startDate,
       dto.endDate ?? project.endDate,
     );
+    // null explícito = quitar la coordenada; undefined = no se toca (se conserva la actual).
+    this.assertCoords(
+      dto.latitude !== undefined ? dto.latitude : project.latitude,
+      dto.longitude !== undefined ? dto.longitude : project.longitude,
+    );
 
     const defined = Object.fromEntries(
       Object.entries(dto as Record<string, unknown>).filter(([, v]) => v !== undefined),
@@ -184,6 +190,15 @@ export class ProjectsService {
       throw new BadRequestException(
         `Project ${projectId} does not belong to client ${clientId}`,
       );
+    }
+  }
+
+  /** ERP-80: la ubicación GPS son dos valores que van juntos: ambas o ninguna. */
+  private assertCoords(latitude?: number | null, longitude?: number | null): void {
+    const hasLat = latitude != null;
+    const hasLon = longitude != null;
+    if (hasLat !== hasLon) {
+      throw new BadRequestException('La ubicación necesita latitud y longitud juntas (o ninguna)');
     }
   }
 

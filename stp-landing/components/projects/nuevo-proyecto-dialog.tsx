@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus } from 'lucide-react'
+import { Plus, Crosshair, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -28,6 +28,8 @@ import {
 import type { Client, Collaborator, User } from '@/lib/types'
 import { createProject } from '@/lib/actions/projects'
 import { SIN_ASIGNAR } from '@/components/tasks/asignado-select'
+import { useCaptureLocation } from '@/components/projects/use-capture-location'
+import { formatCoords } from '@/lib/maps-links'
 
 const schema = z
   .object({
@@ -69,6 +71,9 @@ export function NuevoProyectoDialog({
   const [open, setOpen] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [budgetDisplay, setBudgetDisplay] = useState('')
+  // ERP-80: GPS capturado al crear (opcional; se puede completar luego en la ficha)
+  const [gps, setGps] = useState<{ latitude: number; longitude: number } | null>(null)
+  const { capture, capturing } = useCaptureLocation()
 
   const {
     register,
@@ -100,6 +105,8 @@ export function NuevoProyectoDialog({
       endDate: data.endDate || undefined,
       budget: data.budget ? parseFloat(data.budget) : undefined,
       location: data.location || undefined,
+      latitude: gps?.latitude,
+      longitude: gps?.longitude,
       supervisorId: data.supervisorId || undefined,
       assignedToId: data.assignedToId || undefined,
     })
@@ -110,6 +117,7 @@ export function NuevoProyectoDialog({
     toast.success('Proyecto creado')
     reset()
     setBudgetDisplay('')
+    setGps(null)
     setOpen(false)
   }
 
@@ -241,6 +249,35 @@ export function NuevoProyectoDialog({
           <div className="space-y-1.5">
             <Label htmlFor="location">Ubicación</Label>
             <Input id="location" placeholder="Ej. Santo Domingo Este, sector..." {...register('location')} />
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={capturing}
+                onClick={async () => {
+                  const pos = await capture()
+                  if (pos) {
+                    setGps({ latitude: pos.latitude, longitude: pos.longitude })
+                    toast.info(`Ubicación capturada (precisión ≈ ${Math.round(pos.accuracy)} m)`)
+                  }
+                }}
+              >
+                <Crosshair className="size-4 mr-1.5" />
+                {capturing ? 'Obteniendo GPS...' : gps ? 'Volver a capturar' : 'Capturar mi ubicación actual'}
+              </Button>
+              {gps && (
+                <>
+                  <span className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground">
+                    <MapPin className="size-3" />
+                    {formatCoords(gps.latitude, gps.longitude)}
+                  </span>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setGps(null)}>
+                    Quitar
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="space-y-1.5">

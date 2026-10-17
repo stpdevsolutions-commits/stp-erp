@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChevronLeft, Calendar, DollarSign, FileText, User, HardHat, UserCheck, MapPin } from 'lucide-react'
+import { ProjectLocationCard } from '@/components/projects/project-location-card'
 import { ProjectDetailTabs } from '@/components/projects/project-detail-tabs'
 import { LoadErrorBanner } from '@/components/ui/load-error-banner'
 import { ProjectActions } from '@/components/projects/project-actions'
@@ -230,6 +231,15 @@ export default async function ProyectoDetallePage({
           </CardContent>
         </Card>
       </div>
+
+      {/* ERP-80: ubicación GPS con selector "Ir con Google Maps / Waze / Apple Maps" */}
+      <ProjectLocationCard
+        projectId={id}
+        projectName={project.name}
+        latitude={project.latitude}
+        longitude={project.longitude}
+        locationNote={project.locationNote}
+      />
 
       {/* Resumen económico: cuánto entró, cuánto salió y cómo va contra el
           presupuesto. Se oculta si no hay nada que mostrar (o si el rol no
