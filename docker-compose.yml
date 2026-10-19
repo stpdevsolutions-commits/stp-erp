@@ -47,6 +47,13 @@ services:
         NEXT_PUBLIC_API_URL: http://stp-api:3001
     container_name: stp-landing
     restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     expose:
       - "3000"
     environment:
@@ -67,6 +74,13 @@ services:
       dockerfile: Dockerfile
     container_name: stp-api
     restart: unless-stopped
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     ports:
       - "127.0.0.1:3001:3001"
     environment:
@@ -243,6 +257,14 @@ services:
       dockerfile: Dockerfile
     container_name: vigia-backend
     restart: unless-stopped
+    mem_limit: 512m
+    user: "node"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3002/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     environment:
       PORT: 3002
       DB_HOST: stp-postgres
@@ -291,6 +313,14 @@ services:
       dockerfile: Dockerfile
     container_name: vigia-frontend
     restart: unless-stopped
+    mem_limit: 256m
+    user: "node"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get({host:require('os').hostname(),port:3000,path:'/'},r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     environment:
       NEXT_PUBLIC_MONITOR_WS_URL: /ws
     networks:
@@ -310,6 +340,14 @@ services:
       dockerfile: Dockerfile
     container_name: stp-tickets-api
     restart: unless-stopped
+    mem_limit: 384m
+    user: "node"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3003/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     ports:
       - "127.0.0.1:3003:3003"
     environment:
@@ -336,6 +374,13 @@ services:
       dockerfile: Dockerfile
     container_name: stp-tickets-web
     restart: unless-stopped
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     environment:
       TICKETS_API_URL: http://stp-tickets-api:3003/api
       TICKETS_AGENT_KEY: ${TICKETS_AGENT_KEY}
@@ -354,6 +399,14 @@ services:
       dockerfile: Dockerfile
     container_name: stp-mcp-server
     restart: unless-stopped
+    mem_limit: 256m
+    user: "node"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3005/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     ports:
       - "127.0.0.1:3005:3005"
     environment:
