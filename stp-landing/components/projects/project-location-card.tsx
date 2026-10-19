@@ -87,13 +87,14 @@ export function ProjectLocationCard({
   projectName,
   latitude,
   longitude,
-  locationNote,
+  location,
 }: {
   projectId: string
   projectName: string
   latitude?: number | null
   longitude?: number | null
-  locationNote?: string | null
+  /** Dirección o sector en texto: el mismo `location` del proyecto. */
+  location?: string | null
 }) {
   const hasLocation = latitude != null && longitude != null && isValidCoords(latitude, longitude)
   const [navOpen, setNavOpen] = useState(false)
@@ -102,19 +103,19 @@ export function ProjectLocationCard({
   const [saving, setSaving] = useState(false)
   const [latText, setLatText] = useState('')
   const [lonText, setLonText] = useState('')
-  const [noteText, setNoteText] = useState('')
+  const [addressText, setAddressText] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const { capture, capturing } = useCaptureLocation()
 
   function startEdit() {
     setLatText(hasLocation ? String(latitude) : '')
     setLonText(hasLocation ? String(longitude) : '')
-    setNoteText(locationNote ?? '')
+    setAddressText(location ?? '')
     setFormError(null)
     setEditing(true)
   }
 
-  async function persist(data: { latitude: number | null; longitude: number | null; locationNote: string | null }) {
+  async function persist(data: { latitude: number | null; longitude: number | null; location?: string | null }) {
     setSaving(true)
     const result = await updateProject(projectId, data)
     setSaving(false)
@@ -135,10 +136,10 @@ export function ProjectLocationCard({
       toast.info(`Ubicación capturada (precisión ≈ ${Math.round(pos.accuracy)} m). Revisa y guarda.`)
       return
     }
+    // Solo coordenadas: no se envía `location`, así el texto existente no se toca.
     const ok = await persist({
       latitude: pos.latitude,
       longitude: pos.longitude,
-      locationNote: locationNote ?? null,
     })
     if (ok) toast.success(`Ubicación guardada (precisión ≈ ${Math.round(pos.accuracy)} m)`)
   }
@@ -146,10 +147,10 @@ export function ProjectLocationCard({
   async function handleSave() {
     const lat = parseCoordInput(latText)
     const lon = parseCoordInput(lonText)
-    const note = noteText.trim()
+    const address = addressText.trim()
     if (lat == null && lon == null) {
-      // Sin coordenadas: solo se conserva la referencia (o se borra todo si tampoco hay nota).
-      if (await persist({ latitude: null, longitude: null, locationNote: note || null })) {
+      // Sin coordenadas: solo se guarda la dirección (o se limpia si tampoco hay texto).
+      if (await persist({ latitude: null, longitude: null, location: address || null })) {
         toast.success('Ubicación actualizada')
         setEditing(false)
       }
@@ -163,14 +164,14 @@ export function ProjectLocationCard({
       setFormError('La latitud va de -90 a 90 y la longitud de -180 a 180.')
       return
     }
-    if (await persist({ latitude: lat, longitude: lon, locationNote: note || null })) {
+    if (await persist({ latitude: lat, longitude: lon, location: address || null })) {
       toast.success('Ubicación guardada')
       setEditing(false)
     }
   }
 
   async function handleRemove() {
-    if (await persist({ latitude: null, longitude: null, locationNote: null })) {
+    if (await persist({ latitude: null, longitude: null })) {
       toast.success('Ubicación quitada')
       setRemoveOpen(false)
       setEditing(false)
@@ -201,7 +202,7 @@ export function ProjectLocationCard({
                 <Pencil className="size-4 mr-1.5" />
                 Editar
               </Button>
-              {(hasLocation || locationNote) && (
+              {hasLocation && (
                 <Button size="sm" variant="ghost" onClick={() => setRemoveOpen(true)}>
                   <Trash2 className="size-4 mr-1.5" />
                   Quitar
@@ -211,6 +212,8 @@ export function ProjectLocationCard({
           )}
         </div>
 
+        {!editing && location && <p className="text-sm">{location}</p>}
+
         {!editing ? (
           hasLocation ? (
             <button
@@ -219,17 +222,14 @@ export function ProjectLocationCard({
               className="block w-full text-left rounded-md hover:bg-muted/50 -mx-1 px-1 py-0.5"
             >
               <p className="font-mono text-sm">{formatCoords(latitude!, longitude!)}</p>
-              {locationNote && <p className="text-sm text-muted-foreground">{locationNote}</p>}
               <p className="text-xs text-muted-foreground mt-0.5">Toca para abrir en Google Maps, Waze o Apple Maps</p>
             </button>
           ) : (
             <div>
-              <p className="text-sm">{locationNote || 'Sin ubicación GPS registrada.'}</p>
-              {!locationNote && (
-                <p className="text-xs text-muted-foreground">
-                  Captúrala desde el teléfono cuando estés en el sitio.
-                </p>
-              )}
+              <p className="text-sm text-muted-foreground">Sin ubicación GPS registrada.</p>
+              <p className="text-xs text-muted-foreground">
+                Captúrala desde el teléfono cuando estés en el sitio.
+              </p>
             </div>
           )
         ) : (
@@ -257,13 +257,13 @@ export function ProjectLocationCard({
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="loc-note">Referencia o dirección</Label>
+              <Label htmlFor="loc-address">Dirección o sector</Label>
               <Input
-                id="loc-note"
-                maxLength={500}
-                placeholder="Ej. Frente al colmado, portón azul"
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
+                id="loc-address"
+                maxLength={255}
+                placeholder="Ej. Santo Domingo Este, sector..."
+                value={addressText}
+                onChange={(e) => setAddressText(e.target.value)}
               />
             </div>
             {formError && (
@@ -301,7 +301,7 @@ export function ProjectLocationCard({
           <DialogHeader>
             <DialogTitle>Quitar ubicación</DialogTitle>
             <DialogDescription>
-              Se borrarán las coordenadas y la referencia de {projectName}. Podrás capturarlas de nuevo.
+              Se borrarán las coordenadas GPS de {projectName}; la dirección en texto se conserva. Podrás capturarlas de nuevo.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

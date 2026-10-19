@@ -48,7 +48,6 @@ const editSchema = z
     startDate: z.string().optional(),
     endDate: z.string().optional(),
     budget: z.string().optional(),
-    location: z.string().max(255).optional(),
     supervisorId: z.string().optional(),
     assignedToId: z.string().optional(),
   })
@@ -112,7 +111,6 @@ function EditDialog({
       startDate: proyecto.startDate ? proyecto.startDate.slice(0, 10) : '',
       endDate: proyecto.endDate ? proyecto.endDate.slice(0, 10) : '',
       budget: proyecto.budget != null ? String(proyecto.budget) : '',
-      location: proyecto.location ?? '',
       supervisorId: proyecto.supervisorId ?? '',
       assignedToId: proyecto.assignedToId ?? '',
     },
@@ -140,7 +138,6 @@ function EditDialog({
       startDate: data.startDate || null,
       endDate: data.endDate || null,
       budget: data.budget ? parseFloat(data.budget) : null,
-      location: data.location || null,
       supervisorId: data.supervisorId || null,
       assignedToId: data.assignedToId || null,
     })
@@ -241,11 +238,6 @@ function EditDialog({
                 <p className="text-xs text-destructive">{errors.endDate.message}</p>
               )}
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-location">Ubicación</Label>
-            <Input id="edit-location" placeholder="Ej. Santo Domingo Este, sector..." {...register('location')} />
           </div>
 
           <div className="space-y-1.5">

@@ -81,11 +81,6 @@ export class UpdateProjectDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
-  locationNote?: string | null;
-
-  @IsOptional()
-  @IsString()
   notes?: string;
 
   @IsOptional()

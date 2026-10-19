@@ -41,10 +41,9 @@ export interface Project {
   endDate?: string
   budget?: number
   location?: string
-  /** ERP-80: GPS del proyecto (ambas o ninguna) y referencia para llegar. */
+  /** ERP-80: GPS del proyecto (ambas o ninguna) (la dirección es `location`). */
   latitude?: number | null
   longitude?: number | null
-  locationNote?: string | null
   clientId: string
   client?: Pick<Client, 'id' | 'name'>
   /** Encargado: usuario del sistema responsable del proyecto. */

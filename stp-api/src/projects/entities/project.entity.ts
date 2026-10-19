@@ -103,10 +103,6 @@ export class Project {
   @Column({ type: 'numeric', precision: 9, scale: 6, nullable: true, transformer: decimalTransformer })
   longitude: number | null;
 
-  /** ERP-80: dirección o referencia para llegar (junto a las coordenadas). */
-  @Column({ type: 'text', nullable: true })
-  locationNote: string | null;
-
   @Column({ type: 'text', nullable: true })
   notes: string;
 

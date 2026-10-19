@@ -20,7 +20,6 @@ export interface CreateProjectInput {
   location?: string
   latitude?: number
   longitude?: number
-  locationNote?: string
   assignedToId?: string
   supervisorId?: string
 }
@@ -36,7 +35,6 @@ export interface UpdateProjectInput {
   location?: string | null
   latitude?: number | null
   longitude?: number | null
-  locationNote?: string | null
   assignedToId?: string | null
   supervisorId?: string | null
 }

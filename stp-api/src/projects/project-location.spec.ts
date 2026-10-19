@@ -15,14 +15,14 @@ async function errorsOf(body: Record<string, unknown>, cls: new () => object = C
 }
 
 describe('Proyecto: ubicación (DTO)', () => {
-  it('acepta coordenadas válidas y nota', async () => {
+  it('acepta coordenadas válidas y dirección', async () => {
     expect(
-      await errorsOf({ ...BASE, latitude: 18.486058, longitude: -69.931212, locationNote: 'Frente al colmado' }),
+      await errorsOf({ ...BASE, latitude: 18.486058, longitude: -69.931212, location: 'Frente al colmado' }),
     ).toEqual([]);
   });
 
   it('acepta null para quitar la ubicación en la actualización', async () => {
-    expect(await errorsOf({ latitude: null, longitude: null, locationNote: null }, UpdateProjectDto)).toEqual([]);
+    expect(await errorsOf({ latitude: null, longitude: null, location: null }, UpdateProjectDto)).toEqual([]);
   });
 
   it('rechaza latitud fuera de -90..90 y longitud fuera de -180..180', async () => {
