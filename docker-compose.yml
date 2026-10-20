@@ -104,6 +104,8 @@ services:
       INVOICE_SCAN_PROVIDER: ${INVOICE_SCAN_PROVIDER}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
       JWT_SECRET: ${JWT_SECRET}
+      # Bot propio de Telegram para la bandeja (ERP-75). Mientras no exista, usa el de Hermes (quitar el respaldo al crearlo).
+      MESSAGING_TELEGRAM_BOT_TOKEN: ${MESSAGING_TELEGRAM_BOT_TOKEN:-${HERMES_TELEGRAM_BOT_TOKEN}}
       NODE_ENV: ${NODE_ENV}
       PORT: ${PORT}
       QUOTE_DECISION_BASE_URL: ${QUOTE_DECISION_BASE_URL}
@@ -112,6 +114,9 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY}
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
       WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
@@ -422,6 +427,15 @@ services:
       WOL_RELAY_TOKEN: ${WOL_RELAY_TOKEN}
       # La PC se detecta por Tailscale: en la LAN su firewall (perfil Público) no abre el 22.
       PC_HOST: 100.64.0.12
+      # HRM-8: Google Calendar (cuenta de servicio; clave JSON en stp-mcp-secrets/google-sa.json)
+      GOOGLE_SA_FILE: /run/secrets/google-sa.json
+      CALENDAR_IDS: ${CALENDAR_IDS:-}
+      # HRM-9: AppFlowy de solo lectura (usuario invitado)
+      APPFLOWY_URL: ${APPFLOWY_URL:-}
+      APPFLOWY_RO_EMAIL: ${APPFLOWY_RO_EMAIL:-}
+      APPFLOWY_RO_PASSWORD: ${APPFLOWY_RO_PASSWORD:-}
+    volumes:
+      - ./stp-mcp-secrets:/run/secrets:ro
     networks:
       - stp-network
     depends_on:

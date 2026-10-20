@@ -108,7 +108,7 @@ export class MessagingService implements OnModuleInit {
     config: ConfigService,
     @Optional() private readonly push?: PushService,
   ) {
-    this.telegramToken = config.get<string>('MESSAGING_TELEGRAM_BOT_TOKEN') || config.get<string>('HERMES_TELEGRAM_BOT_TOKEN');
+    this.telegramToken = config.get<string>('MESSAGING_TELEGRAM_BOT_TOKEN');
     this.telegramChat = config.get<string>('TELEGRAM_CHAT_ID');
     this.erpUrl = config.get<string>('ERP_PUBLIC_URL') ?? 'https://erp.stpsoluciones.com';
   }

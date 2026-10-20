@@ -6,7 +6,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * con la misma regla que `normalizePhone`: solo dígitos; 10 dígitos => se antepone "1"; 11 a 15 se dejan; otro => NULL.
  */
 const norm = (col: string) => {
-  const d = `regexp_replace("${col}", '\D', '', 'g')`;
+  const d = `regexp_replace("${col}", '\\D', '', 'g')`;
   return `CASE WHEN length(${d}) = 10 THEN '1' || ${d} WHEN length(${d}) BETWEEN 11 AND 15 THEN ${d} ELSE NULL END`;
 };
 

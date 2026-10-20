@@ -4,6 +4,8 @@ import { ConflictException } from '@nestjs/common';
 import { WA_TEMPLATES } from './wa-templates';
 import { normalizePhone } from '../notifications/whatsapp.service';
 import { phoneNormalizedSql } from '../common/phone-normalized';
+import { AddPhoneNormalized1797700000000 } from '../migrations/AddPhoneNormalized1797700000000';
+import { FixPhoneNormalizedRegex1797950000000 } from '../migrations/FixPhoneNormalizedRegex1797950000000';
 
 const wrap = (value: unknown) => ({ entry: [{ changes: [{ value }] }] });
 
@@ -216,6 +218,19 @@ describe('teléfono normalizado (ERP-75)', () => {
     expect(sql).toContain("= 10 THEN '1' ||");
     expect(sql).toContain('BETWEEN 11 AND 15');
     expect(sql).toContain('ELSE NULL END');
+  });
+
+  it('las migraciones de teléfono normalizado emiten el regex con barra invertida (y no una D suelta)', async () => {
+    for (const M of [AddPhoneNormalized1797700000000, FixPhoneNormalizedRegex1797950000000]) {
+      const queries: string[] = [];
+      await new M().up({ query: async (q: string) => void queries.push(q) } as never);
+      const generated = queries.filter((q) => q.includes('GENERATED ALWAYS'));
+      expect(generated).toHaveLength(3);
+      for (const q of generated) {
+        expect(q).toContain("'\\D', '', 'g'");
+        expect(q).not.toContain("'D', '', 'g'");
+      }
+    }
   });
 
   const svcWith = (users: unknown, clients: unknown) =>
