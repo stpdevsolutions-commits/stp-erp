@@ -89,6 +89,13 @@ services:
       APP_URL: ${APP_URL}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN}
       COOKIE_SECURE: ${COOKIE_SECURE}
+      COPILOT_CLAUDE_MODEL: ${COPILOT_CLAUDE_MODEL:-claude-haiku-4-5-20251001}
+      COPILOT_DEBOUNCE_SECONDS: ${COPILOT_DEBOUNCE_SECONDS:-20}
+      # Copiloto de WhatsApp (ERP-56, fase 2): apagado salvo COPILOT_ENABLED=true. Solo propone; una persona aprueba.
+      COPILOT_ENABLED: ${COPILOT_ENABLED:-false}
+      COPILOT_GEMINI_FALLBACK_MODEL: ${COPILOT_GEMINI_FALLBACK_MODEL:-gemini-flash-lite-latest}
+      COPILOT_GEMINI_MODEL: ${COPILOT_GEMINI_MODEL:-gemini-flash-latest}
+      COPILOT_PROVIDERS: ${COPILOT_PROVIDERS:-gemini,claude}
       CORS_ORIGINS: ${CORS_ORIGINS}
       DATABASE_URL: ${DATABASE_URL}
       ECF_API_URL: ${ECF_API_URL}

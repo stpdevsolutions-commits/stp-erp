@@ -19,6 +19,13 @@ const ALLOWED_SEGMENTS = new Set([
   'take',
   'attachments',
   'media',
+  'suggestion',
+  'suggestions',
+  'send',
+  'discard',
+  'apply',
+  'copilot',
+  'simulate',
 ])
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

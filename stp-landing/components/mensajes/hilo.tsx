@@ -21,6 +21,7 @@ import {
 } from '@/lib/messaging'
 import { PanelLead } from './panel-lead'
 import { PlantillaDialog } from './plantilla-dialog'
+import { Sugerencia } from './sugerencia'
 
 const POLL_MS = 5000
 /** Mensajes por página; si el servidor devuelve una página llena, puede haber más atrás. */
@@ -372,6 +373,18 @@ export function Hilo({ contact, agents, onChanged, onBack }: Props) {
           })}
           <div ref={bottom} />
         </div>
+
+        {/* Copiloto (ERP-56): lo que entendió la IA y su respuesta propuesta; nada sale sin que una persona lo envíe */}
+        {windowOpen && (
+          <Sugerencia
+            contact={contact}
+            onSent={() => {
+              stick.current = true
+              void loadThread(true)
+              onChanged()
+            }}
+          />
+        )}
 
         {/* Redactar */}
         <footer className="border-t p-3">

@@ -95,6 +95,7 @@ export class MessagingService implements OnModuleInit {
   private readonly telegramChat?: string;
   private readonly erpUrl: string;
   private readonly recentSends = new Map<string, number>();
+  private readonly inboundListeners: ((contactId: string, messageId: string) => void)[] = [];
   private readonly orphanStatuses = new Map<string, { status: string; error?: string; at: number }>();
 
   constructor(
@@ -219,6 +220,20 @@ export class MessagingService implements OnModuleInit {
       .execute();
 
     await this.alertInbound(contact, m.profileName ?? contact.name, phone, preview, isNew);
+
+    // Oyentes (copiloto de IA): nunca deben romper ni retrasar la entrada del mensaje.
+    for (const fn of this.inboundListeners) {
+      try {
+        fn(contact.id, saved.id);
+      } catch (err) {
+        this.logger.error(`Oyente de mensajes entrantes falló: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  /** Registra una función a la que se avisa (sin esperarla) cada vez que se guarda un mensaje entrante de un contacto. */
+  onInbound(fn: (contactId: string, messageId: string) => void): void {
+    this.inboundListeners.push(fn);
   }
 
   private async applyStatus(s: ParsedStatus): Promise<void> {

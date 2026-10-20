@@ -59,6 +59,7 @@ import { PushModule } from './push/push.module';
 import { PushSubscription } from './push/entities/push-subscription.entity';
 import { WaContact } from './messaging/entities/wa-contact.entity';
 import { WaMessage } from './messaging/entities/wa-message.entity';
+import { WaSuggestion } from './messaging/entities/wa-suggestion.entity';
 import { Unit } from './costs/entities/unit.entity';
 import { MaterialCategory } from './costs/entities/material-category.entity';
 import { Material } from './costs/entities/material.entity';
@@ -83,7 +84,7 @@ import { SalesInvoiceLine } from './sales-invoices/entities/sales-invoice-line.e
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry, CollaboratorLoan, ProjectReport, Notification, MaterialCalc, CalcMaterialLink, FiscalInvoice, FiscalInvoiceSplit, SalesInvoice, SalesInvoiceLine, WaContact, WaMessage, PushSubscription],
+        entities: [User, Client, Project, Task, Quote, QuoteItem, Expense, Payment, Supplier, FileUpload, RefreshToken, InventoryItem, Collaborator, AppSettings, Ficha, ProjectMember, ClientMember, Unit, MaterialCategory, Material, MaterialPrice, Acu, AcuItem, PriceImport, PriceImportLine, PayrollEntry, CollaboratorLoan, ProjectReport, Notification, MaterialCalc, CalcMaterialLink, FiscalInvoice, FiscalInvoiceSplit, SalesInvoice, SalesInvoiceLine, WaContact, WaMessage, WaSuggestion, PushSubscription],
         migrations: ['dist/migrations/*.js'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',
