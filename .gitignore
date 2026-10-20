@@ -70,3 +70,6 @@ adguard/conf/*.bak-*
 node_modules/
 dist/
 android/
+
+# Claves de cuenta de servicio (HRM-8)
+stp-mcp-secrets/
