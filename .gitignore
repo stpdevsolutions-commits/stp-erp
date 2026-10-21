@@ -76,3 +76,7 @@ stp-mcp-secrets/
 
 # Espejo Markdown de la documentación (generado; HRM-9)
 docs-mirror/
+
+# Secretos y logs locales
+.env.redbendicion
+logs/
