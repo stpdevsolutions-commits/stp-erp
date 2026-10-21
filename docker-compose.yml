@@ -111,8 +111,8 @@ services:
       INVOICE_SCAN_PROVIDER: ${INVOICE_SCAN_PROVIDER}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
       JWT_SECRET: ${JWT_SECRET}
-      # Bot propio de Telegram para la bandeja (ERP-75). Mientras no exista, usa el de Hermes (quitar el respaldo al crearlo).
-      MESSAGING_TELEGRAM_BOT_TOKEN: ${MESSAGING_TELEGRAM_BOT_TOKEN:-${HERMES_TELEGRAM_BOT_TOKEN}}
+      # Bot propio de Telegram para la bandeja (ERP-75): @stp_bandeja_bot.
+      MESSAGING_TELEGRAM_BOT_TOKEN: ${MESSAGING_TELEGRAM_BOT_TOKEN}
       NODE_ENV: ${NODE_ENV}
       PORT: ${PORT}
       QUOTE_DECISION_BASE_URL: ${QUOTE_DECISION_BASE_URL}
@@ -437,12 +437,12 @@ services:
       # HRM-8: Google Calendar (cuenta de servicio; clave JSON en stp-mcp-secrets/google-sa.json)
       GOOGLE_SA_FILE: /run/secrets/google-sa.json
       CALENDAR_IDS: ${CALENDAR_IDS:-}
-      # HRM-9: AppFlowy de solo lectura (usuario invitado)
-      APPFLOWY_URL: ${APPFLOWY_URL:-}
-      APPFLOWY_RO_EMAIL: ${APPFLOWY_RO_EMAIL:-}
-      APPFLOWY_RO_PASSWORD: ${APPFLOWY_RO_PASSWORD:-}
+      # HRM-9 (plan B): espejo Markdown de la documentación, SOLO LECTURA (:ro).
+      # Lo sincroniza ~/doc-build/sync_mirror.sh (en la PC) -> ~/stp/docs-mirror/current
+      DOCS_DIR: /docs/current
     volumes:
       - ./stp-mcp-secrets:/run/secrets:ro
+      - ./docs-mirror:/docs:ro
     networks:
       - stp-network
     depends_on:
